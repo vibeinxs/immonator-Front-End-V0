@@ -25,7 +25,7 @@ interface UserProfile {
 }
 
 interface StrategyMatch {
-  id: string; title: string; city: string; yield: number; verdict: "strong_buy" | "worth_analysing" | "proceed_with_caution" | "avoid"
+  id: string; title: string; city: string; yield: number; verdict?: "strong_buy" | "worth_analysing" | "proceed_with_caution" | "avoid"
 }
 
 interface StrategyData {
@@ -266,9 +266,19 @@ export default function StrategyPage() {
     Promise.all([
       immoApi.getUserProfile(),
       immoApi.getStrategy(),
-    ]).then(([profileRes, strategyRes]) => {
+      immoApi.getStrategyMatches(),
+    ]).then(([profileRes, strategyRes, matchesRes]) => {
       setHasProfile(!!profileRes.data)
-      if (strategyRes.data) setStrategy(strategyRes.data as unknown as StrategyData)
+      if (strategyRes.data) {
+        const base = strategyRes.data as unknown as StrategyData
+        const matchItems = ((matchesRes.data as { items?: Array<Record<string, unknown>> } | null)?.items || []).map((m) => ({
+          id: String(m.property_id || ""),
+          title: String(m.title || ""),
+          city: String(m.city || ""),
+          yield: Number(m.gross_yield || 0),
+        }))
+        setStrategy({ ...base, matches: matchItems as StrategyMatch[] })
+      }
       setLoading(false)
     })
   }, [])
@@ -287,8 +297,17 @@ export default function StrategyPage() {
     setWizardOpen(false)
     setLoading(true)
     await immoApi.saveUserProfile(profile as unknown as import("@/lib/immonatorApi").UserProfileData)
-    const { data } = await immoApi.getStrategy()
-    if (data) setStrategy(data as unknown as StrategyData)
+    const [strategyRes, matchesRes] = await Promise.all([immoApi.getStrategy(), immoApi.getStrategyMatches()])
+    if (strategyRes.data) {
+      const base = strategyRes.data as unknown as StrategyData
+      const matchItems = ((matchesRes.data as { items?: Array<Record<string, unknown>> } | null)?.items || []).map((m) => ({
+        id: String(m.property_id || ""),
+        title: String(m.title || ""),
+        city: String(m.city || ""),
+        yield: Number(m.gross_yield || 0),
+      }))
+      setStrategy({ ...base, matches: matchItems as StrategyMatch[] })
+    }
     setHasProfile(true)
     setLoading(false)
   }, [])
@@ -433,7 +452,7 @@ export default function StrategyPage() {
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="font-mono text-text-primary">{m.yield.toFixed(1)}%</span>
-                  <VerdictBadge verdict={m.verdict} />
+                  {m.verdict ? <VerdictBadge verdict={m.verdict} /> : null}
                 </div>
               </div>
             ))}

@@ -7,19 +7,14 @@ import Link from "next/link"
 
 interface MarketStats {
   avg_price_per_sqm: number
-  avg_yield: number
   avg_days_on_market: number
-  temperature: "hot" | "warm" | "neutral"
+  total_listings: number
 }
 
 interface MarketAI {
-  headline: string
-}
-
-const tempStyle: Record<string, { bg: string; text: string; label: string }> = {
-  hot:     { bg: "bg-danger-bg",  text: "text-danger",  label: "Hot" },
-  warm:    { bg: "bg-warning-bg", text: "text-warning", label: "Warm" },
-  neutral: { bg: "bg-brand-subtle", text: "text-brand", label: "Neutral" },
+  analysis: {
+    headline?: string
+  }
 }
 
 export function MarketAnalysisCard({ city }: { city: string }) {
@@ -35,8 +30,6 @@ export function MarketAnalysisCard({ city }: { city: string }) {
     })
   }, [city])
 
-  const temp = stats ? tempStyle[stats.temperature] || tempStyle.neutral : null
-
   return (
     <div
       className="rounded-xl border border-border bg-white p-4"
@@ -44,9 +37,9 @@ export function MarketAnalysisCard({ city }: { city: string }) {
     >
       <div className="flex items-center justify-between">
         <span className="text-sm font-semibold text-text-primary">{city} Market</span>
-        {temp && (
-          <span className={`rounded-md px-2 py-0.5 text-[10px] font-bold uppercase ${temp.bg} ${temp.text}`}>
-            {temp.label}
+        {stats && (
+          <span className="rounded-md bg-bg-elevated px-2 py-0.5 text-[10px] font-bold uppercase text-text-secondary">
+            {stats.total_listings} listings
           </span>
         )}
       </div>
@@ -57,16 +50,13 @@ export function MarketAnalysisCard({ city }: { city: string }) {
             Avg {EUR}/m{String.fromCharCode(178)}: {stats.avg_price_per_sqm.toLocaleString("de-DE")}
           </span>
           <span className="rounded-lg bg-bg-elevated px-2.5 py-1 font-mono text-xs text-text-secondary">
-            Avg Yield: {stats.avg_yield.toFixed(1)}%
-          </span>
-          <span className="rounded-lg bg-bg-elevated px-2.5 py-1 font-mono text-xs text-text-secondary">
             Avg {stats.avg_days_on_market} days
           </span>
         </div>
       )}
 
-      {ai && (
-        <p className="mt-3 text-xs italic text-text-secondary">{ai.headline}</p>
+      {ai?.analysis?.headline && (
+        <p className="mt-3 text-xs italic text-text-secondary">{ai.analysis.headline}</p>
       )}
 
       <Link

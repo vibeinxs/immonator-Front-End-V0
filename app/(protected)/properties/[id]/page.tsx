@@ -117,7 +117,7 @@ export default function PropertyDetailPage({
       </div>
 
       {/* AI Chat (floating panel) */}
-      <AnalysisChat propertyId={id} />
+      <AnalysisChat contextType="property" contextId={id} title={`property ${id}`} />
     </div>
   )
 }

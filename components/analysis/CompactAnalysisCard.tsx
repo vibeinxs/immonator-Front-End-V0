@@ -8,8 +8,8 @@ interface CompactData {
   verdict: "strong_buy" | "worth_analysing" | "proceed_with_caution" | "avoid"
   confidence_score: number
   one_line_summary: string
-  positives: string[]
-  risks: string[]
+  top_3_positives: string[]
+  top_3_risks: string[]
 }
 
 function LoadingState() {
@@ -49,16 +49,23 @@ export function CompactAnalysisCard({ propertyId }: { propertyId: string }) {
     let polling = true
 
     async function fetchData() {
-      const { data: result } = await immoApi.getCompactAnalysis(propertyId) as { data: (CompactData & { status?: string }) | null }
+      const { data: result } = await immoApi.getCompactAnalysis(propertyId) as {
+        data: { status: string; analysis?: CompactData | null } | null
+      }
       if (!polling) return
 
-      if (result && result.status !== "not_generated") {
-        setData(result)
+      if (result?.status === "not_generated") {
+        setTimeout(fetchData, 3000)
+        return
+      }
+
+      if (result?.analysis) {
+        setData(result.analysis)
         setLoading(false)
         return
       }
-      // Poll again
-      setTimeout(fetchData, 3000)
+
+      setLoading(false)
     }
 
     fetchData()
@@ -111,7 +118,7 @@ export function CompactAnalysisCard({ propertyId }: { propertyId: string }) {
             POSITIVES
           </p>
           <div className="space-y-1.5">
-            {data.positives.map((p, i) => (
+            {data.top_3_positives.map((p, i) => (
               <p key={i} className="text-sm text-text-primary">
                 <span className="text-success">{"✓ "}</span>{p}
               </p>
@@ -123,7 +130,7 @@ export function CompactAnalysisCard({ propertyId }: { propertyId: string }) {
             RISKS
           </p>
           <div className="space-y-1.5">
-            {data.risks.map((r, i) => (
+            {data.top_3_risks.map((r, i) => (
               <p key={i} className="text-sm text-text-primary">
                 <span className="text-warning">{"⚠ "}</span>{r}
               </p>

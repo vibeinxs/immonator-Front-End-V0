@@ -52,9 +52,9 @@ export default function BetaLoginPage() {
       return
     }
 
-    setAuth(data.token, data.user_id, data.display_name)
+    setAuth(data.session_token, data.user_id, name || "Investor")
     if (typeof window !== "undefined") {
-      document.cookie = `immo_token=${data.token}; path=/; max-age=604800`
+      document.cookie = `immo_token=${data.session_token}; path=/; max-age=604800`
       document.cookie = `immo_user_id=${data.user_id}; path=/; max-age=604800`
       if (name) document.cookie = `immo_name=${name}; path=/; max-age=604800`
       document.cookie = `immo_new_user=true; path=/; max-age=604800`

@@ -7,7 +7,7 @@ import { immoApi } from "@/lib/immonatorApi"
 
 interface ChatMessage {
   role: "user" | "assistant"
-  content: string
+  message: string
 }
 
 const SUGGESTION_CHIPS = [
@@ -56,13 +56,13 @@ export function AnalysisChat({
     async (text: string) => {
       if (!text.trim() || streaming) return
 
-      const userMsg: ChatMessage = { role: "user", content: text.trim() }
+      const userMsg: ChatMessage = { role: "user", message: text.trim() }
       setMessages((prev) => [...prev, userMsg])
       setInput("")
       setStreaming(true)
 
       // Add empty assistant message
-      setMessages((prev) => [...prev, { role: "assistant", content: "" }])
+      setMessages((prev) => [...prev, { role: "assistant", message: "" }])
 
       try {
         const res = await immoApi.sendChatMessage(text.trim(), contextType, contextId)
@@ -72,7 +72,7 @@ export function AnalysisChat({
             const copy = [...prev]
             copy[copy.length - 1] = {
               role: "assistant",
-              content: "Sorry, something went wrong. Please try again.",
+              message: "Sorry, something went wrong. Please try again.",
             }
             return copy
           })
@@ -106,7 +106,7 @@ export function AnalysisChat({
                     const copy = [...prev]
                     copy[copy.length - 1] = {
                       role: "assistant",
-                      content: fullContent,
+                      message: fullContent,
                     }
                     return copy
                   })
@@ -122,7 +122,7 @@ export function AnalysisChat({
           const copy = [...prev]
           copy[copy.length - 1] = {
             role: "assistant",
-            content: "Connection error. Please try again.",
+            message: "Connection error. Please try again.",
           }
           return copy
         })
@@ -169,8 +169,8 @@ export function AnalysisChat({
                       : "max-w-[82%] rounded-2xl rounded-bl-sm border border-border bg-white px-4 py-2.5 text-sm text-text-primary"
                   }
                 >
-                  <p className="whitespace-pre-wrap">{msg.content}</p>
-                  {msg.role === "assistant" && msg.content && (
+                  <p className="whitespace-pre-wrap">{msg.message}</p>
+                  {msg.role === "assistant" && msg.message && (
                     <p className="mt-1 text-[11px] text-text-muted">Immonator AI</p>
                   )}
                 </div>
@@ -178,7 +178,7 @@ export function AnalysisChat({
             ))}
 
             {/* Typing indicator */}
-            {streaming && messages.length > 0 && messages[messages.length - 1].content === "" && (
+            {streaming && messages.length > 0 && messages[messages.length - 1].message === "" && (
               <div className="flex justify-start">
                 <div className="flex gap-1 rounded-2xl rounded-bl-sm border border-border bg-white px-4 py-3">
                   {[0, 1, 2].map((i) => (

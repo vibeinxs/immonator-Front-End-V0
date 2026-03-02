@@ -77,7 +77,7 @@ export function ScenarioModeller({ propertyId, askingPrice, monthlyRent }: Scena
   const [scenarioName, setScenarioName] = useState("")
   const [showNameInput, setShowNameInput] = useState(false)
   const [savedScenarios, setSavedScenarios] = useState<{ name: string; values: Record<string, number> }[]>([])
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>()
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   const set = (key: string, val: number) => setValues((prev) => ({ ...prev, [key]: val }))
 
@@ -99,8 +99,20 @@ export function ScenarioModeller({ propertyId, askingPrice, monthlyRent }: Scena
   /* ── AI commentary debounce ───────────────────── */
   const fetchAi = useCallback(async () => {
     setAiLoading(true)
-    const { data } = await immoApi.runScenario(propertyId, values) as unknown as { data: AiComment | null }
-    if (data) setAiComment(data)
+    const scenarioParams = {
+      purchase_price: values.price,
+      down_payment_pct: values.down,
+      interest_rate_pct: values.rate,
+      loan_term_years: values.years,
+      monthly_rent: values.rent,
+      vacancy_rate_pct: values.vacancy,
+      management_cost_pct: values.mgmt,
+      maintenance_cost_annual: values.maintenance,
+    }
+    const { data } = await immoApi.runScenario(propertyId, scenarioParams) as unknown as {
+      data: { ai_commentary?: AiComment } | null
+    }
+    if (data?.ai_commentary) setAiComment(data.ai_commentary)
     setAiLoading(false)
   }, [propertyId, values])
 

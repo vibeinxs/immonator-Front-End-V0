@@ -141,15 +141,17 @@ export function DeepAnalysisReport({ propertyId }: { propertyId: string }) {
       setLoadingMsg((m) => (m + 1) % LOADING_MSGS.length)
     }, 4000)
 
-    const { data: result } = await immoApi.triggerDeepAnalysis(propertyId) as unknown as { data: DeepData | null }
+    const { data: result } = await immoApi.triggerDeepAnalysis(propertyId) as unknown as {
+      data: { analysis?: Record<string, unknown>; calculated_metrics?: Record<string, unknown> } | null
+    }
 
     clearInterval(progressRef.current!)
     clearInterval(msgId)
     setProgress(100)
 
-    if (result) {
+    if (result?.analysis) {
       setTimeout(() => {
-        setData(result)
+        setData({ ...(result.analysis || {}), ...(result.calculated_metrics || {}) } as unknown as DeepData)
         setState("loaded")
       }, 300)
     } else {

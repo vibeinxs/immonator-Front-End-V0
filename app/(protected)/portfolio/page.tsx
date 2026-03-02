@@ -106,16 +106,22 @@ export default function PortfolioPage() {
   const [analysing, setAnalysing] = useState(false)
 
   useEffect(() => {
-    immoApi.getPortfolio().then(({ data: d }) => {
-      if (d) setData(d as unknown as PortfolioData)
+    Promise.all([immoApi.getPortfolio(), immoApi.getPortfolioAnalysis()]).then(([portfolioRes, analysisRes]) => {
+      if (portfolioRes.data) {
+        const next = portfolioRes.data as unknown as PortfolioData
+        if (analysisRes.data) next.analysis = analysisRes.data as unknown as PortfolioAnalysis
+        setData(next)
+      }
       setLoading(false)
     })
   }, [])
 
   const runAnalysis = useCallback(async () => {
     setAnalysing(true)
-    const { data: d } = await immoApi.triggerPortfolioAnalysis() as unknown as { data: PortfolioData | null }
-    if (d) setData(d)
+    const { data: d } = await immoApi.triggerPortfolioAnalysis() as unknown as { data: { analysis?: PortfolioAnalysis } | null }
+    if (d?.analysis) {
+      setData((prev) => (prev ? { ...prev, analysis: d.analysis || null } : prev))
+    }
     setAnalysing(false)
     setAnalysisOpen(true)
   }, [])
