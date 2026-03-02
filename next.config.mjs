@@ -6,7 +6,7 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  /* cache-bust: light-grey-theme */
+  /* cache-bust: i18n-auto-translate */
 }
 
 export default nextConfig

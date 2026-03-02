@@ -24,7 +24,7 @@ const jetbrainsMono = JetBrains_Mono({
 })
 
 export const metadata: Metadata = {
-  title: "Immonator — Smart Real Estate Investment Analysis",
+  title: "Immonator - Smart Real Estate Investment Analysis",
   description:
     "Make confident real estate investment decisions with data-driven analysis. German property market insights, yield calculations, and portfolio tracking.",
 }
@@ -35,19 +35,19 @@ export const viewport: Viewport = {
   initialScale: 1,
 }
 
+const fontClasses = [
+  dmSans.variable,
+  dmSerifDisplay.variable,
+  jetbrainsMono.variable,
+].join(" ")
+
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html
-      lang="de"
-      suppressHydrationWarning
-      className={`${dmSans.variable} ${dmSerifDisplay.variable} ${jetbrainsMono.variable}`}
-    >
+    <html lang="de" suppressHydrationWarning className={fontClasses}>
       <body suppressHydrationWarning className="font-sans antialiased">
-        <LocaleProvider>
-          {children}
-        </LocaleProvider>
+        <LocaleProvider>{children}</LocaleProvider>
         <Analytics />
       </body>
     </html>
