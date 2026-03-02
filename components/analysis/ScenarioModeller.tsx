@@ -11,6 +11,13 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 interface ScenarioModellerProps {
   propertyId: string
@@ -43,12 +50,11 @@ const SLIDERS: SliderDef[] = [
   { key: "rent", label: "Monthly Rent", min: 200, max: 5000, step: 25, unit: EUR },
   { key: "vacancy", label: "Vacancy Rate", min: 0, max: 15, step: 1, unit: "%" },
   { key: "mgmt", label: "Management %", min: 0, max: 15, step: 0.5, unit: "%", advanced: true },
-  { key: "maintenance", label: "Maintenance", min: 0, max: 500, step: 10, unit: `${EUR}/mo`, advanced: true },
+  { key: "maintenance", label: "Maintenance €", min: 0, max: 6000, step: 50, unit: EUR, advanced: true },
 ]
 
 function formatValue(value: number, unit: string): string {
   if (unit === EUR) return `${EUR}${value.toLocaleString("de-DE")}`
-  if (unit === `${EUR}/mo`) return `${EUR}${value}/mo`
   if (unit === "yr") return `${value}yr`
   return `${value}${unit}`
 }
@@ -84,7 +90,7 @@ export function ScenarioModeller({ propertyId, askingPrice, monthlyRent }: Scena
   const n = years * 12
   const mortgage = r > 0 ? loan * (r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1) : loan / n
   const effRent = rent * (1 - vacancy / 100)
-  const cashflow = effRent - mortgage - effRent * (mgmt / 100) - maintenance
+  const cashflow = effRent - mortgage - effRent * (mgmt / 100) - maintenance / 12
   const grossYield = price > 0 ? (rent * 12) / price * 100 : 0
   const netYield = price > 0 ? ((effRent - effRent * (mgmt / 100) - maintenance) * 12) / price * 100 : 0
   const dscr = mortgage > 0 ? (effRent * 12) / (mortgage * 12) : 0
@@ -145,7 +151,7 @@ export function ScenarioModeller({ propertyId, askingPrice, monthlyRent }: Scena
               step={s.step}
               value={values[s.key]}
               onChange={(e) => set(s.key, Number(e.target.value))}
-              className="w-full h-1.5 rounded-full accent-brand"
+              className="w-full h-1.5 rounded-full accent-[#3B7BF5]"
             />
           </div>
         ))}
@@ -169,7 +175,7 @@ export function ScenarioModeller({ propertyId, askingPrice, monthlyRent }: Scena
                   step={s.step}
                   value={values[s.key]}
                   onChange={(e) => set(s.key, Number(e.target.value))}
-                  className="w-full h-1.5 rounded-full accent-brand"
+                  className="w-full h-1.5 rounded-full accent-[#3B7BF5]"
                 />
               </div>
             ))}
@@ -182,7 +188,7 @@ export function ScenarioModeller({ propertyId, askingPrice, monthlyRent }: Scena
         {/* Monthly Cashflow hero */}
         <div className="text-center mb-6">
           <p className="text-[11px] uppercase tracking-wider text-text-muted">Monthly Cashflow</p>
-          <p className={cn("font-serif text-5xl mt-2", cashflow >= 0 ? "text-success" : "text-danger")}>
+          <p className={cn("font-display text-5xl mt-2", cashflow >= 0 ? "text-success" : "text-danger")}>
             {cashflow >= 0 ? "+" : ""}{EUR}{Math.round(Math.abs(cashflow)).toLocaleString("de-DE")}/mo
           </p>
           <p className="text-xs text-text-muted mt-1">per month after all costs</p>
@@ -200,7 +206,7 @@ export function ScenarioModeller({ propertyId, askingPrice, monthlyRent }: Scena
         <div className="mt-3 text-sm text-text-secondary">
           <p>{EUR}{Math.round(equity).toLocaleString("de-DE")} total equity required</p>
           <p className="text-xs text-text-muted">
-            {EUR}{Math.round(price * (down / 100)).toLocaleString("de-DE")} down + {EUR}{Math.round(price * 0.095).toLocaleString("de-DE")} closing costs
+            {EUR}{((price * (down / 100)) / 1000).toFixed(0)}k down + {EUR}{((price * 0.095) / 1000).toFixed(0)}k closing costs
           </p>
         </div>
 
@@ -258,19 +264,19 @@ export function ScenarioModeller({ propertyId, askingPrice, monthlyRent }: Scena
             </button>
           )}
           {savedScenarios.length > 0 && (
-            <select
-              onChange={(e) => {
-                const idx = Number(e.target.value)
-                if (!isNaN(idx) && savedScenarios[idx]) loadScenario(savedScenarios[idx])
-              }}
-              defaultValue=""
-              className="rounded-xl border border-border-default bg-bg-surface px-3 py-2.5 text-sm text-text-primary focus:border-brand focus:outline-none"
-            >
-              <option value="" disabled>Saved Scenarios</option>
-              {savedScenarios.map((s, i) => (
-                <option key={i} value={i}>{s.name}</option>
-              ))}
-            </select>
+            <Select onValueChange={(value) => {
+              const idx = Number(value)
+              if (!isNaN(idx) && savedScenarios[idx]) loadScenario(savedScenarios[idx])
+            }}>
+              <SelectTrigger className="h-auto rounded-xl border-border-default bg-bg-surface px-3 py-2.5 text-sm text-text-primary">
+                <SelectValue placeholder="Saved Scenarios ▾" />
+              </SelectTrigger>
+              <SelectContent>
+                {savedScenarios.map((s, i) => (
+                  <SelectItem key={i} value={String(i)}>{s.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           )}
         </div>
       </div>

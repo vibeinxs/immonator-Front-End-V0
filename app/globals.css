@@ -72,6 +72,7 @@
 @theme inline {
   --font-sans: var(--font-dm-sans), 'DM Sans', sans-serif;
   --font-serif: var(--font-dm-serif), 'DM Serif Display', serif;
+  --font-display: var(--font-dm-serif), 'DM Serif Display', serif;
   --font-mono: var(--font-jetbrains), 'JetBrains Mono', monospace;
 
   --color-background: var(--background);
@@ -159,6 +160,11 @@
   to { transform: translateY(0); opacity: 1; }
 }
 
+@keyframes slide-down {
+  from { transform: translateY(-8px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
 @keyframes pulse-badge {
   0% { transform: scale(1); }
   50% { transform: scale(1.04); }
@@ -195,6 +201,10 @@
 
 .animate-slide-up {
   animation: slide-up 200ms ease forwards;
+}
+
+.animate-slide-down {
+  animation: slide-down 200ms ease forwards;
 }
 
 .animate-pulse-badge {
