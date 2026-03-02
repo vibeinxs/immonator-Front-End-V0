@@ -4,21 +4,21 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Backgrounds — light grey, premium */
-  --bg-base: #F0F1F3;
+  /* Backgrounds — light cool grey, spec-exact */
+  --bg-base: #F8FAFC;
   --bg-surface: #FFFFFF;
-  --bg-elevated: #E8E9EC;
-  --bg-hover: #DDDEE2;
+  --bg-elevated: #F1F5F9;
+  --bg-hover: #EEF2F7;
 
   /* Text */
-  --text-primary: #1A1A1A;
-  --text-secondary: #5C5C5C;
-  --text-muted: #9A9A9A;
+  --text-primary: #0F1923;
+  --text-secondary: #64748B;
+  --text-muted: #94A3B8;
 
-  /* Brand — Deep Navy */
-  --brand: #1B2E4A;
-  --brand-hover: #152440;
-  --brand-subtle: #E8EDF4;
+  /* Brand — Blue */
+  --brand: #3B7BF5;
+  --brand-hover: #2563EB;
+  --brand-subtle: #EEF3FF;
 
   /* Verdicts */
   --success: #059669;
@@ -29,8 +29,8 @@
   --danger-bg: #FEF2F2;
 
   /* Borders */
-  --border: #D8DAE0;
-  --border-strong: #C4C7CF;
+  --border: #E2E8F0;
+  --border-strong: #CBD5E1;
 
   /* Shadcn token mapping */
   --background: var(--bg-base);
@@ -41,9 +41,9 @@
   --popover-foreground: var(--text-primary);
   --primary: var(--brand);
   --primary-foreground: #FFFFFF;
-  --secondary: var(--bg-surface);
+  --secondary: var(--bg-elevated);
   --secondary-foreground: var(--text-primary);
-  --muted: var(--bg-surface);
+  --muted: var(--bg-elevated);
   --muted-foreground: var(--text-secondary);
   --accent: var(--brand-subtle);
   --accent-foreground: var(--brand);
@@ -168,6 +168,11 @@
 @keyframes count-up {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
 }
 
 .animate-fade-in {
