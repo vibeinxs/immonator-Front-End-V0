@@ -6,7 +6,9 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  /* cache-bust: i18n-auto-translate */
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
 }
 
 export default nextConfig

@@ -35,19 +35,13 @@ export const viewport: Viewport = {
   initialScale: 1,
 }
 
-const fontClasses = [
-  dmSans.variable,
-  dmSerifDisplay.variable,
-  jetbrainsMono.variable,
-].join(" ")
+const cls = `${dmSans.variable} ${dmSerifDisplay.variable} ${jetbrainsMono.variable}`
 
-export default function RootLayout({
-  children,
-}: Readonly<{ children: React.ReactNode }>) {
+export default function RootLayout(props: { children: React.ReactNode }) {
   return (
-    <html lang="de" suppressHydrationWarning className={fontClasses}>
-      <body suppressHydrationWarning className="font-sans antialiased">
-        <LocaleProvider>{children}</LocaleProvider>
+    <html lang="de" suppressHydrationWarning={true} className={cls}>
+      <body suppressHydrationWarning={true} className="font-sans antialiased">
+        <LocaleProvider>{props.children}</LocaleProvider>
         <Analytics />
       </body>
     </html>
