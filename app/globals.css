@@ -4,33 +4,33 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Backgrounds (layered depth) */
-  --bg-base: #090F1C;
-  --bg-surface: #111827;
-  --bg-elevated: #1A2235;
-  --bg-hover: #1E2A3A;
+  /* Backgrounds (layered depth — Obsidian Gold) */
+  --bg-base: #0A0A0B;
+  --bg-surface: #141416;
+  --bg-elevated: #1C1C1F;
+  --bg-hover: #242428;
 
   /* Text */
-  --text-primary: #EDF2F7;
-  --text-secondary: #8896A9;
-  --text-muted: #4A5568;
+  --text-primary: #F5F0E8;
+  --text-secondary: #9B9590;
+  --text-muted: #5C5650;
 
-  /* Brand */
-  --brand: #3B7BF5;
-  --brand-hover: #2563EB;
-  --brand-subtle: #1A2E4A;
+  /* Brand — Warm Gold */
+  --brand: #C9A84C;
+  --brand-hover: #B8953A;
+  --brand-subtle: #1F1B10;
 
   /* Verdicts */
-  --success: #10B981;
-  --success-bg: #042F1E;
-  --warning: #F59E0B;
-  --warning-bg: #2D1F00;
-  --danger: #EF4444;
-  --danger-bg: #2D0A0A;
+  --success: #4ADE80;
+  --success-bg: #0A1F12;
+  --warning: #FACC15;
+  --warning-bg: #1C1705;
+  --danger: #F87171;
+  --danger-bg: #1F0A0A;
 
   /* Borders */
-  --border: #1E2D40;
-  --border-strong: #2A3F58;
+  --border: #1F1F23;
+  --border-strong: #2E2E34;
 
   /* Spacing */
   --space-1: 4px;
@@ -76,8 +76,8 @@
   --chart-1: var(--brand);
   --chart-2: var(--success);
   --chart-3: var(--warning);
-  --chart-4: #8B5CF6;
-  --chart-5: #EC4899;
+  --chart-4: #A78BFA;
+  --chart-5: #FB7185;
 }
 
 @theme inline {
