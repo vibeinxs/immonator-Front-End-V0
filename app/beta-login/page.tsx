@@ -21,10 +21,28 @@ export default function BetaLoginPage() {
     }
   }, [router])
 
+  const DEMO_CODE = "DEMO2025"
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
     setLoading(true)
+
+    // Demo mode: bypass API for local testing
+    if (accessCode.toUpperCase() === DEMO_CODE) {
+      const demoToken = "demo_token_" + Date.now()
+      const demoUserId = "demo_user_001"
+      const demoName = name || "Demo User"
+      setAuth(demoToken, demoUserId, demoName)
+      if (typeof window !== "undefined") {
+        document.cookie = `immo_token=${demoToken}; path=/; max-age=604800`
+        document.cookie = `immo_user_id=${demoUserId}; path=/; max-age=604800`
+        document.cookie = `immo_name=${demoName}; path=/; max-age=604800`
+        document.cookie = `immo_new_user=true; path=/; max-age=604800`
+      }
+      router.push("/properties")
+      return
+    }
 
     const { data, error: apiError } = await api.post<{
       token: string
