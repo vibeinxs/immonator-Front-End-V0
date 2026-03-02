@@ -1,5 +1,9 @@
 export type Locale = "en" | "de"
 
+const E = String.fromCharCode(8364) // Euro sign
+const W = String.fromCharCode(9888) // Warning sign
+const B = String.fromCharCode(178) // Superscript 2
+
 export const translations: Record<Locale, Record<string, string>> = {
   en: {
     // Nav
@@ -30,7 +34,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "landing.mock.belowBoden": "\u2713 Below Bodenrichtwert",
     "landing.mock.heating": "\u26A0 Heating upgrade needed",
     "landing.mock.tenant": "\u2713 Long-term tenant in place",
-    "landing.mock.window": "\u26A0 Window renovation ~\u20AC",
+    "landing.mock.window": `${W} Window renovation ~${E}`,
     "landing.mock.altbau": "\u2713 Altbau character",
     "landing.mock.instant": "Immonator AI \u00B7 Instant",
     "landing.mock.note": "Example analysis \u2014 your results will vary by property",
@@ -116,7 +120,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "properties.filter.clearAll": "Clear all",
     "properties.filter.sortYield": "Yield",
     "properties.card.grossYield": "GROSS YIELD",
-    "properties.card.eurSqm": "\u20AC/SQM",
+    "properties.card.eurSqm": `${E}/SQM`,
     "properties.card.rooms": "Zi.",
     "properties.card.days": "days",
     "properties.card.saveAnalysis": "Save to get AI analysis",
@@ -154,7 +158,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "detail.grossYield": "Gross Yield",
     "detail.grossYieldCtx": "Above city average",
     "detail.pricePerSqm": "Price per m\u00B2",
-    "detail.pricePerSqmCtx": "Market avg: \u20AC5,120/m\u00B2",
+    "detail.pricePerSqmCtx": `Market avg: ${E}5,120/m${B}`,
     "detail.netYield": "Net Yield",
     "detail.netYieldCtx": "After all costs",
     "detail.cashFlow": "Cash Flow Analysis",
@@ -192,7 +196,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "strategy.form.minYield": "Min. Gross Yield",
     "strategy.form.minYieldPh": "e.g., 4.0%",
     "strategy.form.maxPrice": "Max. Purchase Price",
-    "strategy.form.maxPricePh": "e.g., \u20AC500,000",
+    "strategy.form.maxPricePh": `e.g., ${E}500,000`,
     "strategy.form.cities": "Preferred Cities",
     "strategy.form.citiesPh": "e.g., Berlin, Munich",
     "strategy.form.minSize": "Min. Property Size",
@@ -269,7 +273,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "landing.mock.belowBoden": "\u2713 Unter Bodenrichtwert",
     "landing.mock.heating": "\u26A0 Heizungssanierung n\u00F6tig",
     "landing.mock.tenant": "\u2713 Langzeitmieter vorhanden",
-    "landing.mock.window": "\u26A0 Fenstersanierung ~\u20AC",
+    "landing.mock.window": `${W} Fenstersanierung ~${E}`,
     "landing.mock.altbau": "\u2713 Altbaucharakter",
     "landing.mock.instant": "Immonator KI \u00B7 Sofort",
     "landing.mock.note": "Beispielanalyse \u2014 Ihre Ergebnisse variieren je nach Immobilie",
@@ -355,7 +359,7 @@ export const translations: Record<Locale, Record<string, string>> = {
     "properties.filter.clearAll": "Alle l\u00F6schen",
     "properties.filter.sortYield": "Rendite",
     "properties.card.grossYield": "BRUTTORENDITE",
-    "properties.card.eurSqm": "\u20AC/QM",
+    "properties.card.eurSqm": `${E}/QM`,
     "properties.card.rooms": "Zi.",
     "properties.card.days": "Tage",
     "properties.card.saveAnalysis": "Speichern f\u00FCr KI-Analyse",

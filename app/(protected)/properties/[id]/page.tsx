@@ -6,6 +6,7 @@ import { MetricCard } from "@/components/metric-card"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { useLocale } from "@/lib/i18n/locale-context"
+import { EUR } from "@/lib/utils"
 
 export default function PropertyDetailPage({
   params,
@@ -44,7 +45,7 @@ export default function PropertyDetailPage({
         <MetricCard
           label={t("detail.price")}
           value={385000}
-          prefix={"\u20AC"}
+          prefix={EUR}
           context={t("detail.priceCtx")}
           sentiment="neutral"
         />
@@ -58,7 +59,7 @@ export default function PropertyDetailPage({
         <MetricCard
           label={t("detail.pricePerSqm")}
           value={5347}
-          prefix={"\u20AC"}
+          prefix={EUR}
           context={t("detail.pricePerSqmCtx")}
           sentiment="negative"
         />

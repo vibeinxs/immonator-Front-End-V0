@@ -36,7 +36,7 @@ export default function StrategyPage() {
         <MetricCard
           label={t("strategy.metric.maxBudget")}
           value={0}
-          prefix={"\u20AC"}
+          prefix={EUR}
           context={t("strategy.metric.maxBudgetCtx")}
           sentiment="neutral"
         />

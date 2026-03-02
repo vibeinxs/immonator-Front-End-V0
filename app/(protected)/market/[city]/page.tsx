@@ -5,6 +5,7 @@ import { MetricCard } from "@/components/metric-card"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { useLocale } from "@/lib/i18n/locale-context"
+import { EUR } from "@/lib/utils"
 
 export default function MarketPage({
   params,
@@ -41,14 +42,14 @@ export default function MarketPage({
         <MetricCard
           label={t("market.metric.avgPrice")}
           value={0}
-          prefix={"\u20AC"}
+          prefix={EUR}
           context={t("market.metric.loading")}
           sentiment="neutral"
         />
         <MetricCard
           label={t("market.metric.avgRent")}
           value={0}
-          prefix={"\u20AC"}
+          prefix={EUR}
           context={t("market.metric.loading")}
           sentiment="neutral"
         />

@@ -2,6 +2,7 @@
 
 import { MetricCard } from "@/components/metric-card"
 import { useLocale } from "@/lib/i18n/locale-context"
+import { EUR } from "@/lib/utils"
 
 export default function PortfolioPage() {
   const { t } = useLocale()
@@ -21,14 +22,14 @@ export default function PortfolioPage() {
         <MetricCard
           label={t("portfolio.metric.totalValue")}
           value={0}
-          prefix={"\u20AC"}
+          prefix={EUR}
           context={t("portfolio.metric.totalValueCtx")}
           sentiment="neutral"
         />
         <MetricCard
           label={t("portfolio.metric.cashFlow")}
           value={0}
-          prefix={"\u20AC"}
+          prefix={EUR}
           context={t("portfolio.metric.cashFlowCtx")}
           sentiment="neutral"
         />

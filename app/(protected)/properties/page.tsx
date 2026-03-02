@@ -27,6 +27,7 @@ import { VerdictBadge } from "@/components/verdict-badge"
 import { api } from "@/lib/api"
 import { getDisplayName } from "@/lib/auth"
 import { useLocale } from "@/lib/i18n/locale-context"
+import { EUR } from "@/lib/utils"
 
 /* ── Types ───────────────────────────────────────── */
 interface Property {
@@ -510,11 +511,11 @@ function PropertyCard({
       <div className="flex flex-1 flex-col p-4">
         <div className="flex items-baseline justify-between">
           <span className="font-serif text-2xl text-text-primary">
-            {"\u20AC"}
+            {EUR}
             {property.price.toLocaleString("de-DE")}
           </span>
           <span className="font-mono text-xs text-text-muted">
-            {"\u20AC"}
+            {EUR}
             {property.price_per_sqm.toLocaleString("de-DE")}/m{"\u00B2"}
           </span>
         </div>
@@ -770,7 +771,7 @@ export default function PropertiesPage() {
               />
               <FilterDropdown
                 label={t("properties.filter.price")}
-                options={["\u20AC200k", "\u20AC300k", "\u20AC500k", "\u20AC750k", "\u20AC1M+"]}
+                options={[`${EUR}200k`, `${EUR}300k`, `${EUR}500k`, `${EUR}750k`, `${EUR}1M+`]}
                 value={priceFilter}
                 onChange={setPriceFilter}
               />
