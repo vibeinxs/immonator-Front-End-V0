@@ -26,24 +26,6 @@ export const metadata: Metadata = {
   title: "Immonator — Smart Real Estate Investment Analysis",
   description:
     "Make confident real estate investment decisions with data-driven analysis. German property market insights, yield calculations, and portfolio tracking.",
-  generator: "v0.app",
-  icons: {
-    icon: [
-      {
-        url: "/icon-light-32x32.png",
-        media: "(prefers-color-scheme: light)",
-      },
-      {
-        url: "/icon-dark-32x32.png",
-        media: "(prefers-color-scheme: dark)",
-      },
-      {
-        url: "/icon.svg",
-        type: "image/svg+xml",
-      },
-    ],
-    apple: "/apple-icon.png",
-  },
 }
 
 export const viewport: Viewport = {
@@ -57,9 +39,11 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const fontClasses = `${dmSans.variable} ${dmSerifDisplay.variable} ${jetbrainsMono.variable}`
+
   return (
-    <html lang="de" suppressHydrationWarning className={`${dmSans.variable} ${dmSerifDisplay.variable} ${jetbrainsMono.variable}`}>
-      <body className="font-sans antialiased" suppressHydrationWarning>
+    <html lang="de" suppressHydrationWarning className={fontClasses}>
+      <body suppressHydrationWarning className="font-sans antialiased">
         {children}
         <Analytics />
       </body>

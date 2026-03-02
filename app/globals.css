@@ -1,11 +1,10 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
-/* Immonator Premium Light Theme */
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Backgrounds (warm off-white, premium) */
+  /* Backgrounds — warm off-white, premium */
   --bg-base: #F7F6F3;
   --bg-surface: #FFFFFF;
   --bg-elevated: #EFEEE9;
@@ -33,29 +32,18 @@
   --border: #E0DED8;
   --border-strong: #CCC9C1;
 
-  /* Spacing */
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-6: 24px;
-  --space-8: 32px;
-  --space-12: 48px;
-  --space-16: 64px;
-  --space-24: 96px;
-
   /* Shadcn token mapping */
   --background: var(--bg-base);
   --foreground: var(--text-primary);
   --card: var(--bg-surface);
   --card-foreground: var(--text-primary);
-  --popover: var(--bg-elevated);
+  --popover: var(--bg-surface);
   --popover-foreground: var(--text-primary);
   --primary: var(--brand);
   --primary-foreground: #FFFFFF;
-  --secondary: var(--bg-surface);
+  --secondary: var(--bg-elevated);
   --secondary-foreground: var(--text-primary);
-  --muted: var(--bg-surface);
+  --muted: var(--bg-elevated);
   --muted-foreground: var(--text-secondary);
   --accent: var(--brand-subtle);
   --accent-foreground: var(--brand);
@@ -123,7 +111,7 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  /* Immonator custom colors */
+  /* Immonator custom color tokens */
   --color-bg-base: var(--bg-base);
   --color-bg-surface: var(--bg-surface);
   --color-bg-elevated: var(--bg-elevated);
@@ -149,7 +137,7 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground font-sans antialiased;
+    @apply bg-background text-foreground;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -202,7 +190,6 @@
   animation: count-up 800ms ease-out forwards;
 }
 
-/* Stagger children */
 .stagger-children > * {
   opacity: 0;
   animation: fade-up 300ms ease forwards;
