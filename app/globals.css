@@ -4,11 +4,11 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Backgrounds — warm off-white, premium */
-  --bg-base: #F7F6F3;
+  /* Backgrounds — light grey, premium */
+  --bg-base: #F0F1F3;
   --bg-surface: #FFFFFF;
-  --bg-elevated: #EFEEE9;
-  --bg-hover: #E6E4DE;
+  --bg-elevated: #E8E9EC;
+  --bg-hover: #DDDEE2;
 
   /* Text */
   --text-primary: #1A1A1A;
@@ -29,8 +29,8 @@
   --danger-bg: #FEF2F2;
 
   /* Borders */
-  --border: #E0DED8;
-  --border-strong: #CCC9C1;
+  --border: #D8DAE0;
+  --border-strong: #C4C7CF;
 
   /* Shadcn token mapping */
   --background: var(--bg-base);
