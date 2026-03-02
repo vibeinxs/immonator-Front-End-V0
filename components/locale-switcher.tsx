@@ -3,10 +3,13 @@
 import { useLocale } from "@/lib/i18n/locale-context"
 
 export function LocaleSwitcher() {
-  const { locale, setLocale } = useLocale()
+  const { locale, setLocale, isTranslating } = useLocale()
 
   return (
-    <div className="flex items-center rounded-lg border border-border-default text-sm">
+    <div className="flex items-center gap-1.5 rounded-lg border border-border-default text-sm">
+      {isTranslating && (
+        <div className="ml-2 h-2 w-2 animate-pulse rounded-full bg-brand" title="Translating..." />
+      )}
       <button
         onClick={() => setLocale("en")}
         className={`rounded-l-[7px] px-2.5 py-1 text-xs font-medium transition-colors duration-150 ${
