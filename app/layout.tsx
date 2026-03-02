@@ -1,27 +1,8 @@
+import type { CSSProperties, ReactNode } from "react"
 import type { Metadata, Viewport } from "next"
-import { DM_Sans, DM_Serif_Display, JetBrains_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { LocaleProvider } from "@/lib/i18n/locale-context"
 import "./globals.css"
-
-const dmSans = DM_Sans({
-  subsets: ["latin"],
-  variable: "--font-dm-sans",
-  display: "swap",
-})
-
-const dmSerifDisplay = DM_Serif_Display({
-  weight: "400",
-  subsets: ["latin"],
-  variable: "--font-dm-serif",
-  display: "swap",
-})
-
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ["latin"],
-  variable: "--font-jetbrains",
-  display: "swap",
-})
 
 export const metadata: Metadata = {
   title: "Immonator - Smart Real Estate Investment Analysis",
@@ -35,11 +16,15 @@ export const viewport: Viewport = {
   initialScale: 1,
 }
 
-const cls = `${dmSans.variable} ${dmSerifDisplay.variable} ${jetbrainsMono.variable}`
+const fallbackFontVars = {
+  "--font-dm-sans": "'DM Sans', sans-serif",
+  "--font-dm-serif": "'DM Serif Display', serif",
+  "--font-jetbrains": "'JetBrains Mono', monospace",
+} as CSSProperties
 
-export default function RootLayout(props: { children: React.ReactNode }) {
+export default function RootLayout(props: { children: ReactNode }) {
   return (
-    <html lang="de" suppressHydrationWarning={true} className={cls}>
+    <html lang="de" suppressHydrationWarning={true} style={fallbackFontVars}>
       <body suppressHydrationWarning={true} className="font-sans antialiased">
         <LocaleProvider>{props.children}</LocaleProvider>
         <Analytics />
