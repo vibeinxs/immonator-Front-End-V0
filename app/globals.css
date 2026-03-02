@@ -4,33 +4,33 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Backgrounds — warm off-white, premium */
-  --bg-base: #F7F6F3;
-  --bg-surface: #FFFFFF;
-  --bg-elevated: #EFEEE9;
-  --bg-hover: #E6E4DE;
+  /* Backgrounds (deep navy) */
+  --bg-base: #090F1C;
+  --bg-surface: #111827;
+  --bg-elevated: #1A2235;
+  --bg-hover: #1E2A3A;
 
   /* Text */
-  --text-primary: #1A1A1A;
-  --text-secondary: #5C5C5C;
-  --text-muted: #9A9A9A;
+  --text-primary: #EDF2F7;
+  --text-secondary: #8896A9;
+  --text-muted: #4A5568;
 
-  /* Brand — Deep Navy */
-  --brand: #1B2E4A;
-  --brand-hover: #152440;
-  --brand-subtle: #E8EDF4;
+  /* Brand */
+  --brand: #3B7BF5;
+  --brand-hover: #2563EB;
+  --brand-subtle: #1A2E4A;
 
   /* Verdicts */
-  --success: #059669;
-  --success-bg: #ECFDF5;
-  --warning: #D97706;
-  --warning-bg: #FFFBEB;
-  --danger: #DC2626;
-  --danger-bg: #FEF2F2;
+  --success: #10B981;
+  --success-bg: #042F1E;
+  --warning: #F59E0B;
+  --warning-bg: #2D1F00;
+  --danger: #EF4444;
+  --danger-bg: #2D0A0A;
 
   /* Borders */
-  --border: #E0DED8;
-  --border-strong: #CCC9C1;
+  --border: #1E2D40;
+  --border-strong: #2A3F58;
 
   /* Shadcn token mapping */
   --background: var(--bg-base);
