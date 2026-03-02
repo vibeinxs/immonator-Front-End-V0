@@ -1,28 +1,27 @@
+"use client"
+
 import { cn } from "@/lib/utils"
+import { useLocale } from "@/lib/i18n/locale-context"
 
 type Verdict = "strong_buy" | "worth_analysing" | "proceed_with_caution" | "avoid"
 
-const verdictConfig: Record<
+const verdictStyle: Record<
   Verdict,
-  { label: string; bgClass: string; textClass: string }
+  { bgClass: string; textClass: string }
 > = {
   strong_buy: {
-    label: "Strong Buy",
     bgClass: "bg-success-bg",
     textClass: "text-success",
   },
   worth_analysing: {
-    label: "Worth Analysing",
     bgClass: "bg-brand-subtle",
     textClass: "text-brand",
   },
   proceed_with_caution: {
-    label: "Proceed with Caution",
     bgClass: "bg-warning-bg",
     textClass: "text-warning",
   },
   avoid: {
-    label: "Avoid",
     bgClass: "bg-danger-bg",
     textClass: "text-danger",
   },
@@ -34,18 +33,19 @@ interface VerdictBadgeProps {
 }
 
 export function VerdictBadge({ verdict, className }: VerdictBadgeProps) {
-  const config = verdictConfig[verdict]
+  const { t } = useLocale()
+  const style = verdictStyle[verdict]
 
   return (
     <span
       className={cn(
         "inline-block animate-pulse-badge rounded-lg px-3 py-1 text-[10px] font-bold uppercase tracking-[0.06em]",
-        config.bgClass,
-        config.textClass,
+        style.bgClass,
+        style.textClass,
         className
       )}
     >
-      {config.label}
+      {t(`verdict.${verdict}`)}
     </span>
   )
 }

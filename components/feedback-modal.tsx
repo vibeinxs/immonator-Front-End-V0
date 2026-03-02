@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { api } from "@/lib/api"
+import { useLocale } from "@/lib/i18n/locale-context"
 
 type FeedbackType = "bug" | "suggestion" | "general" | "rating"
 
@@ -23,6 +24,7 @@ interface FeedbackModalProps {
 }
 
 export function FeedbackModal({ open, onOpenChange }: FeedbackModalProps) {
+  const { t } = useLocale()
   const [type, setType] = useState<FeedbackType>("general")
   const [message, setMessage] = useState("")
   const [rating, setRating] = useState(0)
@@ -48,6 +50,13 @@ export function FeedbackModal({ open, onOpenChange }: FeedbackModalProps) {
     }, 2000)
   }
 
+  const typeOptions: { value: FeedbackType; key: string }[] = [
+    { value: "bug", key: "feedback.bug" },
+    { value: "suggestion", key: "feedback.suggestion" },
+    { value: "general", key: "feedback.general" },
+    { value: "rating", key: "feedback.rating" },
+  ]
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="border-border-default bg-bg-surface sm:max-w-md">
@@ -57,17 +66,17 @@ export function FeedbackModal({ open, onOpenChange }: FeedbackModalProps) {
               <Star className="h-6 w-6 text-success" />
             </div>
             <p className="text-center font-serif text-lg text-text-primary">
-              Thanks! We read every message.
+              {t("feedback.thanks")}
             </p>
           </div>
         ) : (
           <>
             <DialogHeader>
               <DialogTitle className="font-serif text-xl text-text-primary">
-                How can we improve?
+                {t("feedback.title")}
               </DialogTitle>
               <DialogDescription className="text-text-secondary">
-                Your feedback helps us build a better tool.
+                {t("feedback.subtitle")}
               </DialogDescription>
             </DialogHeader>
 
@@ -77,14 +86,7 @@ export function FeedbackModal({ open, onOpenChange }: FeedbackModalProps) {
                 onValueChange={(v) => setType(v as FeedbackType)}
                 className="grid grid-cols-2 gap-3"
               >
-                {(
-                  [
-                    { value: "bug", label: "Bug" },
-                    { value: "suggestion", label: "Suggestion" },
-                    { value: "general", label: "General" },
-                    { value: "rating", label: "Rating" },
-                  ] as const
-                ).map((option) => (
+                {typeOptions.map((option) => (
                   <Label
                     key={option.value}
                     htmlFor={option.value}
@@ -99,7 +101,7 @@ export function FeedbackModal({ open, onOpenChange }: FeedbackModalProps) {
                       id={option.value}
                       className="sr-only"
                     />
-                    <span className="text-sm font-medium">{option.label}</span>
+                    <span className="text-sm font-medium">{t(option.key)}</span>
                   </Label>
                 ))}
               </RadioGroup>
@@ -129,7 +131,7 @@ export function FeedbackModal({ open, onOpenChange }: FeedbackModalProps) {
               )}
 
               <Textarea
-                placeholder="Tell us more..."
+                placeholder={t("feedback.placeholder")}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 className="min-h-[100px] resize-none border-border-default bg-bg-elevated text-text-primary placeholder:text-text-muted focus-visible:border-brand focus-visible:ring-brand/15"
@@ -141,7 +143,7 @@ export function FeedbackModal({ open, onOpenChange }: FeedbackModalProps) {
                 disabled={!message.trim() || submitting}
                 className="h-11 rounded-[10px] bg-brand px-6 font-semibold text-primary-foreground transition-colors duration-150 hover:bg-brand-hover disabled:opacity-50"
               >
-                {submitting ? "Sending..." : "Send Feedback"}
+                {submitting ? t("feedback.sending") : t("feedback.send")}
               </Button>
             </div>
           </>

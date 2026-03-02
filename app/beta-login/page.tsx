@@ -4,30 +4,12 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { isLoggedIn, setAuth } from "@/lib/auth"
 import { api } from "@/lib/api"
-
-const floatingCards = [
-  {
-    verdict: "Strong Buy",
-    headline: "12% below valuation",
-    yield: "5.8%",
-    delay: "0s",
-  },
-  {
-    verdict: "Worth Analysing",
-    headline: "At market value",
-    yield: "4.2%",
-    delay: "1s",
-  },
-  {
-    verdict: "Proceed with Caution",
-    headline: "8% above valuation",
-    yield: "3.1%",
-    delay: "2s",
-  },
-]
+import { LocaleSwitcher } from "@/components/locale-switcher"
+import { useLocale } from "@/lib/i18n/locale-context"
 
 export default function BetaLoginPage() {
   const router = useRouter()
+  const { t } = useLocale()
   const [accessCode, setAccessCode] = useState("")
   const [name, setName] = useState("")
   const [error, setError] = useState("")
@@ -51,7 +33,7 @@ export default function BetaLoginPage() {
     }>("/api/auth/beta-login", { access_code: accessCode, name })
 
     if (apiError || !data) {
-      setError("Invalid code. Check your invite.")
+      setError(t("login.error"))
       setLoading(false)
       return
     }
@@ -66,34 +48,61 @@ export default function BetaLoginPage() {
     router.push("/properties")
   }
 
+  const floatingCards = [
+    {
+      verdict: t("login.card.strongBuy"),
+      headline: t("login.card.belowVal"),
+      yield: "5.8%",
+      delay: "0s",
+      badgeClass: "bg-success-bg text-success",
+    },
+    {
+      verdict: t("login.card.worthAnalysing"),
+      headline: t("login.card.atMarket"),
+      yield: "4.2%",
+      delay: "1s",
+      badgeClass: "bg-brand-subtle text-brand",
+    },
+    {
+      verdict: t("login.card.caution"),
+      headline: t("login.card.aboveVal"),
+      yield: "3.1%",
+      delay: "2s",
+      badgeClass: "bg-warning-bg text-warning",
+    },
+  ]
+
   return (
     <div className="grid min-h-screen bg-bg-base md:grid-cols-2">
       {/* Left column */}
       <div className="flex flex-col justify-center border-r border-border-default bg-bg-surface px-8 py-16 md:px-16">
-        {/* Logo */}
-        <div className="flex items-center">
-          <span className="font-serif text-xl text-text-primary">Immonator</span>
-          <span className="ml-2 rounded bg-brand-subtle px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-brand">
-            BETA
-          </span>
+        {/* Logo + Switcher */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center">
+            <span className="font-serif text-xl text-text-primary">Immonator</span>
+            <span className="ml-2 rounded bg-brand-subtle px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-brand">
+              BETA
+            </span>
+          </div>
+          <LocaleSwitcher />
         </div>
 
         {/* Headline */}
         <h1 className="mt-10 max-w-sm font-serif text-5xl leading-[1.1] text-text-primary">
-          Your AI-powered property analyst.
+          {t("login.headline")}
         </h1>
 
         {/* Subtext */}
         <p className="mt-4 max-w-xs text-lg leading-relaxed text-text-secondary">
-          Valuations, strategy, and negotiation briefs — in seconds, not weeks.
+          {t("login.subtitle")}
         </p>
 
         {/* Feature pills */}
         <div className="mt-6 flex flex-wrap gap-2">
           {[
-            "\u26A1 Instant Valuation",
-            "\uD83D\uDCCA AI Strategy",
-            "\uD83E\uDD1D Negotiation Briefs",
+            t("login.pills.valuation"),
+            t("login.pills.strategy"),
+            t("login.pills.negotiation"),
           ].map((pill) => (
             <span
               key={pill}
@@ -108,13 +117,13 @@ export default function BetaLoginPage() {
         <form onSubmit={handleSubmit} className="mt-10 max-w-sm space-y-4">
           <div>
             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-text-secondary">
-              Beta Access Code
+              {t("login.label.code")}
             </label>
             <input
               type="text"
               value={accessCode}
               onChange={(e) => setAccessCode(e.target.value)}
-              placeholder="e.g. IMMO-BCDF"
+              placeholder={t("login.placeholder.code")}
               required
               className={`h-14 w-full rounded-xl border bg-bg-elevated px-4 font-mono text-lg text-text-primary placeholder:font-sans placeholder:text-sm placeholder:text-text-muted transition-colors focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/15 ${
                 error ? "border-danger" : "border-border-default"
@@ -127,13 +136,13 @@ export default function BetaLoginPage() {
 
           <div>
             <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-text-secondary">
-              Your name (optional)
+              {t("login.label.name")}
             </label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Your name"
+              placeholder={t("login.placeholder.name")}
               className="h-11 w-full rounded-xl border border-border-default bg-bg-elevated px-4 text-sm text-text-primary placeholder:text-text-muted transition-colors focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/15"
             />
           </div>
@@ -143,7 +152,7 @@ export default function BetaLoginPage() {
             disabled={loading}
             className="mt-2 h-12 w-full rounded-xl bg-brand text-base font-semibold text-white transition-colors duration-150 hover:bg-brand-hover disabled:opacity-50"
           >
-            {loading ? "Verifying..." : "Get Started \u2192"}
+            {loading ? t("login.submitting") : t("login.submit")}
           </button>
         </form>
       </div>
@@ -172,13 +181,7 @@ export default function BetaLoginPage() {
             >
               <div className="flex items-center justify-between">
                 <span
-                  className={`rounded-lg px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${
-                    i === 0
-                      ? "bg-success-bg text-success"
-                      : i === 1
-                        ? "bg-brand-subtle text-brand"
-                        : "bg-warning-bg text-warning"
-                  }`}
+                  className={`rounded-lg px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${card.badgeClass}`}
                 >
                   {card.verdict}
                 </span>

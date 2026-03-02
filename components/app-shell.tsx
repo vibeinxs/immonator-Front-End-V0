@@ -19,17 +19,20 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { FeedbackModal } from "@/components/feedback-modal"
+import { LocaleSwitcher } from "@/components/locale-switcher"
 import { getDisplayName, getInitials, logout } from "@/lib/auth"
+import { useLocale } from "@/lib/i18n/locale-context"
 
-const NAV_ITEMS = [
-  { label: "Properties", href: "/properties", icon: Home },
-  { label: "Portfolio", href: "/portfolio", icon: Briefcase },
-  { label: "Markets", href: "/market/berlin", icon: MapPin },
-  { label: "Strategy", href: "/strategy", icon: BarChart3 },
+const NAV_KEYS = [
+  { key: "nav.properties", href: "/properties", icon: Home },
+  { key: "nav.portfolio", href: "/portfolio", icon: Briefcase },
+  { key: "nav.markets", href: "/market/berlin", icon: MapPin },
+  { key: "nav.strategy", href: "/strategy", icon: BarChart3 },
 ]
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const { t } = useLocale()
   const [feedbackOpen, setFeedbackOpen] = useState(false)
   const displayName = getDisplayName() || "User"
   const initials = getInitials(displayName)
@@ -56,7 +59,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           {/* Center: Nav links (desktop) */}
           <nav className="hidden items-center gap-1 md:flex" aria-label="Main navigation">
-            {NAV_ITEMS.map((item) => (
+            {NAV_KEYS.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
@@ -66,7 +69,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     : "text-text-secondary hover:text-text-primary"
                 }`}
               >
-                {item.label}
+                {t(item.key)}
                 {isActive(item.href) && (
                   <span className="absolute bottom-0 left-4 right-4 h-0.5 rounded-full bg-brand" />
                 )}
@@ -74,14 +77,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             ))}
           </nav>
 
-          {/* Right: Feedback + Avatar */}
+          {/* Right: Locale + Feedback + Avatar */}
           <div className="flex items-center gap-3">
+            <LocaleSwitcher />
+
             <button
               onClick={() => setFeedbackOpen(true)}
               className="hidden items-center gap-1.5 text-sm font-medium text-brand transition-colors duration-150 hover:text-brand-hover md:flex"
             >
               <MessageSquare className="h-4 w-4" />
-              <span>Feedback</span>
+              <span>{t("nav.feedback")}</span>
             </button>
 
             <DropdownMenu>
@@ -108,14 +113,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   className="text-text-secondary hover:text-text-primary md:hidden"
                 >
                   <MessageSquare className="mr-2 h-4 w-4" />
-                  Feedback
+                  {t("nav.feedback")}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={logout}
                   className="text-text-secondary hover:text-text-primary"
                 >
                   <LogOut className="mr-2 h-4 w-4" />
-                  Sign out
+                  {t("nav.signOut")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -135,7 +140,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         className="fixed bottom-0 right-0 left-0 z-50 flex h-[58px] items-center justify-around border-t border-border-default bg-bg-surface md:hidden"
         aria-label="Mobile navigation"
       >
-        {NAV_ITEMS.map((item) => {
+        {NAV_KEYS.map((item) => {
           const Icon = item.icon
           const active = isActive(item.href)
           return (
@@ -148,7 +153,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               aria-current={active ? "page" : undefined}
             >
               <Icon className="h-5 w-5" />
-              <span>{item.label}</span>
+              <span>{t(item.key)}</span>
             </Link>
           )
         })}

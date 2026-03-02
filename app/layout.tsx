@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next"
 import { DM_Sans, DM_Serif_Display, JetBrains_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
+import { LocaleProvider } from "@/lib/i18n/locale-context"
 import "./globals.css"
 
 const dmSans = DM_Sans({
@@ -44,7 +45,9 @@ export default function RootLayout({
       className={`${dmSans.variable} ${dmSerifDisplay.variable} ${jetbrainsMono.variable}`}
     >
       <body suppressHydrationWarning className="font-sans antialiased">
-        {children}
+        <LocaleProvider>
+          {children}
+        </LocaleProvider>
         <Analytics />
       </body>
     </html>

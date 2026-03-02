@@ -1,15 +1,20 @@
+"use client"
+
 import { MetricCard } from "@/components/metric-card"
 import { VerdictBadge } from "@/components/verdict-badge"
 import { Search } from "lucide-react"
+import { useLocale } from "@/lib/i18n/locale-context"
 
 export default function PropertiesPage() {
+  const { t } = useLocale()
+
   return (
     <div className="flex flex-col gap-8 animate-fade-in">
       {/* Header */}
       <div>
-        <h1 className="font-serif text-[28px] text-text-primary">Properties</h1>
+        <h1 className="font-serif text-[28px] text-text-primary">{t("properties.title")}</h1>
         <p className="mt-1 text-sm text-text-secondary">
-          Browse and analyze investment properties across Germany.
+          {t("properties.subtitle")}
         </p>
       </div>
 
@@ -18,7 +23,7 @@ export default function PropertiesPage() {
         <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
         <input
           type="text"
-          placeholder="Search by city, address, or property ID..."
+          placeholder={t("properties.search")}
           className="w-full rounded-[10px] border border-border-default bg-bg-elevated py-[11px] pl-11 pr-4 text-sm text-text-primary placeholder:text-text-muted transition-colors focus:border-brand focus:outline-none focus:ring-[3px] focus:ring-brand/15"
         />
       </div>
@@ -26,22 +31,22 @@ export default function PropertiesPage() {
       {/* Summary metrics */}
       <div className="grid gap-4 md:grid-cols-3">
         <MetricCard
-          label="Total Properties"
+          label={t("properties.metric.total")}
           value={0}
-          context="Add properties to start analyzing"
+          context={t("properties.metric.totalCtx")}
           sentiment="neutral"
         />
         <MetricCard
-          label="Avg. Gross Yield"
+          label={t("properties.metric.yield")}
           value={0}
           suffix="%"
-          context="No data yet"
+          context={t("properties.metric.yieldCtx")}
           sentiment="neutral"
         />
         <MetricCard
-          label="Strong Buys"
+          label={t("properties.metric.strongBuys")}
           value={0}
-          context="Properties rated strong buy"
+          context={t("properties.metric.strongBuysCtx")}
           sentiment="neutral"
         />
       </div>
@@ -89,7 +94,7 @@ export default function PropertiesPage() {
             <div className="flex gap-6 border-t border-border-default pt-4">
               <div>
                 <p className="text-[10px] font-medium uppercase tracking-[0.08em] text-text-secondary">
-                  Yield
+                  {t("properties.card.yield")}
                 </p>
                 <p className="font-mono text-sm text-success">
                   {property.yield}%
@@ -97,7 +102,7 @@ export default function PropertiesPage() {
               </div>
               <div>
                 <p className="text-[10px] font-medium uppercase tracking-[0.08em] text-text-secondary">
-                  Size
+                  {t("properties.card.size")}
                 </p>
                 <p className="font-mono text-sm text-text-primary">
                   {property.sqm} m{"\u00B2"}

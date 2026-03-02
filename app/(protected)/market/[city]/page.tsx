@@ -1,13 +1,18 @@
+"use client"
+
+import { use } from "react"
 import { MetricCard } from "@/components/metric-card"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
+import { useLocale } from "@/lib/i18n/locale-context"
 
-export default async function MarketPage({
+export default function MarketPage({
   params,
 }: {
   params: Promise<{ city: string }>
 }) {
-  const { city } = await params
+  const { city } = use(params)
+  const { t } = useLocale()
   const cityName = city.charAt(0).toUpperCase() + city.slice(1)
 
   return (
@@ -18,46 +23,46 @@ export default async function MarketPage({
         className="flex items-center gap-2 text-sm text-text-secondary transition-colors hover:text-text-primary"
       >
         <ArrowLeft className="h-4 w-4" />
-        Back to Properties
+        {t("market.back")}
       </Link>
 
       {/* Header */}
       <div>
         <h1 className="font-serif text-[28px] text-text-primary">
-          {cityName} Market
+          {cityName} {t("market.titleSuffix")}
         </h1>
         <p className="mt-1 text-sm text-text-secondary">
-          Real estate market overview and trends for {cityName}.
+          {t("market.subtitle")} {cityName}.
         </p>
       </div>
 
       {/* Market metrics */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <MetricCard
-          label="Avg. Price / m\u00B2"
+          label={t("market.metric.avgPrice")}
           value={0}
           prefix={"\u20AC"}
-          context="Loading market data..."
+          context={t("market.metric.loading")}
           sentiment="neutral"
         />
         <MetricCard
-          label="Avg. Rent / m\u00B2"
+          label={t("market.metric.avgRent")}
           value={0}
           prefix={"\u20AC"}
-          context="Loading market data..."
+          context={t("market.metric.loading")}
           sentiment="neutral"
         />
         <MetricCard
-          label="YoY Price Change"
+          label={t("market.metric.yoyChange")}
           value={0}
           suffix="%"
-          context="Loading market data..."
+          context={t("market.metric.loading")}
           sentiment="neutral"
         />
         <MetricCard
-          label="Population"
+          label={t("market.metric.population")}
           value={0}
-          context="Loading market data..."
+          context={t("market.metric.loading")}
           sentiment="neutral"
         />
       </div>
@@ -66,56 +71,56 @@ export default async function MarketPage({
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="rounded-[14px] border border-border-default bg-bg-surface p-6">
           <h2 className="font-serif text-lg text-text-primary">
-            Price Trend
+            {t("market.priceTrend")}
           </h2>
           <p className="mt-2 text-sm text-text-secondary">
-            Historical price development over the past 5 years.
+            {t("market.priceTrendDesc")}
           </p>
           <div className="mt-8 flex h-56 items-center justify-center rounded-lg border border-dashed border-border-default">
             <span className="text-sm text-text-muted">
-              Price chart placeholder
+              {t("market.priceTrendPh")}
             </span>
           </div>
         </div>
 
         <div className="rounded-[14px] border border-border-default bg-bg-surface p-6">
           <h2 className="font-serif text-lg text-text-primary">
-            Rent vs. Buy
+            {t("market.rentVsBuy")}
           </h2>
           <p className="mt-2 text-sm text-text-secondary">
-            Rental yield comparison across neighborhoods.
+            {t("market.rentVsBuyDesc")}
           </p>
           <div className="mt-8 flex h-56 items-center justify-center rounded-lg border border-dashed border-border-default">
             <span className="text-sm text-text-muted">
-              Comparison chart placeholder
+              {t("market.rentVsBuyPh")}
             </span>
           </div>
         </div>
       </div>
 
-      {/* District table placeholder */}
+      {/* District table */}
       <div className="rounded-[14px] border border-border-default bg-bg-surface p-6">
         <h2 className="font-serif text-lg text-text-primary">
-          Districts Overview
+          {t("market.districts")}
         </h2>
         <p className="mt-2 text-sm text-text-secondary">
-          Detailed breakdown by neighborhood.
+          {t("market.districtsDesc")}
         </p>
         <div className="mt-6 overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-border-default">
                 <th className="pb-3 text-[10px] font-medium uppercase tracking-[0.08em] text-text-secondary">
-                  District
+                  {t("market.th.district")}
                 </th>
                 <th className="pb-3 text-right text-[10px] font-medium uppercase tracking-[0.08em] text-text-secondary">
-                  Avg. Price/m{"\u00B2"}
+                  {t("market.th.avgPrice")}
                 </th>
                 <th className="pb-3 text-right text-[10px] font-medium uppercase tracking-[0.08em] text-text-secondary">
-                  Avg. Rent/m{"\u00B2"}
+                  {t("market.th.avgRent")}
                 </th>
                 <th className="pb-3 text-right text-[10px] font-medium uppercase tracking-[0.08em] text-text-secondary">
-                  Yield
+                  {t("market.th.yield")}
                 </th>
               </tr>
             </thead>

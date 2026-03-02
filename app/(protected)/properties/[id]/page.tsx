@@ -1,14 +1,19 @@
+"use client"
+
+import { use } from "react"
 import { VerdictBadge } from "@/components/verdict-badge"
 import { MetricCard } from "@/components/metric-card"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
+import { useLocale } from "@/lib/i18n/locale-context"
 
-export default async function PropertyDetailPage({
+export default function PropertyDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>
 }) {
-  const { id } = await params
+  const { id } = use(params)
+  const { t } = useLocale()
 
   return (
     <div className="flex flex-col gap-8 animate-fade-in">
@@ -18,17 +23,17 @@ export default async function PropertyDetailPage({
         className="flex items-center gap-2 text-sm text-text-secondary transition-colors hover:text-text-primary"
       >
         <ArrowLeft className="h-4 w-4" />
-        Back to Properties
+        {t("detail.back")}
       </Link>
 
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
           <h1 className="font-serif text-[28px] text-text-primary">
-            Property {id}
+            {t("detail.property")} {id}
           </h1>
           <p className="mt-1 text-sm text-text-secondary">
-            Detailed analysis and investment metrics
+            {t("detail.subtitle")}
           </p>
         </div>
         <VerdictBadge verdict="worth_analysing" />
@@ -37,31 +42,31 @@ export default async function PropertyDetailPage({
       {/* Metrics grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <MetricCard
-          label="Purchase Price"
+          label={t("detail.price")}
           value={385000}
           prefix={"\u20AC"}
-          context="Listed 14 days ago"
+          context={t("detail.priceCtx")}
           sentiment="neutral"
         />
         <MetricCard
-          label="Gross Yield"
+          label={t("detail.grossYield")}
           value={4.2}
           suffix="%"
-          context="Above city average"
+          context={t("detail.grossYieldCtx")}
           sentiment="positive"
         />
         <MetricCard
-          label="Price per m\u00B2"
+          label={t("detail.pricePerSqm")}
           value={5347}
           prefix={"\u20AC"}
-          context="Market avg: \u20AC5,120/m\u00B2"
+          context={t("detail.pricePerSqmCtx")}
           sentiment="negative"
         />
         <MetricCard
-          label="Net Yield"
+          label={t("detail.netYield")}
           value={2.9}
           suffix="%"
-          context="After all costs"
+          context={t("detail.netYieldCtx")}
           sentiment="neutral"
         />
       </div>
@@ -70,28 +75,28 @@ export default async function PropertyDetailPage({
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="rounded-[14px] border border-border-default bg-bg-surface p-6">
           <h2 className="font-serif text-lg text-text-primary">
-            Cash Flow Analysis
+            {t("detail.cashFlow")}
           </h2>
           <p className="mt-2 text-sm text-text-secondary">
-            Detailed cash flow projections will be displayed here.
+            {t("detail.cashFlowDesc")}
           </p>
           <div className="mt-8 flex h-48 items-center justify-center rounded-lg border border-dashed border-border-default">
             <span className="text-sm text-text-muted">
-              Chart placeholder
+              {t("detail.chartPlaceholder")}
             </span>
           </div>
         </div>
 
         <div className="rounded-[14px] border border-border-default bg-bg-surface p-6">
           <h2 className="font-serif text-lg text-text-primary">
-            Location Insights
+            {t("detail.location")}
           </h2>
           <p className="mt-2 text-sm text-text-secondary">
-            Neighborhood data and demographics will be displayed here.
+            {t("detail.locationDesc")}
           </p>
           <div className="mt-8 flex h-48 items-center justify-center rounded-lg border border-dashed border-border-default">
             <span className="text-sm text-text-muted">
-              Map placeholder
+              {t("detail.mapPlaceholder")}
             </span>
           </div>
         </div>
