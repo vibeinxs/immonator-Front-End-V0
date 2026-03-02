@@ -2,6 +2,7 @@
 
 import { MetricCard } from "@/components/metric-card"
 import { useLocale } from "@/lib/i18n/locale-context"
+import { EUR } from "@/lib/utils"
 
 export default function StrategyPage() {
   const { t } = useLocale()
