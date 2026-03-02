@@ -1,0 +1,4380 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "ImmoAgent API",
+    "description": "German real estate investment analysis with AI",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/auth/beta-login": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Beta Login",
+        "operationId": "beta_login_api_auth_beta_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BetaLoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BetaLoginResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/refresh": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Refresh",
+        "operationId": "refresh_api_auth_refresh_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefreshResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Me",
+        "operationId": "me_api_auth_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/properties/stats": {
+      "get": {
+        "tags": [
+          "properties"
+        ],
+        "summary": "Get Stats",
+        "description": "Aggregate statistics across the full property database. Public.",
+        "operationId": "get_stats_api_properties_stats_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/properties": {
+      "get": {
+        "tags": [
+          "properties"
+        ],
+        "summary": "List Properties",
+        "description": "Paginated property listing with optional filters. Public \u2014 no auth required.",
+        "operationId": "list_properties_api_properties_get",
+        "parameters": [
+          {
+            "name": "city",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "City"
+            }
+          },
+          {
+            "name": "min_price",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Min Price"
+            }
+          },
+          {
+            "name": "max_price",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Max Price"
+            }
+          },
+          {
+            "name": "min_rooms",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Min Rooms"
+            }
+          },
+          {
+            "name": "property_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Property Type"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "X-User-ID",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PropertyListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/properties/trigger-scrape": {
+      "post": {
+        "tags": [
+          "properties"
+        ],
+        "summary": "Trigger Scrape",
+        "description": "Kick off a pipeline scrape run in the background. Protected \u2014 requires Bearer token.",
+        "operationId": "trigger_scrape_api_properties_trigger_scrape_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TriggerScrapeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriggerScrapeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/properties/{property_id}": {
+      "get": {
+        "tags": [
+          "properties"
+        ],
+        "summary": "Get Property",
+        "description": "Full property details with all valuations. Public \u2014 no auth required.",
+        "operationId": "get_property_api_properties__property_id__get",
+        "parameters": [
+          {
+            "name": "property_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Property Id"
+            }
+          },
+          {
+            "name": "X-User-ID",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PropertyDetailResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/feedback": {
+      "post": {
+        "tags": [
+          "feedback"
+        ],
+        "summary": "Submit Feedback",
+        "description": "Submit user feedback. Protected \u2014 requires Bearer token.",
+        "operationId": "submit_feedback_api_feedback_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedbackRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/waitlist": {
+      "post": {
+        "tags": [
+          "feedback"
+        ],
+        "summary": "Join Waitlist",
+        "description": "Join the feature waitlist. Public \u2014 no auth required. Silently ignores duplicates.",
+        "operationId": "join_waitlist_api_waitlist_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WaitlistRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WaitlistResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/portfolio/watch/{property_id}": {
+      "post": {
+        "tags": [
+          "portfolio"
+        ],
+        "summary": "Watch Property",
+        "description": "Save a property to the user's watchlist and trigger compact analysis in the background.",
+        "operationId": "watch_property_api_portfolio_watch__property_id__post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "property_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Property Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WatchResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/portfolio": {
+      "get": {
+        "tags": [
+          "portfolio"
+        ],
+        "summary": "Get Portfolio",
+        "description": "Return the authenticated user's portfolio with property details and latest compact analysis.",
+        "operationId": "get_portfolio_api_portfolio_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortfolioResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/portfolio/{property_id}/status": {
+      "put": {
+        "tags": [
+          "portfolio"
+        ],
+        "summary": "Update Portfolio Status",
+        "description": "Update the pipeline status, notes, or purchase price of a portfolio entry.",
+        "operationId": "update_portfolio_status_api_portfolio__property_id__status_put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "property_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Property Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateStatusRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateStatusResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/portfolio/{property_id}": {
+      "delete": {
+        "tags": [
+          "portfolio"
+        ],
+        "summary": "Remove From Portfolio",
+        "description": "Remove a property from the user's portfolio.",
+        "operationId": "remove_from_portfolio_api_portfolio__property_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "property_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Property Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/analysis/compact/{property_id}": {
+      "get": {
+        "tags": [
+          "portfolio"
+        ],
+        "summary": "Get Compact Analysis",
+        "description": "Return the latest compact analysis for a property.\nReturns {status: \"not_generated\"} if the background task hasn't finished yet.\nFrontend polls this every 3 seconds after calling watch.",
+        "operationId": "get_compact_analysis_api_analysis_compact__property_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "property_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Property Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompactAnalysisStatusResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/analysis/deep/{property_id}": {
+      "post": {
+        "tags": [
+          "analysis"
+        ],
+        "summary": "Create Deep Analysis",
+        "description": "Run a full deep analysis on a property.\nReturns a cached result (cached=true) if one was generated in the last 24 hours.\nOtherwise calls Claude Sonnet and persists a fresh analysis.",
+        "operationId": "create_deep_analysis_api_analysis_deep__property_id__post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "property_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Property Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeepAnalysisResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "analysis"
+        ],
+        "summary": "Get Deep Analysis",
+        "description": "Return the most recent deep analysis for a property. 404 if none exists yet.",
+        "operationId": "get_deep_analysis_api_analysis_deep__property_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "property_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Property Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeepAnalysisResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/analysis/market/{city}/stats": {
+      "get": {
+        "tags": [
+          "analysis"
+        ],
+        "summary": "Get Market Stats",
+        "description": "Return raw DB aggregation stats for a city instantly \u2014 no AI, no cache.",
+        "operationId": "get_market_stats_api_analysis_market__city__stats_get",
+        "parameters": [
+          {
+            "name": "city",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "City"
+            }
+          },
+          {
+            "name": "property_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "apartment",
+              "title": "Property Type"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarketStatsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/analysis/market/{city}": {
+      "get": {
+        "tags": [
+          "analysis"
+        ],
+        "summary": "Get Market Analysis",
+        "description": "Return a full AI market analysis for a city.\nServed from cache if < 7 days old; otherwise generates a fresh one via Claude Sonnet.\nPublic \u2014 no auth required.",
+        "operationId": "get_market_analysis_api_analysis_market__city__get",
+        "parameters": [
+          {
+            "name": "city",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "City"
+            }
+          },
+          {
+            "name": "property_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "apartment",
+              "title": "Property Type"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MarketAnalysisResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/analysis/portfolio": {
+      "get": {
+        "tags": [
+          "analysis"
+        ],
+        "summary": "Get Portfolio Analysis",
+        "description": "Return the most recent portfolio analysis for the authenticated user. 404 if none exists.",
+        "operationId": "get_portfolio_analysis_api_analysis_portfolio_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortfolioAnalysisResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "analysis"
+        ],
+        "summary": "Create Portfolio Analysis",
+        "description": "Generate a fresh portfolio analysis for the authenticated user.\nLoads all their watchlisted properties, calculates metrics, and asks\nClaude Sonnet to rank them and produce a strategy recommendation.\nReturns 400 if the user has no portfolio items.",
+        "operationId": "create_portfolio_analysis_api_analysis_portfolio_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortfolioAnalysisResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/analysis/scenario/{property_id}/save": {
+      "post": {
+        "tags": [
+          "analysis"
+        ],
+        "summary": "Save Scenario",
+        "description": "Save a scenario to the database. Recalculates Python metrics from params \u2014\nno AI call, so this is instant. AI commentary is ephemeral and not stored.",
+        "operationId": "save_scenario_api_analysis_scenario__property_id__save_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "property_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Property Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveScenarioRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaveScenarioResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/analysis/scenario/{property_id}": {
+      "post": {
+        "tags": [
+          "analysis"
+        ],
+        "summary": "Run Scenario",
+        "description": "Run a what-if scenario. Returns calculated metrics + Claude Haiku commentary.\nTarget latency < 3 seconds. Does NOT save \u2014 call /save to persist.",
+        "operationId": "run_scenario_api_analysis_scenario__property_id__post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "property_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Property Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunScenarioRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunScenarioResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "analysis"
+        ],
+        "summary": "Get Saved Scenarios",
+        "description": "Return all saved scenarios for a property, newest first.",
+        "operationId": "get_saved_scenarios_api_analysis_scenario__property_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "property_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Property Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedScenariosResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/chat": {
+      "post": {
+        "tags": [
+          "chat"
+        ],
+        "summary": "Stream Chat",
+        "description": "Stream a response from Claude Sonnet as Server-Sent Events (SSE).\n\nEach chunk: data: {\"content\": \"word \"}\n\n\nFinal event: data: {\"content\": \"\", \"done\": true}\n\n\n\nThe agent loads the last 10 conversation messages and injects relevant\nDB context (property / portfolio / market / profile) into the system prompt.\nBoth the user message and the full assistant reply are saved after streaming.",
+        "operationId": "stream_chat_api_chat_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/chat/history": {
+      "get": {
+        "tags": [
+          "chat"
+        ],
+        "summary": "Get Chat History",
+        "description": "Return the last 20 conversation messages for a context key\n(context_type + context_id), oldest first.",
+        "operationId": "get_chat_history_api_chat_history_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "context_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "general",
+              "title": "Context Type"
+            }
+          },
+          {
+            "name": "context_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Context Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatHistoryResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "chat"
+        ],
+        "summary": "Delete Chat History",
+        "description": "Delete all conversation messages for a context key.",
+        "operationId": "delete_chat_history_api_chat_history_delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "context_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "general",
+              "title": "Context Type"
+            }
+          },
+          {
+            "name": "context_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Context Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteHistoryResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/profile": {
+      "get": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Get Profile",
+        "description": "Return the authenticated user's investor profile, or {exists: false} if none configured.",
+        "operationId": "get_profile_api_users_profile_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserProfileResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Upsert Profile",
+        "description": "Create or update the authenticated user's investor profile (upsert).\nOnly fields explicitly provided in the request body are updated.",
+        "operationId": "upsert_profile_api_users_profile_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserProfileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserProfileResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/strategy/matches": {
+      "get": {
+        "tags": [
+          "strategy"
+        ],
+        "summary": "Get Strategy Matches",
+        "description": "Return the top 10 available properties best matching the user's investment criteria.\n\nScores each property 0\u2013100 across four criteria:\n  1. Gross yield >= target_yield_percent\n  2. Asking price <= max_purchase_price\n  3. City in preferred_cities (or no preference set)\n  4. Property type in preferred_property_types (or no preference set)\n\nProperties already in the user's portfolio are excluded.\nFalls back to ranking by gross yield if no profile exists.",
+        "operationId": "get_strategy_matches_api_strategy_matches_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatchesResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/strategy/generate": {
+      "post": {
+        "tags": [
+          "strategy"
+        ],
+        "summary": "Generate Strategy",
+        "description": "Generate and save a personalised investment strategy via Claude Sonnet.\nCalculates financial capacity in Python first, then sends to Claude.\nReturns 400 if the user has no investor profile.",
+        "operationId": "generate_strategy_api_strategy_generate_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StrategyResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/strategy": {
+      "get": {
+        "tags": [
+          "strategy"
+        ],
+        "summary": "Get Strategy",
+        "description": "Return the latest saved strategy. 404 if none \u2014 POST /api/strategy/generate first.",
+        "operationId": "get_strategy_api_strategy_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StrategyResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/negotiate/{property_id}": {
+      "post": {
+        "tags": [
+          "negotiation"
+        ],
+        "summary": "Create Negotiation Brief",
+        "description": "Generate a negotiation brief for a property via Claude Sonnet.\n\nCalculates valuation gap, gross yield at asking, and seller urgency in Python\nfirst, then sends everything to Claude for a targeted negotiation strategy.\nReturns 404 if the property does not exist.",
+        "operationId": "create_negotiation_brief_api_negotiate__property_id__post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "property_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Property Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NegotiationBriefResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "negotiation"
+        ],
+        "summary": "Get Negotiation Brief",
+        "description": "Return the most recent negotiation brief for a property. 404 if none exists yet.",
+        "operationId": "get_negotiation_brief_api_negotiate__property_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "property_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Property Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NegotiationBriefResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/analyse": {
+      "post": {
+        "summary": "Analyse",
+        "operationId": "analyse_analyse_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnalyseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyseResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/": {
+      "get": {
+        "summary": "Root",
+        "operationId": "root__get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Health",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AnalyseRequest": {
+        "properties": {
+          "address": {
+            "type": "string",
+            "title": "Address"
+          },
+          "sqm": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Sqm"
+          },
+          "year_built": {
+            "type": "integer",
+            "title": "Year Built",
+            "default": 1990
+          },
+          "condition": {
+            "type": "string",
+            "title": "Condition",
+            "default": "existing"
+          },
+          "afa_method": {
+            "type": "string",
+            "title": "Afa Method",
+            "default": "linear"
+          },
+          "afa_rate_input": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Afa Rate Input"
+          },
+          "purchase_price": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Purchase Price"
+          },
+          "equity": {
+            "type": "number",
+            "title": "Equity"
+          },
+          "interest_rate": {
+            "type": "number",
+            "title": "Interest Rate",
+            "default": 3.8
+          },
+          "repayment_rate": {
+            "type": "number",
+            "title": "Repayment Rate",
+            "default": 2.0
+          },
+          "transfer_tax_pct": {
+            "type": "number",
+            "title": "Transfer Tax Pct",
+            "default": 6.0
+          },
+          "notary_pct": {
+            "type": "number",
+            "title": "Notary Pct",
+            "default": 2.0
+          },
+          "agent_pct": {
+            "type": "number",
+            "title": "Agent Pct",
+            "default": 0.0
+          },
+          "land_share_pct": {
+            "type": "number",
+            "title": "Land Share Pct",
+            "default": 20.0
+          },
+          "rent_monthly": {
+            "type": "number",
+            "title": "Rent Monthly"
+          },
+          "hausgeld_monthly": {
+            "type": "number",
+            "title": "Hausgeld Monthly",
+            "default": 200.0
+          },
+          "maintenance_nd": {
+            "type": "number",
+            "title": "Maintenance Nd",
+            "default": 1200.0
+          },
+          "management_nd": {
+            "type": "number",
+            "title": "Management Nd",
+            "default": 600.0
+          },
+          "grundsteuer_annual": {
+            "type": "number",
+            "title": "Grundsteuer Annual",
+            "default": 0.0
+          },
+          "rent_growth": {
+            "type": "number",
+            "title": "Rent Growth",
+            "default": 2.0
+          },
+          "appreciation": {
+            "type": "number",
+            "title": "Appreciation",
+            "default": 2.0
+          },
+          "tax_rate": {
+            "type": "number",
+            "title": "Tax Rate",
+            "default": 44.0
+          },
+          "vacancy_rate": {
+            "type": "number",
+            "title": "Vacancy Rate",
+            "default": 1.0
+          },
+          "holding_years": {
+            "type": "integer",
+            "title": "Holding Years",
+            "default": 10
+          }
+        },
+        "type": "object",
+        "required": [
+          "address",
+          "sqm",
+          "purchase_price",
+          "equity",
+          "rent_monthly"
+        ],
+        "title": "AnalyseRequest"
+      },
+      "AnalyseResponse": {
+        "properties": {
+          "score": {
+            "type": "number",
+            "title": "Score"
+          },
+          "verdict": {
+            "type": "string",
+            "title": "Verdict"
+          },
+          "purchase_price": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Purchase Price"
+          },
+          "equity": {
+            "type": "number",
+            "title": "Equity"
+          },
+          "loan": {
+            "type": "number",
+            "title": "Loan"
+          },
+          "closing_costs": {
+            "type": "number",
+            "title": "Closing Costs"
+          },
+          "ltv_pct": {
+            "type": "number",
+            "title": "Ltv Pct"
+          },
+          "afa_basis": {
+            "type": "number",
+            "title": "Afa Basis"
+          },
+          "annual_afa": {
+            "type": "number",
+            "title": "Annual Afa"
+          },
+          "afa_rate_pct": {
+            "type": "number",
+            "title": "Afa Rate Pct"
+          },
+          "afa_method": {
+            "type": "string",
+            "title": "Afa Method"
+          },
+          "afa_tax_saving_yr1": {
+            "type": "number",
+            "title": "Afa Tax Saving Yr1"
+          },
+          "annuity_monthly": {
+            "type": "number",
+            "title": "Annuity Monthly"
+          },
+          "gross_yield_pct": {
+            "type": "number",
+            "title": "Gross Yield Pct"
+          },
+          "net_yield_pct": {
+            "type": "number",
+            "title": "Net Yield Pct"
+          },
+          "kpf": {
+            "type": "number",
+            "title": "Kpf"
+          },
+          "irr_10": {
+            "type": "number",
+            "title": "Irr 10"
+          },
+          "irr_15": {
+            "type": "number",
+            "title": "Irr 15"
+          },
+          "irr_20": {
+            "type": "number",
+            "title": "Irr 20"
+          },
+          "equity_multiple_10": {
+            "type": "number",
+            "title": "Equity Multiple 10"
+          },
+          "equity_multiple_15": {
+            "type": "number",
+            "title": "Equity Multiple 15"
+          },
+          "equity_multiple_20": {
+            "type": "number",
+            "title": "Equity Multiple 20"
+          },
+          "cash_flow_monthly_yr1": {
+            "type": "number",
+            "title": "Cash Flow Monthly Yr1"
+          },
+          "year_data": {
+            "items": {
+              "$ref": "#/components/schemas/YearData"
+            },
+            "type": "array",
+            "title": "Year Data"
+          },
+          "market_rent_m2": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Market Rent M2"
+          },
+          "bodenrichtwert_m2": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bodenrichtwert M2"
+          },
+          "current_mortgage_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Mortgage Rate"
+          },
+          "location_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Score"
+          },
+          "population_trend": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Population Trend"
+          },
+          "ai_analysis": {
+            "type": "string",
+            "title": "Ai Analysis"
+          },
+          "address_resolved": {
+            "type": "string",
+            "title": "Address Resolved"
+          }
+        },
+        "type": "object",
+        "required": [
+          "score",
+          "verdict",
+          "purchase_price",
+          "equity",
+          "loan",
+          "closing_costs",
+          "ltv_pct",
+          "afa_basis",
+          "annual_afa",
+          "afa_rate_pct",
+          "afa_method",
+          "afa_tax_saving_yr1",
+          "annuity_monthly",
+          "gross_yield_pct",
+          "net_yield_pct",
+          "kpf",
+          "irr_10",
+          "irr_15",
+          "irr_20",
+          "equity_multiple_10",
+          "equity_multiple_15",
+          "equity_multiple_20",
+          "cash_flow_monthly_yr1",
+          "year_data",
+          "ai_analysis",
+          "address_resolved"
+        ],
+        "title": "AnalyseResponse"
+      },
+      "BetaLoginRequest": {
+        "properties": {
+          "beta_code": {
+            "type": "string",
+            "title": "Beta Code"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "beta_code"
+        ],
+        "title": "BetaLoginRequest"
+      },
+      "BetaLoginResponse": {
+        "properties": {
+          "session_token": {
+            "type": "string",
+            "title": "Session Token"
+          },
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "is_new_user": {
+            "type": "boolean",
+            "title": "Is New User"
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_token",
+          "user_id",
+          "is_new_user"
+        ],
+        "title": "BetaLoginResponse"
+      },
+      "ChatHistoryResponse": {
+        "properties": {
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/ConversationMessage"
+            },
+            "type": "array",
+            "title": "Messages"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "messages",
+          "total"
+        ],
+        "title": "ChatHistoryResponse"
+      },
+      "ChatRequest": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "context_type": {
+            "type": "string",
+            "title": "Context Type",
+            "default": "general"
+          },
+          "context_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Context Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "title": "ChatRequest"
+      },
+      "CompactAnalysisStatusResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "analysis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/immonator__api__portfolio_router__CompactAnalysisOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "CompactAnalysisStatusResponse"
+      },
+      "ConversationMessage": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "context_type": {
+            "type": "string",
+            "title": "Context Type"
+          },
+          "context_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Context Id"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "role",
+          "message",
+          "context_type",
+          "context_id",
+          "created_at"
+        ],
+        "title": "ConversationMessage"
+      },
+      "DeepAnalysisResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "property_id": {
+            "type": "string",
+            "title": "Property Id"
+          },
+          "cached": {
+            "type": "boolean",
+            "title": "Cached"
+          },
+          "model_used": {
+            "type": "string",
+            "title": "Model Used"
+          },
+          "calculated_metrics": {
+            "type": "object",
+            "title": "Calculated Metrics"
+          },
+          "analysis": {
+            "type": "object",
+            "title": "Analysis"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "property_id",
+          "cached",
+          "model_used",
+          "calculated_metrics",
+          "analysis",
+          "created_at"
+        ],
+        "title": "DeepAnalysisResponse"
+      },
+      "DeleteHistoryResponse": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success"
+          },
+          "deleted": {
+            "type": "integer",
+            "title": "Deleted"
+          }
+        },
+        "type": "object",
+        "required": [
+          "success",
+          "deleted"
+        ],
+        "title": "DeleteHistoryResponse"
+      },
+      "DeleteResponse": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success"
+          }
+        },
+        "type": "object",
+        "required": [
+          "success"
+        ],
+        "title": "DeleteResponse"
+      },
+      "FeedbackRequest": {
+        "properties": {
+          "type": {
+            "$ref": "#/components/schemas/FeedbackType"
+          },
+          "content": {
+            "type": "string",
+            "title": "Content"
+          },
+          "page_context": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Context"
+          },
+          "rating": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rating"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "content"
+        ],
+        "title": "FeedbackRequest"
+      },
+      "FeedbackResponse": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success"
+          }
+        },
+        "type": "object",
+        "required": [
+          "success"
+        ],
+        "title": "FeedbackResponse"
+      },
+      "FeedbackType": {
+        "type": "string",
+        "enum": [
+          "bug",
+          "suggestion",
+          "rating",
+          "general"
+        ],
+        "title": "FeedbackType"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "MarketAnalysisResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "city": {
+            "type": "string",
+            "title": "City"
+          },
+          "property_type": {
+            "type": "string",
+            "title": "Property Type"
+          },
+          "cached": {
+            "type": "boolean",
+            "title": "Cached"
+          },
+          "database_stats": {
+            "type": "object",
+            "title": "Database Stats"
+          },
+          "analysis": {
+            "type": "object",
+            "title": "Analysis"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "expires_at": {
+            "type": "string",
+            "title": "Expires At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "city",
+          "property_type",
+          "cached",
+          "database_stats",
+          "analysis",
+          "created_at",
+          "expires_at"
+        ],
+        "title": "MarketAnalysisResponse"
+      },
+      "MarketStatsResponse": {
+        "properties": {
+          "city": {
+            "type": "string",
+            "title": "City"
+          },
+          "property_type": {
+            "type": "string",
+            "title": "Property Type"
+          },
+          "total_listings": {
+            "type": "integer",
+            "title": "Total Listings"
+          },
+          "avg_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Price"
+          },
+          "avg_price_per_sqm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Price Per Sqm"
+          },
+          "avg_days_on_market": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Days On Market"
+          },
+          "price_min": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Min"
+          },
+          "price_max": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Max"
+          },
+          "price_median": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Median"
+          },
+          "listings_with_price_reductions": {
+            "type": "integer",
+            "title": "Listings With Price Reductions"
+          },
+          "price_reduction_rate": {
+            "type": "number",
+            "title": "Price Reduction Rate"
+          },
+          "top_zip_codes_by_price": {
+            "items": {
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Top Zip Codes By Price"
+          },
+          "top_zip_codes_by_yield": {
+            "items": {
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Top Zip Codes By Yield"
+          },
+          "avg_bodenrichtwert": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Bodenrichtwert"
+          }
+        },
+        "type": "object",
+        "required": [
+          "city",
+          "property_type",
+          "total_listings",
+          "avg_price",
+          "avg_price_per_sqm",
+          "avg_days_on_market",
+          "price_min",
+          "price_max",
+          "price_median",
+          "listings_with_price_reductions",
+          "price_reduction_rate",
+          "top_zip_codes_by_price",
+          "top_zip_codes_by_yield",
+          "avg_bodenrichtwert"
+        ],
+        "title": "MarketStatsResponse"
+      },
+      "MatchesResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PropertyMatchItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "MatchesResponse"
+      },
+      "MeResponse": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "is_beta": {
+            "type": "boolean",
+            "title": "Is Beta"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "display_name",
+          "created_at",
+          "is_beta"
+        ],
+        "title": "MeResponse"
+      },
+      "NegotiationBriefResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "property_id": {
+            "type": "string",
+            "title": "Property Id"
+          },
+          "brief": {
+            "type": "object",
+            "title": "Brief"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "property_id",
+          "brief",
+          "created_at"
+        ],
+        "title": "NegotiationBriefResponse"
+      },
+      "PortfolioAnalysisResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "analysis": {
+            "type": "object",
+            "title": "Analysis"
+          },
+          "portfolio_snapshot": {
+            "type": "object",
+            "title": "Portfolio Snapshot"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "analysis",
+          "portfolio_snapshot",
+          "created_at"
+        ],
+        "title": "PortfolioAnalysisResponse"
+      },
+      "PortfolioItem": {
+        "properties": {
+          "portfolio_id": {
+            "type": "string",
+            "title": "Portfolio Id"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "purchase_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Purchase Price"
+          },
+          "added_at": {
+            "type": "string",
+            "title": "Added At"
+          },
+          "property_id": {
+            "type": "string",
+            "title": "Property Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "city": {
+            "type": "string",
+            "title": "City"
+          },
+          "address": {
+            "type": "string",
+            "title": "Address"
+          },
+          "asking_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asking Price"
+          },
+          "living_area_sqm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Living Area Sqm"
+          },
+          "rooms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rooms"
+          },
+          "property_type": {
+            "type": "string",
+            "title": "Property Type"
+          },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Url"
+          },
+          "images_urls": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Images Urls"
+          },
+          "compact_analysis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/immonator__api__portfolio_router__CompactAnalysisOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "portfolio_id",
+          "status",
+          "notes",
+          "purchase_price",
+          "added_at",
+          "property_id",
+          "title",
+          "city",
+          "address",
+          "asking_price",
+          "living_area_sqm",
+          "rooms",
+          "property_type",
+          "source_url",
+          "images_urls"
+        ],
+        "title": "PortfolioItem"
+      },
+      "PortfolioResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PortfolioItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "PortfolioResponse"
+      },
+      "PropertyDetailResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Url"
+          },
+          "listing_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Listing Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "address": {
+            "type": "string",
+            "title": "Address"
+          },
+          "city": {
+            "type": "string",
+            "title": "City"
+          },
+          "zip_code": {
+            "type": "string",
+            "title": "Zip Code"
+          },
+          "state": {
+            "type": "string",
+            "title": "State"
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latitude"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude"
+          },
+          "property_type": {
+            "type": "string",
+            "title": "Property Type"
+          },
+          "asking_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asking Price"
+          },
+          "living_area_sqm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Living Area Sqm"
+          },
+          "plot_area_sqm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plot Area Sqm"
+          },
+          "rooms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rooms"
+          },
+          "bedrooms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bedrooms"
+          },
+          "bathrooms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bathrooms"
+          },
+          "year_built": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Year Built"
+          },
+          "condition": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Condition"
+          },
+          "heating_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heating Type"
+          },
+          "energy_rating": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Energy Rating"
+          },
+          "monthly_rent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Rent"
+          },
+          "description_raw": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description Raw"
+          },
+          "images_urls": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Images Urls"
+          },
+          "has_balcony": {
+            "type": "boolean",
+            "title": "Has Balcony"
+          },
+          "has_garden": {
+            "type": "boolean",
+            "title": "Has Garden"
+          },
+          "has_parking": {
+            "type": "boolean",
+            "title": "Has Parking"
+          },
+          "is_available": {
+            "type": "boolean",
+            "title": "Is Available"
+          },
+          "days_on_market": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days On Market"
+          },
+          "price_history": {
+            "items": {
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Price History"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "title": "Updated At"
+          },
+          "valuations": {
+            "items": {
+              "$ref": "#/components/schemas/ValuationOut"
+            },
+            "type": "array",
+            "title": "Valuations"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "source",
+          "source_url",
+          "listing_id",
+          "title",
+          "address",
+          "city",
+          "zip_code",
+          "state",
+          "latitude",
+          "longitude",
+          "property_type",
+          "asking_price",
+          "living_area_sqm",
+          "plot_area_sqm",
+          "rooms",
+          "bedrooms",
+          "bathrooms",
+          "year_built",
+          "condition",
+          "heating_type",
+          "energy_rating",
+          "monthly_rent",
+          "description_raw",
+          "images_urls",
+          "has_balcony",
+          "has_garden",
+          "has_parking",
+          "is_available",
+          "days_on_market",
+          "price_history",
+          "created_at",
+          "updated_at",
+          "valuations"
+        ],
+        "title": "PropertyDetailResponse"
+      },
+      "PropertyListItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "city": {
+            "type": "string",
+            "title": "City"
+          },
+          "address": {
+            "type": "string",
+            "title": "Address"
+          },
+          "asking_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asking Price"
+          },
+          "living_area_sqm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Living Area Sqm"
+          },
+          "rooms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rooms"
+          },
+          "property_type": {
+            "type": "string",
+            "title": "Property Type"
+          },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Url"
+          },
+          "gross_yield": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gross Yield"
+          },
+          "net_yield": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Net Yield"
+          },
+          "bodenrichtwert": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bodenrichtwert"
+          },
+          "price_per_sqm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Per Sqm"
+          },
+          "days_on_market": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days On Market"
+          },
+          "images_urls": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Images Urls"
+          },
+          "compact_analysis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/immonator__api__properties_router__CompactAnalysisOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "city",
+          "address",
+          "asking_price",
+          "living_area_sqm",
+          "rooms",
+          "property_type",
+          "source_url",
+          "gross_yield",
+          "net_yield",
+          "bodenrichtwert",
+          "price_per_sqm",
+          "days_on_market",
+          "images_urls"
+        ],
+        "title": "PropertyListItem"
+      },
+      "PropertyListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PropertyListItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "pages": {
+            "type": "integer",
+            "title": "Pages"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "limit",
+          "pages"
+        ],
+        "title": "PropertyListResponse"
+      },
+      "PropertyMatchItem": {
+        "properties": {
+          "property_id": {
+            "type": "string",
+            "title": "Property Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "city": {
+            "type": "string",
+            "title": "City"
+          },
+          "asking_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asking Price"
+          },
+          "gross_yield": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gross Yield"
+          },
+          "monthly_rent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Rent"
+          },
+          "living_area_sqm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Living Area Sqm"
+          },
+          "property_type": {
+            "type": "string",
+            "title": "Property Type"
+          },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Url"
+          },
+          "fit_score": {
+            "type": "number",
+            "title": "Fit Score"
+          }
+        },
+        "type": "object",
+        "required": [
+          "property_id",
+          "title",
+          "city",
+          "asking_price",
+          "gross_yield",
+          "monthly_rent",
+          "living_area_sqm",
+          "property_type",
+          "source_url",
+          "fit_score"
+        ],
+        "title": "PropertyMatchItem"
+      },
+      "RefreshResponse": {
+        "properties": {
+          "session_token": {
+            "type": "string",
+            "title": "Session Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "session_token"
+        ],
+        "title": "RefreshResponse"
+      },
+      "RunScenarioRequest": {
+        "properties": {
+          "scenario_params": {
+            "$ref": "#/components/schemas/ScenarioParams"
+          }
+        },
+        "type": "object",
+        "required": [
+          "scenario_params"
+        ],
+        "title": "RunScenarioRequest"
+      },
+      "RunScenarioResponse": {
+        "properties": {
+          "calculated_metrics": {
+            "type": "object",
+            "title": "Calculated Metrics"
+          },
+          "ai_commentary": {
+            "type": "object",
+            "title": "Ai Commentary"
+          }
+        },
+        "type": "object",
+        "required": [
+          "calculated_metrics",
+          "ai_commentary"
+        ],
+        "title": "RunScenarioResponse"
+      },
+      "SaveScenarioRequest": {
+        "properties": {
+          "scenario_name": {
+            "type": "string",
+            "title": "Scenario Name"
+          },
+          "scenario_params": {
+            "$ref": "#/components/schemas/ScenarioParams"
+          }
+        },
+        "type": "object",
+        "required": [
+          "scenario_name",
+          "scenario_params"
+        ],
+        "title": "SaveScenarioRequest"
+      },
+      "SaveScenarioResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "scenario_name": {
+            "type": "string",
+            "title": "Scenario Name"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "scenario_name",
+          "created_at"
+        ],
+        "title": "SaveScenarioResponse"
+      },
+      "SavedScenarioItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "scenario_name": {
+            "type": "string",
+            "title": "Scenario Name"
+          },
+          "scenario_params": {
+            "type": "object",
+            "title": "Scenario Params"
+          },
+          "calculated_metrics": {
+            "type": "object",
+            "title": "Calculated Metrics"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "scenario_name",
+          "scenario_params",
+          "calculated_metrics",
+          "created_at"
+        ],
+        "title": "SavedScenarioItem"
+      },
+      "SavedScenariosResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SavedScenarioItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "SavedScenariosResponse"
+      },
+      "ScenarioParams": {
+        "properties": {
+          "purchase_price": {
+            "type": "number",
+            "title": "Purchase Price"
+          },
+          "down_payment_pct": {
+            "type": "number",
+            "title": "Down Payment Pct",
+            "default": 20.0
+          },
+          "interest_rate_pct": {
+            "type": "number",
+            "title": "Interest Rate Pct",
+            "default": 4.0
+          },
+          "loan_term_years": {
+            "type": "integer",
+            "title": "Loan Term Years",
+            "default": 25
+          },
+          "monthly_rent": {
+            "type": "number",
+            "title": "Monthly Rent"
+          },
+          "vacancy_rate_pct": {
+            "type": "number",
+            "title": "Vacancy Rate Pct",
+            "default": 2.0
+          },
+          "management_cost_pct": {
+            "type": "number",
+            "title": "Management Cost Pct",
+            "default": 5.0
+          },
+          "maintenance_cost_annual": {
+            "type": "number",
+            "title": "Maintenance Cost Annual",
+            "default": 1200.0
+          }
+        },
+        "type": "object",
+        "required": [
+          "purchase_price",
+          "monthly_rent"
+        ],
+        "title": "ScenarioParams"
+      },
+      "StatsResponse": {
+        "properties": {
+          "total_count": {
+            "type": "integer",
+            "title": "Total Count"
+          },
+          "count_by_city": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Count By City"
+          },
+          "avg_price_by_city": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Avg Price By City"
+          },
+          "avg_yield_by_city": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Avg Yield By City"
+          },
+          "added_last_7_days": {
+            "type": "integer",
+            "title": "Added Last 7 Days"
+          },
+          "added_last_30_days": {
+            "type": "integer",
+            "title": "Added Last 30 Days"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_count",
+          "count_by_city",
+          "avg_price_by_city",
+          "avg_yield_by_city",
+          "added_last_7_days",
+          "added_last_30_days"
+        ],
+        "title": "StatsResponse"
+      },
+      "StrategyResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "strategy": {
+            "type": "object",
+            "title": "Strategy"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "strategy",
+          "created_at"
+        ],
+        "title": "StrategyResponse"
+      },
+      "TriggerScrapeRequest": {
+        "properties": {
+          "city": {
+            "type": "string",
+            "title": "City"
+          },
+          "max_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Price"
+          },
+          "min_rooms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Rooms"
+          }
+        },
+        "type": "object",
+        "required": [
+          "city"
+        ],
+        "title": "TriggerScrapeRequest"
+      },
+      "TriggerScrapeResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "message"
+        ],
+        "title": "TriggerScrapeResponse"
+      },
+      "UpdateStatusRequest": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "purchase_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Purchase Price"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "UpdateStatusRequest"
+      },
+      "UpdateStatusResponse": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success"
+          }
+        },
+        "type": "object",
+        "required": [
+          "success"
+        ],
+        "title": "UpdateStatusResponse"
+      },
+      "UserProfileRequest": {
+        "properties": {
+          "available_equity": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Available Equity"
+          },
+          "monthly_income": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Income"
+          },
+          "monthly_expenses": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Expenses"
+          },
+          "existing_debt_payments": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Existing Debt Payments"
+          },
+          "risk_tolerance": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Risk Tolerance"
+          },
+          "investment_horizon_years": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Investment Horizon Years"
+          },
+          "target_monthly_cashflow": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Monthly Cashflow"
+          },
+          "target_yield_percent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Yield Percent"
+          },
+          "preferred_cities": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preferred Cities"
+          },
+          "preferred_property_types": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preferred Property Types"
+          },
+          "max_purchase_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Purchase Price"
+          },
+          "financing_preference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Financing Preference"
+          },
+          "experience_level": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Experience Level"
+          }
+        },
+        "type": "object",
+        "title": "UserProfileRequest"
+      },
+      "UserProfileResponse": {
+        "properties": {
+          "exists": {
+            "type": "boolean",
+            "title": "Exists"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "available_equity": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Available Equity"
+          },
+          "monthly_income": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Income"
+          },
+          "monthly_expenses": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Expenses"
+          },
+          "existing_debt_payments": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Existing Debt Payments"
+          },
+          "risk_tolerance": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Risk Tolerance"
+          },
+          "investment_horizon_years": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Investment Horizon Years"
+          },
+          "target_monthly_cashflow": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Monthly Cashflow"
+          },
+          "target_yield_percent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Yield Percent"
+          },
+          "preferred_cities": {
+            "anyOf": [
+              {
+                "items": {},
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preferred Cities"
+          },
+          "preferred_property_types": {
+            "anyOf": [
+              {
+                "items": {},
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preferred Property Types"
+          },
+          "max_purchase_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Purchase Price"
+          },
+          "financing_preference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Financing Preference"
+          },
+          "experience_level": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Experience Level"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "exists"
+        ],
+        "title": "UserProfileResponse"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "ValuationOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "gross_yield": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gross Yield"
+          },
+          "net_yield": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Net Yield"
+          },
+          "cap_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cap Rate"
+          },
+          "price_per_sqm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Per Sqm"
+          },
+          "bodenrichtwert": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bodenrichtwert"
+          },
+          "ertragswert": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ertragswert"
+          },
+          "sachwert": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sachwert"
+          },
+          "vergleichswert": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vergleichswert"
+          },
+          "recommended_offer_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recommended Offer Price"
+          },
+          "overvaluation_percent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Overvaluation Percent"
+          },
+          "ai_narrative": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ai Narrative"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "user_id",
+          "gross_yield",
+          "net_yield",
+          "cap_rate",
+          "price_per_sqm",
+          "bodenrichtwert",
+          "ertragswert",
+          "sachwert",
+          "vergleichswert",
+          "recommended_offer_price",
+          "overvaluation_percent",
+          "ai_narrative",
+          "created_at"
+        ],
+        "title": "ValuationOut"
+      },
+      "WaitlistRequest": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          },
+          "feature": {
+            "type": "string",
+            "title": "Feature"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "feature"
+        ],
+        "title": "WaitlistRequest"
+      },
+      "WaitlistResponse": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success"
+          }
+        },
+        "type": "object",
+        "required": [
+          "success"
+        ],
+        "title": "WaitlistResponse"
+      },
+      "WatchResponse": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "success",
+          "message"
+        ],
+        "title": "WatchResponse"
+      },
+      "YearData": {
+        "properties": {
+          "year": {
+            "type": "integer",
+            "title": "Year"
+          },
+          "rent_gross": {
+            "type": "number",
+            "title": "Rent Gross"
+          },
+          "interest": {
+            "type": "number",
+            "title": "Interest"
+          },
+          "afa": {
+            "type": "number",
+            "title": "Afa"
+          },
+          "tax_impact": {
+            "type": "number",
+            "title": "Tax Impact"
+          },
+          "cash_flow": {
+            "type": "number",
+            "title": "Cash Flow"
+          },
+          "property_value": {
+            "type": "number",
+            "title": "Property Value"
+          },
+          "net_worth": {
+            "type": "number",
+            "title": "Net Worth"
+          }
+        },
+        "type": "object",
+        "required": [
+          "year",
+          "rent_gross",
+          "interest",
+          "afa",
+          "tax_impact",
+          "cash_flow",
+          "property_value",
+          "net_worth"
+        ],
+        "title": "YearData"
+      },
+      "immonator__api__portfolio_router__CompactAnalysisOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "verdict": {
+            "type": "string",
+            "title": "Verdict"
+          },
+          "verdict_reason": {
+            "type": "string",
+            "title": "Verdict Reason"
+          },
+          "top_3_positives": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Top 3 Positives"
+          },
+          "top_3_risks": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Top 3 Risks"
+          },
+          "one_line_summary": {
+            "type": "string",
+            "title": "One Line Summary"
+          },
+          "confidence_score": {
+            "type": "number",
+            "title": "Confidence Score"
+          },
+          "calculated_metrics": {
+            "type": "object",
+            "title": "Calculated Metrics"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "verdict",
+          "verdict_reason",
+          "top_3_positives",
+          "top_3_risks",
+          "one_line_summary",
+          "confidence_score",
+          "calculated_metrics",
+          "created_at"
+        ],
+        "title": "CompactAnalysisOut"
+      },
+      "immonator__api__properties_router__CompactAnalysisOut": {
+        "properties": {
+          "verdict": {
+            "type": "string",
+            "title": "Verdict"
+          },
+          "one_line_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "One Line Summary"
+          }
+        },
+        "type": "object",
+        "required": [
+          "verdict"
+        ],
+        "title": "CompactAnalysisOut"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  }
+}
