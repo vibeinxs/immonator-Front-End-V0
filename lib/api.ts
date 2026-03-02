@@ -1,6 +1,6 @@
 "use client"
 
-import { getToken, logout } from "./auth"
+import { getToken } from "./auth"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || ""
 
@@ -28,7 +28,6 @@ async function request<T>(
     })
 
     if (response.status === 401) {
-      logout()
       return { data: null, error: "Unauthorized" }
     }
 
