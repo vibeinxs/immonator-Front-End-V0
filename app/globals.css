@@ -1,6 +1,7 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
+/* Immonator Premium Light Theme */
 @custom-variant dark (&:is(.dark *));
 
 :root {
