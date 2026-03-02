@@ -13,7 +13,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
-import { api } from "@/lib/api"
+import { immoApi } from "@/lib/immonatorApi"
 import { useLocale } from "@/lib/i18n/locale-context"
 
 type FeedbackType = "bug" | "suggestion" | "general" | "rating"
@@ -34,11 +34,7 @@ export function FeedbackModal({ open, onOpenChange }: FeedbackModalProps) {
 
   const handleSubmit = async () => {
     setSubmitting(true)
-    await api.post("/api/feedback", {
-      type,
-      message,
-      ...(type === "rating" ? { rating } : {}),
-    })
+    await immoApi.submitFeedback(type, message, undefined, type === "rating" ? rating : undefined)
     setSubmitting(false)
     setSubmitted(true)
     setTimeout(() => {

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from "react"
 import { ChevronDown, Lock } from "lucide-react"
-import { api } from "@/lib/api"
+import { immoApi } from "@/lib/immonatorApi"
 import { EUR } from "@/lib/utils"
 import { VerdictBadge } from "@/components/verdict-badge"
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible"
@@ -141,9 +141,7 @@ export function DeepAnalysisReport({ propertyId }: { propertyId: string }) {
       setLoadingMsg((m) => (m + 1) % LOADING_MSGS.length)
     }, 4000)
 
-    const { data: result } = await api.post<DeepData>(
-      `/api/analysis/deep/${propertyId}`
-    )
+    const { data: result } = await immoApi.triggerDeepAnalysis(propertyId) as unknown as { data: DeepData | null }
 
     clearInterval(progressRef.current!)
     clearInterval(msgId)

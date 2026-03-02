@@ -3,13 +3,12 @@
 import { useEffect, useState, useRef, useCallback } from "react"
 import { ChevronDown, ArrowRight } from "lucide-react"
 import { getToken } from "@/lib/auth"
+import { immoApi } from "@/lib/immonatorApi"
 
 interface ChatMessage {
   role: "user" | "assistant"
   content: string
 }
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || ""
 
 const SUGGESTION_CHIPS = [
   "Is this a good investment?",
@@ -39,15 +38,9 @@ export function AnalysisChat({
   useEffect(() => {
     if (didLoadHistory) return
     setDidLoadHistory(true)
-    const token = getToken()
-    if (!token) return
-
-    fetch(`${API_URL}/api/chat/history?context_type=${contextType}${contextId ? `&context_id=${contextId}` : ""}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (data?.messages) setMessages(data.messages)
+    immoApi.getChatHistory(contextType, contextId)
+      .then(({ data }) => {
+        if (data?.messages) setMessages(data.messages as ChatMessage[])
       })
       .catch(() => {})
   }, [contextType, contextId, didLoadHistory])
@@ -72,19 +65,7 @@ export function AnalysisChat({
       setMessages((prev) => [...prev, { role: "assistant", content: "" }])
 
       try {
-        const token = getToken()
-        const res = await fetch(`${API_URL}/api/chat`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify({
-            message: text.trim(),
-            context_type: contextType,
-            context_id: contextId,
-          }),
-        })
+        const res = await immoApi.sendChatMessage(text.trim(), contextType, contextId)
 
         if (!res.ok || !res.body) {
           setMessages((prev) => {

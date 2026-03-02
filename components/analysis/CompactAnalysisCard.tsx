@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useRef } from "react"
-import { api } from "@/lib/api"
+import { immoApi } from "@/lib/immonatorApi"
 import { VerdictBadge } from "@/components/verdict-badge"
 
 interface CompactData {
@@ -49,9 +49,7 @@ export function CompactAnalysisCard({ propertyId }: { propertyId: string }) {
     let polling = true
 
     async function fetchData() {
-      const { data: result } = await api.get<CompactData & { status?: string }>(
-        `/api/analysis/compact/${propertyId}`
-      )
+      const { data: result } = await immoApi.getCompactAnalysis(propertyId) as { data: (CompactData & { status?: string }) | null }
       if (!polling) return
 
       if (result && result.status !== "not_generated") {

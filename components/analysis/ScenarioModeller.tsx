@@ -5,7 +5,7 @@ import { ChevronDown } from "lucide-react"
 import { MetricCard } from "@/components/metric-card"
 import { VerdictBadge } from "@/components/verdict-badge"
 import { EUR, cn } from "@/lib/utils"
-import { api } from "@/lib/api"
+import { immoApi } from "@/lib/immonatorApi"
 import {
   Collapsible,
   CollapsibleContent,
@@ -93,7 +93,7 @@ export function ScenarioModeller({ propertyId, askingPrice, monthlyRent }: Scena
   /* ── AI commentary debounce ───────────────────── */
   const fetchAi = useCallback(async () => {
     setAiLoading(true)
-    const { data } = await api.post<AiComment>(`/api/analysis/scenario/${propertyId}`, values)
+    const { data } = await immoApi.runScenario(propertyId, values) as unknown as { data: AiComment | null }
     if (data) setAiComment(data)
     setAiLoading(false)
   }, [propertyId, values])

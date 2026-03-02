@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { isLoggedIn, setAuth } from "@/lib/auth"
-import { api } from "@/lib/api"
+import { immoApi } from "@/lib/immonatorApi"
 import { LocaleSwitcher } from "@/components/locale-switcher"
 import { useLocale } from "@/lib/i18n/locale-context"
 
@@ -44,11 +44,7 @@ export default function BetaLoginPage() {
       return
     }
 
-    const { data, error: apiError } = await api.post<{
-      token: string
-      user_id: string
-      display_name: string
-    }>("/api/auth/beta-login", { access_code: accessCode, name })
+    const { data, error: apiError } = await immoApi.betaLogin(accessCode, name || undefined)
 
     if (apiError || !data) {
       setError(t("login.error"))

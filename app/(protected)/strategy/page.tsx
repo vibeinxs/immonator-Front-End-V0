@@ -7,7 +7,7 @@ import { MetricCard } from "@/components/metric-card"
 import { VerdictBadge } from "@/components/verdict-badge"
 import { useLocale } from "@/lib/i18n/locale-context"
 import { EUR, cn } from "@/lib/utils"
-import { api } from "@/lib/api"
+import { immoApi } from "@/lib/immonatorApi"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 
 /* ── types ───────────────────────────────────────── */
@@ -263,11 +263,11 @@ export default function StrategyPage() {
 
   useEffect(() => {
     Promise.all([
-      api.get<UserProfile>("/api/users/profile"),
-      api.get<StrategyData>("/api/strategy"),
+      immoApi.getUserProfile(),
+      immoApi.getStrategy(),
     ]).then(([profileRes, strategyRes]) => {
       setHasProfile(!!profileRes.data)
-      if (strategyRes.data) setStrategy(strategyRes.data)
+      if (strategyRes.data) setStrategy(strategyRes.data as unknown as StrategyData)
       setLoading(false)
     })
   }, [])
@@ -285,9 +285,9 @@ export default function StrategyPage() {
   const handleWizardComplete = useCallback(async (profile: UserProfile) => {
     setWizardOpen(false)
     setLoading(true)
-    await api.put("/api/users/profile", profile)
-    const { data } = await api.get<StrategyData>("/api/strategy")
-    if (data) setStrategy(data)
+    await immoApi.saveUserProfile(profile as unknown as import("@/lib/immonatorApi").UserProfileData)
+    const { data } = await immoApi.getStrategy()
+    if (data) setStrategy(data as unknown as StrategyData)
     setHasProfile(true)
     setLoading(false)
   }, [])

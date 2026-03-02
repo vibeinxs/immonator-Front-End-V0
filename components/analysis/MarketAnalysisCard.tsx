@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { api } from "@/lib/api"
+import { immoApi } from "@/lib/immonatorApi"
 import { EUR } from "@/lib/utils"
 import Link from "next/link"
 
@@ -27,11 +27,11 @@ export function MarketAnalysisCard({ city }: { city: string }) {
   const [ai, setAI] = useState<MarketAI | null>(null)
 
   useEffect(() => {
-    api.get<MarketStats>(`/api/analysis/market/${city}/stats`).then(({ data }) => {
-      if (data) setStats(data)
+    immoApi.getMarketStats(city).then(({ data }) => {
+      if (data) setStats(data as unknown as MarketStats)
     })
-    api.get<MarketAI>(`/api/analysis/market/${city}`).then(({ data }) => {
-      if (data) setAI(data)
+    immoApi.getMarketAnalysis(city).then(({ data }) => {
+      if (data) setAI(data as unknown as MarketAI)
     })
   }, [city])
 

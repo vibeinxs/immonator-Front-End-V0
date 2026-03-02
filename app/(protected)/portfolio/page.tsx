@@ -7,7 +7,7 @@ import { MetricCard } from "@/components/metric-card"
 import { VerdictBadge } from "@/components/verdict-badge"
 import { useLocale } from "@/lib/i18n/locale-context"
 import { EUR, cn } from "@/lib/utils"
-import { api } from "@/lib/api"
+import { immoApi } from "@/lib/immonatorApi"
 import {
   Collapsible,
   CollapsibleContent,
@@ -106,15 +106,15 @@ export default function PortfolioPage() {
   const [analysing, setAnalysing] = useState(false)
 
   useEffect(() => {
-    api.get<PortfolioData>("/api/portfolio").then(({ data: d }) => {
-      if (d) setData(d)
+    immoApi.getPortfolio().then(({ data: d }) => {
+      if (d) setData(d as unknown as PortfolioData)
       setLoading(false)
     })
   }, [])
 
   const runAnalysis = useCallback(async () => {
     setAnalysing(true)
-    const { data: d } = await api.post<PortfolioData>("/api/analysis/portfolio")
+    const { data: d } = await immoApi.triggerPortfolioAnalysis() as unknown as { data: PortfolioData | null }
     if (d) setData(d)
     setAnalysing(false)
     setAnalysisOpen(true)

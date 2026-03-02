@@ -24,7 +24,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { VerdictBadge } from "@/components/verdict-badge"
-import { api } from "@/lib/api"
+import { immoApi } from "@/lib/immonatorApi"
 import { getDisplayName } from "@/lib/auth"
 import { useLocale } from "@/lib/i18n/locale-context"
 import { EUR } from "@/lib/utils"
@@ -319,12 +319,11 @@ function AddPropertyModal({
   const handleSubmit = async () => {
     if (!url) return
     setSubmitting(true)
-    await api.post("/api/properties/trigger-scrape", {
-      url,
-      city: city || undefined,
-      max_price: maxPrice ? Number(maxPrice) : undefined,
-      min_rooms: minRooms ? Number(minRooms) : undefined,
-    })
+      await immoApi.triggerScrape(
+        city || url,
+        maxPrice ? Number(maxPrice) : 0,
+        minRooms ? Number(minRooms) : 0,
+      )
     setSubmitting(false)
     setSuccess(true)
     setTimeout(() => {
@@ -655,11 +654,11 @@ export default function PropertiesPage() {
     async function fetchData() {
       setLoading(true)
       const [propsRes, statsRes] = await Promise.all([
-        api.get<Property[]>("/api/properties"),
-        api.get<Stats>("/api/properties/stats"),
+        immoApi.fetchProperties(),
+        immoApi.fetchPropertyStats(),
       ])
-      if (propsRes.data) setProperties(propsRes.data)
-      if (statsRes.data) setStats(statsRes.data)
+      if (propsRes.data?.properties) setProperties(propsRes.data.properties as Property[])
+      if (statsRes.data) setStats(statsRes.data as unknown as Stats)
       setLoading(false)
     }
     fetchData()
@@ -703,7 +702,7 @@ export default function PropertiesPage() {
 
   // Watch handler
   const handleWatch = async (id: string) => {
-    await api.post(`/api/portfolio/watch/${id}`)
+    await immoApi.saveToPortfolio(id)
     setProperties((prev) =>
       prev.map((p) =>
         p.id === id ? { ...p, is_watched: !p.is_watched } : p
