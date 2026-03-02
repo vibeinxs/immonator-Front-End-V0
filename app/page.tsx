@@ -1,6 +1,27 @@
 import Link from "next/link"
 import { ArrowRight, BarChart3, Shield, TrendingUp } from "lucide-react"
 
+const features = [
+  {
+    icon: TrendingUp,
+    title: "Yield Analysis",
+    description:
+      "Instant gross and net yield calculations with detailed cost breakdowns for any German property.",
+  },
+  {
+    icon: BarChart3,
+    title: "Market Intelligence",
+    description:
+      "Real-time price trends, demographic data, and growth projections across German cities.",
+  },
+  {
+    icon: Shield,
+    title: "Portfolio Tracking",
+    description:
+      "Monitor your entire portfolio performance with unified dashboards and alerts.",
+  },
+]
+
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-bg-base">
@@ -59,30 +80,12 @@ export default function LandingPage() {
             Built for serious investors
           </h2>
           <p className="mx-auto mt-4 max-w-lg text-center text-text-secondary">
-            Every feature designed to help you make better decisions on properties worth hundreds of thousands of euros.
+            Every feature designed to help you make better decisions on
+            properties worth hundreds of thousands of euros.
           </p>
 
           <div className="stagger-children mt-16 grid gap-6 md:grid-cols-3">
-            {[
-              {
-                icon: TrendingUp,
-                title: "Yield Analysis",
-                description:
-                  "Instant gross and net yield calculations with detailed cost breakdowns for any German property.",
-              },
-              {
-                icon: BarChart3,
-                title: "Market Intelligence",
-                description:
-                  "Real-time price trends, demographic data, and growth projections across German cities.",
-              },
-              {
-                icon: Shield,
-                title: "Portfolio Tracking",
-                description:
-                  "Monitor your entire portfolio performance with unified dashboards and alerts.",
-              },
-            ].map((feature) => {
+            {features.map((feature) => {
               const Icon = feature.icon
               return (
                 <div
@@ -112,7 +115,8 @@ export default function LandingPage() {
             Ready to analyze your first property?
           </h2>
           <p className="mx-auto mt-4 max-w-md text-text-secondary">
-            Join the beta and start making data-driven investment decisions today.
+            Join the beta and start making data-driven investment decisions
+            today.
           </p>
           <Link
             href="/beta-login"
@@ -130,9 +134,7 @@ export default function LandingPage() {
           <span className="font-serif text-sm text-text-secondary">
             Immonator
           </span>
-          <span className="text-xs text-text-muted">
-            Made in Germany
-          </span>
+          <span className="text-xs text-text-muted">Made in Germany</span>
         </div>
       </footer>
     </div>

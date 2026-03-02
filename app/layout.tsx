@@ -34,17 +34,17 @@ export const viewport: Viewport = {
   initialScale: 1,
 }
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode
-}>) {
-  const fontClasses = `${dmSans.variable} ${dmSerifDisplay.variable} ${jetbrainsMono.variable}`
-
+export default function RootLayout(
+  props: Readonly<{ children: React.ReactNode }>
+) {
   return (
-    <html lang="de" suppressHydrationWarning className={fontClasses}>
+    <html
+      lang="de"
+      suppressHydrationWarning
+      className={`${dmSans.variable} ${dmSerifDisplay.variable} ${jetbrainsMono.variable}`}
+    >
       <body suppressHydrationWarning className="font-sans antialiased">
-        {children}
+        {props.children}
         <Analytics />
       </body>
     </html>

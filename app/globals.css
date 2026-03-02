@@ -4,7 +4,7 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Backgrounds (warm off-white, premium) */
+  /* Backgrounds — warm off-white, premium */
   --bg-base: #F7F6F3;
   --bg-surface: #FFFFFF;
   --bg-elevated: #EFEEE9;
