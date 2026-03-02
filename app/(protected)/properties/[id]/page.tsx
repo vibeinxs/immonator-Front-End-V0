@@ -3,6 +3,10 @@
 import { use } from "react"
 import { VerdictBadge } from "@/components/verdict-badge"
 import { MetricCard } from "@/components/metric-card"
+import { CompactAnalysisCard } from "@/components/analysis/CompactAnalysisCard"
+import { MarketAnalysisCard } from "@/components/analysis/MarketAnalysisCard"
+import { DeepAnalysisReport } from "@/components/analysis/DeepAnalysisReport"
+import { AnalysisChat } from "@/components/chat/AnalysisChat"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { useLocale } from "@/lib/i18n/locale-context"
@@ -72,7 +76,16 @@ export default function PropertyDetailPage({
         />
       </div>
 
-      {/* Placeholder sections */}
+      {/* Compact Analysis + Market Analysis */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <CompactAnalysisCard propertyId={id} />
+        <MarketAnalysisCard city="Berlin" />
+      </div>
+
+      {/* Deep Analysis Report (full width) */}
+      <DeepAnalysisReport propertyId={id} />
+
+      {/* Cash Flow + Location placeholders */}
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="rounded-[14px] border border-border-default bg-bg-surface p-6">
           <h2 className="font-serif text-lg text-text-primary">
@@ -102,6 +115,9 @@ export default function PropertyDetailPage({
           </div>
         </div>
       </div>
+
+      {/* AI Chat (floating panel) */}
+      <AnalysisChat propertyId={id} />
     </div>
   )
 }
