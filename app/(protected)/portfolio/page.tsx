@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { ChevronDown, ExternalLink } from "lucide-react"
+import { ChevronDown } from "lucide-react"
 import { MetricCard } from "@/components/metric-card"
 import { VerdictBadge } from "@/components/verdict-badge"
 import { useLocale } from "@/lib/i18n/locale-context"
@@ -142,7 +142,7 @@ export default function PortfolioPage() {
     return (
       <div className="flex flex-col gap-8 animate-fade-in">
         <div>
-          <h1 className="font-serif text-3xl text-text-primary">{t("portfolio.title")}</h1>
+          <h1 className="font-display text-3xl text-text-primary">{t("portfolio.title")}</h1>
         </div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <MetricCard label={t("portfolio.metric.totalValue")} value={0} prefix={EUR} sentiment="neutral" />
@@ -154,7 +154,7 @@ export default function PortfolioPage() {
           icon={String.fromCharCode(128278)}
           headline={t("portfolio.empty.title")}
           body={t("portfolio.empty.body")}
-          actionLabel={t("properties.addProperty")}
+          actionLabel="Browse Properties →"
           onAction={() => router.push("/properties")}
         />
       </div>
@@ -166,7 +166,7 @@ export default function PortfolioPage() {
       {/* Header */}
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
-          <h1 className="font-serif text-3xl text-text-primary">{t("portfolio.title")}</h1>
+          <h1 className="font-display text-3xl text-text-primary">{t("portfolio.title")}</h1>
           <p className="mt-1 text-sm text-text-secondary">
             {`${data.properties.length} ${t("portfolio.subtitle")} ${String.fromCharCode(183)} Est. equity: ${EUR}${data.equity_estimate.toLocaleString("de-DE")}`}
           </p>
@@ -191,7 +191,7 @@ export default function PortfolioPage() {
       {/* Portfolio Analysis */}
       <Collapsible open={analysisOpen} onOpenChange={setAnalysisOpen}>
         <CollapsibleTrigger className="flex w-full items-center justify-between rounded-xl border border-border-default bg-bg-surface px-5 py-4 text-left transition-colors hover:bg-bg-hover">
-          <span className="font-serif text-lg text-text-primary">{t("portfolio.analysis")}</span>
+          <span className="font-display text-lg text-text-primary">{t("portfolio.analysis")}</span>
           <ChevronDown className={cn("h-4 w-4 text-text-muted transition-transform", analysisOpen && "rotate-180")} />
         </CollapsibleTrigger>
         <CollapsibleContent className="mt-2 rounded-xl border border-border-default bg-bg-surface p-6">
@@ -200,7 +200,7 @@ export default function PortfolioPage() {
               icon={String.fromCharCode(128202)}
               headline="Compare your shortlist."
               body="Immonator ranks properties and shows which to prioritise and how to deploy capital."
-              actionLabel={t("portfolio.analyse")}
+              actionLabel="Analyse My Portfolio"
               onAction={runAnalysis}
               disabled={data.properties.length < 2}
             />
@@ -316,6 +316,7 @@ export default function PortfolioPage() {
                   <th className="px-4 py-2.5 text-right text-[11px] font-medium uppercase tracking-wider text-text-muted">Yield</th>
                   <th className="px-4 py-2.5 text-right text-[11px] font-medium uppercase tracking-wider text-text-muted">Days</th>
                   <th className="px-4 py-2.5 text-right text-[11px] font-medium uppercase tracking-wider text-text-muted">Gap%</th>
+                  <th className="px-4 py-2.5 text-right text-[11px] font-medium uppercase tracking-wider text-text-muted">···</th>
                 </tr>
               </thead>
               <tbody>
@@ -341,6 +342,7 @@ export default function PortfolioPage() {
                     <td className={cn("px-4 py-3 text-right font-mono", p.gap_percent < 0 ? "text-success" : "text-danger")}>
                       {p.gap_percent > 0 ? "+" : ""}{p.gap_percent.toFixed(1)}%
                     </td>
+                    <td className="px-4 py-3 text-right text-text-muted">···</td>
                   </tr>
                 ))}
               </tbody>
@@ -375,9 +377,11 @@ export default function PortfolioPage() {
         </>
       ) : (
         <EmptyState
-          icon={String.fromCharCode(128270)}
-          headline="No properties match this filter."
-          body="Try a different status tab."
+          icon={String.fromCharCode(128278)}
+          headline="Your portfolio is empty."
+          body="Save a property to get an instant AI verdict."
+          actionLabel="Browse Properties →"
+          onAction={() => router.push("/properties")}
         />
       )}
     </div>

@@ -9,6 +9,7 @@ import { useLocale } from "@/lib/i18n/locale-context"
 import { EUR, cn } from "@/lib/utils"
 import { immoApi } from "@/lib/immonatorApi"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
+import { AnalysisChat } from "@/components/chat/AnalysisChat"
 
 /* ── types ───────────────────────────────────────── */
 interface UserProfile {
@@ -42,7 +43,7 @@ interface StrategyData {
 const STYLES = ["conservative", "balanced", "growth"] as const
 const HORIZONS = ["1-3yr", "3-5yr", "5-10yr", "10yr+"] as const
 const FOCUSES = ["cashflow", "appreciation", "both"] as const
-const CITIES_LIST = ["Berlin", "Munich", "Hamburg", "Frankfurt", "Cologne", "Stuttgart", String.fromCharCode(68, 252, 115, 115, 101, 108, 100, 111, 114, 102), "Leipzig", "Dresden"]
+const CITIES_LIST = ["Berlin", "Munich", "Hamburg", "Frankfurt", "Cologne", "Stuttgart", String.fromCharCode(68, 252, 115, 115, 101, 108, 100, 111, 114, 102), "Leipzig", "Dresden", "Other"]
 const TYPES_LIST = ["Apartment", "House", "Multi-family", "Commercial"]
 
 const STYLE_ICONS: Record<string, string> = { conservative: String.fromCharCode(128737), balanced: String.fromCharCode(9878), growth: String.fromCharCode(128640) }
@@ -77,7 +78,7 @@ function StrategyWizard({ open, onClose, onComplete }: { open: boolean; onClose:
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg p-0 bg-bg-surface border-border-default gap-0 [&>button]:hidden">
+      <DialogContent className="h-screen w-screen max-w-none rounded-none p-0 bg-white border-0 gap-0 [&>button]:hidden">
         {/* Progress bar */}
         <div className="h-0.5 bg-bg-elevated">
           <div className="h-full bg-brand transition-all duration-300" style={{ width: `${progress}%` }} />
@@ -93,7 +94,7 @@ function StrategyWizard({ open, onClose, onComplete }: { open: boolean; onClose:
           {/* Step 1: Equity */}
           {step === 0 && (
             <div className="animate-fade-in">
-              <h2 className="font-serif text-2xl text-text-primary">How much equity do you have available?</h2>
+              <h2 className="font-display text-2xl text-text-primary">How much equity do you have available?</h2>
               <input
                 type="number"
                 value={profile.equity || ""}
@@ -108,7 +109,7 @@ function StrategyWizard({ open, onClose, onComplete }: { open: boolean; onClose:
           {/* Step 2: Monthly finances */}
           {step === 1 && (
             <div className="animate-fade-in">
-              <h2 className="font-serif text-2xl text-text-primary">Your monthly finances</h2>
+              <h2 className="font-display text-2xl text-text-primary">Your monthly finances</h2>
               <div className="mt-8 grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-[10px] font-medium uppercase tracking-wider text-text-muted">Income ({EUR})</label>
@@ -135,7 +136,7 @@ function StrategyWizard({ open, onClose, onComplete }: { open: boolean; onClose:
           {/* Step 3: Style + horizon */}
           {step === 2 && (
             <div className="animate-fade-in">
-              <h2 className="font-serif text-2xl text-text-primary">{"What's your investment style?"}</h2>
+              <h2 className="font-display text-2xl text-text-primary">{"What's your investment style?"}</h2>
               <div className="mt-6 grid grid-cols-3 gap-3">
                 {STYLES.map((s) => (
                   <button
@@ -172,7 +173,7 @@ function StrategyWizard({ open, onClose, onComplete }: { open: boolean; onClose:
           {/* Step 4: Focus + yield */}
           {step === 3 && (
             <div className="animate-fade-in">
-              <h2 className="font-serif text-2xl text-text-primary">What matters most?</h2>
+              <h2 className="font-display text-2xl text-text-primary">What matters most?</h2>
               <div className="mt-6 grid grid-cols-3 gap-3">
                 {FOCUSES.map((f) => (
                   <button
@@ -196,16 +197,16 @@ function StrategyWizard({ open, onClose, onComplete }: { open: boolean; onClose:
                 step={0.5}
                 value={profile.min_yield}
                 onChange={(e) => upd("min_yield", Number(e.target.value))}
-                className="mt-3 w-full accent-brand"
+                className="mt-3 w-full accent-[#3B7BF5]"
               />
-              <p className="mt-3 font-serif text-3xl text-brand">{profile.min_yield}% minimum</p>
+              <p className="mt-3 font-display text-3xl text-brand">{profile.min_yield}% minimum</p>
             </div>
           )}
 
           {/* Step 5: Cities + types */}
           {step === 4 && (
             <div className="animate-fade-in">
-              <h2 className="font-serif text-2xl text-text-primary">Where do you want to invest?</h2>
+              <h2 className="font-display text-2xl text-text-primary">Where do you want to invest?</h2>
               <div className="mt-4 flex flex-wrap gap-2 justify-center">
                 {CITIES_LIST.map((c) => (
                   <button
@@ -310,7 +311,7 @@ export default function StrategyPage() {
       <div className="animate-fade-in">
         <StrategyWizard open={wizardOpen} onClose={() => setWizardOpen(false)} onComplete={handleWizardComplete} />
         <div className="max-w-lg mx-auto text-center py-24">
-          <h1 className="font-serif text-4xl text-text-primary">What should you be buying?</h1>
+          <h1 className="font-display text-4xl text-text-primary">What should you be buying?</h1>
           <p className="text-text-secondary mt-4 leading-relaxed">
             Tell Immonator your equity, risk profile, and goals. We will match you with the right cities,
             yields, and financing structures for your budget.
@@ -340,10 +341,10 @@ export default function StrategyPage() {
 
       {/* Banner */}
       {banner && (
-        <div className="animate-slide-up rounded-xl bg-brand py-3 px-6 text-sm text-white flex items-center justify-between">
+        <div className="animate-slide-down rounded-xl bg-brand py-3 px-6 text-sm text-white flex items-center justify-between">
           <span>{banner}</span>
           <button onClick={() => { setBanner(null); router.push("/properties") }} className="font-semibold underline">
-            View
+            View →
           </button>
         </div>
       )}
@@ -374,7 +375,7 @@ export default function StrategyPage() {
       <div className="flex gap-3 overflow-x-auto pb-2">
         {strategy.cities.map((c) => (
           <div key={c.name} className="shrink-0 min-w-[160px] rounded-xl border border-border-default bg-bg-surface p-4">
-            <p className="font-serif text-xl text-text-primary">{c.name}</p>
+            <p className="font-display text-xl text-text-primary">{c.name}</p>
             <p className="mt-1 text-xs text-text-secondary">{c.reason}</p>
             <p className="mt-2 font-mono text-sm text-brand">{c.yield_range}</p>
           </div>
@@ -413,6 +414,8 @@ export default function StrategyPage() {
         </table>
       </div>
 
+
+      <AnalysisChat contextType="general" title="your strategy" />
       {/* Matching properties */}
       {strategy.matches.length > 0 && (
         <div>
