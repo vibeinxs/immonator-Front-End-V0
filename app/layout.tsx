@@ -29,14 +29,14 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  themeColor: "#F7F6F3",
+  themeColor: "#F0F1F3",
   width: "device-width",
   initialScale: 1,
 }
 
-export default function RootLayout(
-  props: Readonly<{ children: React.ReactNode }>
-) {
+export default function RootLayout({
+  children,
+}: Readonly<{ children: React.ReactNode }>) {
   return (
     <html
       lang="de"
@@ -44,7 +44,7 @@ export default function RootLayout(
       className={`${dmSans.variable} ${dmSerifDisplay.variable} ${jetbrainsMono.variable}`}
     >
       <body suppressHydrationWarning className="font-sans antialiased">
-        {props.children}
+        {children}
         <Analytics />
       </body>
     </html>
