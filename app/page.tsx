@@ -27,7 +27,7 @@ export default function LandingPage() {
       {/* Hero */}
       <section className="flex min-h-screen flex-col items-center justify-center px-4 pt-[58px] text-center">
         <div className="mx-auto max-w-3xl animate-fade-in">
-          <h1 className="font-serif text-[48px] leading-tight text-text-primary md:text-[56px]">
+          <h1 className="text-balance font-serif text-[48px] leading-tight text-text-primary md:text-[56px]">
             Invest in German real estate with confidence
           </h1>
           <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-text-secondary">
