@@ -1,0 +1,142 @@
+"use client"
+
+import { useEffect, useState, useRef } from "react"
+import { api } from "@/lib/api"
+import { VerdictBadge } from "@/components/verdict-badge"
+
+interface CompactData {
+  verdict: "strong_buy" | "worth_analysing" | "proceed_with_caution" | "avoid"
+  confidence_score: number
+  one_line_summary: string
+  positives: string[]
+  risks: string[]
+}
+
+function LoadingState() {
+  const [dots, setDots] = useState(".")
+  useEffect(() => {
+    const id = setInterval(() => {
+      setDots((d) => (d.length >= 3 ? "." : d + "."))
+    }, 500)
+    return () => clearInterval(id)
+  }, [])
+
+  return (
+    <div className="flex h-36 flex-col items-center justify-center">
+      <div className="flex gap-1">
+        {[0, 1, 2].map((i) => (
+          <div
+            key={i}
+            className="h-2 w-2 animate-pulse rounded-full bg-brand"
+            style={{ animationDelay: `${i * 150}ms` }}
+          />
+        ))}
+      </div>
+      <p className="mt-2 text-center text-xs text-text-muted">
+        Immonator is analysing this property{dots}
+      </p>
+    </div>
+  )
+}
+
+export function CompactAnalysisCard({ propertyId }: { propertyId: string }) {
+  const [data, setData] = useState<CompactData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const badgeRef = useRef(false)
+  const cardRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    let polling = true
+
+    async function fetchData() {
+      const { data: result } = await api.get<CompactData & { status?: string }>(
+        `/api/analysis/compact/${propertyId}`
+      )
+      if (!polling) return
+
+      if (result && result.status !== "not_generated") {
+        setData(result)
+        setLoading(false)
+        return
+      }
+      // Poll again
+      setTimeout(fetchData, 3000)
+    }
+
+    fetchData()
+    return () => { polling = false }
+  }, [propertyId])
+
+  // Pulse badge once on mount
+  useEffect(() => {
+    if (data && !badgeRef.current && cardRef.current) {
+      badgeRef.current = true
+      const badge = cardRef.current.querySelector("[data-slot='verdict-badge']")
+      if (badge) {
+        badge.classList.add("animate-pulse-badge")
+      }
+    }
+  }, [data])
+
+  if (loading) return <LoadingState />
+
+  if (!data) return null
+
+  return (
+    <div
+      ref={cardRef}
+      className="rounded-xl border border-border bg-white p-5"
+      style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}
+    >
+      <div className="flex items-center justify-between">
+        <VerdictBadge verdict={data.verdict} data-slot="verdict-badge" />
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-text-muted">
+            Confidence {data.confidence_score}/10
+          </span>
+          <div className="h-1.5 w-16 rounded-full bg-bg-elevated">
+            <div
+              className="h-full rounded-full bg-brand transition-all"
+              style={{ width: `${data.confidence_score * 10}%` }}
+            />
+          </div>
+        </div>
+      </div>
+
+      <p className="mt-4 text-base font-semibold text-text-primary">
+        {data.one_line_summary}
+      </p>
+
+      <div className="mt-4 grid grid-cols-2 gap-4">
+        <div>
+          <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-text-muted">
+            POSITIVES
+          </p>
+          <div className="space-y-1.5">
+            {data.positives.map((p, i) => (
+              <p key={i} className="text-sm text-text-primary">
+                <span className="text-success">{"✓ "}</span>{p}
+              </p>
+            ))}
+          </div>
+        </div>
+        <div>
+          <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-text-muted">
+            RISKS
+          </p>
+          <div className="space-y-1.5">
+            {data.risks.map((r, i) => (
+              <p key={i} className="text-sm text-text-primary">
+                <span className="text-warning">{"⚠ "}</span>{r}
+              </p>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <p className="mt-4 text-right text-[11px] text-text-muted">
+        {"Immonator AI"} {String.fromCharCode(183)} {"Just now"}
+      </p>
+    </div>
+  )
+}
