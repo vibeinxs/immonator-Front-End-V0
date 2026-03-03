@@ -118,22 +118,13 @@ export type CompactAnalysisStatus = "not_generated" | "generated"
 
 /**
  * Response shape of GET /api/analysis/compact/{id}.
- * Combines the status wrapper with flattened analysis fields.
- * Field names match the portfolio router's CompactAnalysisOut schema.
- *
- *   Backend name      Task-spec alias (ignored per instructions)
- *   top_3_positives   positives
- *   top_3_risks       risks
- *   created_at        generated_at
+ * Mirrors CompactAnalysisStatusResponse from the OpenAPI schema:
+ * { status, analysis? } — consumers must read result.analysis.verdict,
+ * not result.verdict, to match what the backend actually sends.
  */
 export interface CompactAnalysis {
   status: CompactAnalysisStatus
-  verdict?: Verdict
-  one_line_summary?: string
-  confidence_score?: number
-  top_3_positives?: string[]
-  top_3_risks?: string[]
-  created_at?: string
+  analysis?: PortfolioCompactAnalysis | null
 }
 
 export interface ScenarioParams {
