@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { copy } from "@/lib/copy"
 
 interface ScenarioModellerProps {
   propertyId: string
@@ -199,11 +200,11 @@ export function ScenarioModeller({ propertyId, askingPrice, monthlyRent }: Scena
       <div>
         {/* Monthly Cashflow hero */}
         <div className="text-center mb-6">
-          <p className="text-[11px] uppercase tracking-wider text-text-muted">Monthly Cashflow</p>
+          <p className="text-[11px] uppercase tracking-wider text-text-muted">{copy.scenarioModeller.monthlyCashflow}</p>
           <p className={cn("font-display text-5xl mt-2", cashflow >= 0 ? "text-success" : "text-danger")}>
             {cashflow >= 0 ? "+" : ""}{EUR}{Math.round(Math.abs(cashflow)).toLocaleString("de-DE")}/mo
           </p>
-          <p className="text-xs text-text-muted mt-1">per month after all costs</p>
+          <p className="text-xs text-text-muted mt-1">{copy.scenarioModeller.perMonthAfterCosts}</p>
         </div>
 
         {/* Metric grid */}
@@ -245,7 +246,7 @@ export function ScenarioModeller({ propertyId, askingPrice, monthlyRent }: Scena
           ) : (
             <div className="flex items-center gap-2 text-sm text-text-muted">
               <div className="h-2 w-2 rounded-full bg-brand animate-pulse" />
-              Analysing scenario...
+              {copy.scenarioModeller.analysing}
             </div>
           )}
         </div>
@@ -264,7 +265,7 @@ export function ScenarioModeller({ propertyId, askingPrice, monthlyRent }: Scena
                 onKeyDown={(e) => e.key === "Enter" && saveScenario()}
               />
               <button onClick={saveScenario} className="rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-hover transition-colors">
-                Save
+                {copy.scenarioModeller.save}
               </button>
             </div>
           ) : (
@@ -272,7 +273,7 @@ export function ScenarioModeller({ propertyId, askingPrice, monthlyRent }: Scena
               onClick={() => setShowNameInput(true)}
               className="rounded-xl border border-border-default bg-bg-surface px-4 py-2.5 text-sm text-text-primary hover:bg-bg-hover transition-colors"
             >
-              Save This Scenario
+              {copy.scenarioModeller.saveScenario}
             </button>
           )}
           {savedScenarios.length > 0 && (
@@ -281,7 +282,7 @@ export function ScenarioModeller({ propertyId, askingPrice, monthlyRent }: Scena
               if (!isNaN(idx) && savedScenarios[idx]) loadScenario(savedScenarios[idx])
             }}>
               <SelectTrigger className="h-auto rounded-xl border-border-default bg-bg-surface px-3 py-2.5 text-sm text-text-primary">
-                <SelectValue placeholder="Saved Scenarios ▾" />
+                <SelectValue placeholder={copy.scenarioModeller.savedScenariosPlaceholder} />
               </SelectTrigger>
               <SelectContent>
                 {savedScenarios.map((s, i) => (

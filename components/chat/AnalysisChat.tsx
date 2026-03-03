@@ -4,19 +4,14 @@ import { useEffect, useState, useRef, useCallback } from "react"
 import { ChevronDown, ArrowRight } from "lucide-react"
 import { getToken } from "@/lib/auth"
 import { immoApi } from "@/lib/immonatorApi"
+import { copy } from "@/lib/copy"
 
 interface ChatMessage {
   role: "user" | "assistant"
   message: string
 }
 
-const SUGGESTION_CHIPS = [
-  "Is this a good investment?",
-  "What's a fair offer price?",
-  "What are the main risks?",
-  "How does this fit my strategy?",
-  "Explain the numbers to me",
-]
+const SUGGESTION_CHIPS = copy.chat.suggestions
 
 export function AnalysisChat({
   contextType,
@@ -69,12 +64,12 @@ export function AnalysisChat({
 
         if (!res.ok || !res.body) {
           setMessages((prev) => {
-            const copy = [...prev]
-            copy[copy.length - 1] = {
+            const msgs = [...prev]
+            msgs[msgs.length - 1] = {
               role: "assistant",
-              message: "Sorry, something went wrong. Please try again.",
+              message: copy.chat.errorGeneric,
             }
-            return copy
+            return msgs
           })
           setStreaming(false)
           return
@@ -103,12 +98,12 @@ export function AnalysisChat({
                 if (parsed.content) {
                   fullContent += parsed.content
                   setMessages((prev) => {
-                    const copy = [...prev]
-                    copy[copy.length - 1] = {
+                    const msgs = [...prev]
+                    msgs[msgs.length - 1] = {
                       role: "assistant",
                       message: fullContent,
                     }
-                    return copy
+                    return msgs
                   })
                 }
               } catch {
@@ -119,12 +114,12 @@ export function AnalysisChat({
         }
       } catch {
         setMessages((prev) => {
-          const copy = [...prev]
-          copy[copy.length - 1] = {
+          const msgs = [...prev]
+          msgs[msgs.length - 1] = {
             role: "assistant",
-            message: "Connection error. Please try again.",
+            message: copy.chat.errorNetwork,
           }
-          return copy
+          return msgs
         })
       }
 
@@ -141,7 +136,7 @@ export function AnalysisChat({
         className="flex w-full items-center justify-between rounded-t-xl border-b border-border bg-white p-4 transition-colors hover:bg-bg-hover"
       >
         <span className="text-sm font-semibold text-text-primary">
-          {"Chat about "}{title}
+          {copy.chat.headerPrefix} {title}
         </span>
         <ChevronDown
           className={`h-4 w-4 text-text-muted transition-transform duration-200 ${open ? "rotate-180" : ""}`}
@@ -171,7 +166,7 @@ export function AnalysisChat({
                 >
                   <p className="whitespace-pre-wrap">{msg.message}</p>
                   {msg.role === "assistant" && msg.message && (
-                    <p className="mt-1 text-[11px] text-text-muted">Immonator AI</p>
+                    <p className="mt-1 text-[11px] text-text-muted">{copy.chat.aiLabel}</p>
                   )}
                 </div>
               </div>
@@ -221,7 +216,7 @@ export function AnalysisChat({
                 }
               }}
               disabled={streaming}
-              placeholder="Ask anything..."
+              placeholder={copy.chat.inputPlaceholder}
               className="flex-1 rounded-xl border border-border bg-bg-elevated px-4 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10 disabled:opacity-50"
             />
             <button

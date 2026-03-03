@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { immoApi } from "@/lib/immonatorApi"
 import { EUR } from "@/lib/utils"
 import Link from "next/link"
+import { copy } from "@/lib/copy"
 
 interface MarketStats {
   avg_price_per_sqm: number | null
@@ -36,7 +37,7 @@ export function MarketAnalysisCard({ city }: { city: string }) {
       style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}
     >
       <div className="flex items-center justify-between">
-        <span className="text-sm font-semibold text-text-primary">{city} Market</span>
+        <span className="text-sm font-semibold text-text-primary">{city} {copy.market.suffix}</span>
         {stats && (
           <span className="rounded-md bg-bg-elevated px-2 py-0.5 text-[10px] font-bold uppercase text-text-secondary">
             {stats.total_listings} listings
@@ -47,10 +48,10 @@ export function MarketAnalysisCard({ city }: { city: string }) {
       {stats && (
         <div className="mt-3 flex flex-wrap gap-2">
           <span className="rounded-lg bg-bg-elevated px-2.5 py-1 font-mono text-xs text-text-secondary">
-            Avg {EUR}/m{String.fromCharCode(178)}: {(stats.avg_price_per_sqm ?? 0).toLocaleString("de-DE")}
+            {copy.market.avgPricePerSqmLabel} {EUR}/m{String.fromCharCode(178)}: {(stats.avg_price_per_sqm ?? 0).toLocaleString("de-DE")}
           </span>
           <span className="rounded-lg bg-bg-elevated px-2.5 py-1 font-mono text-xs text-text-secondary">
-            Avg {stats.avg_days_on_market ?? 0} days
+            {copy.market.avgDaysLabel} {stats.avg_days_on_market ?? 0} days
           </span>
         </div>
       )}
@@ -63,7 +64,7 @@ export function MarketAnalysisCard({ city }: { city: string }) {
         href={`/market/${city.toLowerCase()}`}
         className="mt-3 inline-block text-xs text-brand hover:underline"
       >
-        {"View Full Report →"}
+        {copy.market.viewFullReport}
       </Link>
     </div>
   )
