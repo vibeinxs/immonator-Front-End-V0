@@ -69,8 +69,8 @@ export interface Property {
   days_on_market: number | null
   price_history: PriceHistoryEntry[]
   created_at: string
-  // Additional fields present in list and/or detail responses
-  property_type?: string
+  property_type: string
+  // Additional fields not present in every response shape
   net_yield?: number | null
   bodenrichtwert?: number | null
   compact_analysis?: PropertyCompactSnippet | null
@@ -191,25 +191,27 @@ export interface PortfolioCompactAnalysis {
 /**
  * Portfolio item as returned by GET /api/portfolio.
  * The backend flattens property fields into the item — there is no
- * nested `property` object.
+ * nested `property` object. Shared fields are derived from Property
+ * via Pick so any rename in Property is automatically reflected here.
  */
-export interface PortfolioItem {
+export type PortfolioItem = Pick<
+  Property,
+  | "title"
+  | "city"
+  | "address"
+  | "asking_price"
+  | "living_area_sqm"
+  | "rooms"
+  | "property_type"
+  | "source_url"
+  | "images_urls"
+> & {
   portfolio_id: string
   property_id: string
   status: PortfolioStatus
   notes: string | null
   purchase_price: number | null
   added_at: string
-  // Flattened property fields
-  title: string
-  city: string
-  address: string
-  asking_price: number | null
-  living_area_sqm: number | null
-  rooms: number | null
-  property_type: string
-  source_url: string | null
-  images_urls: string[]
   compact_analysis?: PortfolioCompactAnalysis | null
 }
 
