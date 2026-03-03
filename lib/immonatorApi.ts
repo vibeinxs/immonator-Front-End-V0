@@ -81,7 +81,7 @@ export function fetchProperties(
 }
 
 export function fetchPropertyById(id: string): Promise<ApiResult<Property>> {
-  return apiCall<Property>(`/api/properties/${id}`, { method: "GET" })
+  return apiCall<Property>(`/api/properties/${encodeURIComponent(id)}`, { method: "GET" })
 }
 
 export function fetchPropertyStats(): Promise<ApiResult<PropertyStatsResponse>> {
@@ -103,7 +103,7 @@ export function saveToPortfolio(
   propertyId: string
 ): Promise<ApiResult<{ success: boolean; message: string }>> {
   return apiCall<{ success: boolean; message: string }>(
-    `/api/portfolio/watch/${propertyId}`,
+    `/api/portfolio/watch/${encodeURIComponent(propertyId)}`,
     { method: "POST" }
   )
 }
@@ -123,28 +123,28 @@ export function updatePortfolioStatus(
   notes?: string,
   price?: number
 ): Promise<ApiResult<{ success: boolean }>> {
-  return apiCall<{ success: boolean }>(`/api/portfolio/${id}/status`, {
+  return apiCall<{ success: boolean }>(`/api/portfolio/${encodeURIComponent(id)}/status`, {
     method: "PUT",
     body: JSON.stringify({ status, notes, purchase_price: price }),
   })
 }
 
 export function removeFromPortfolio(id: string): Promise<ApiResult<{ success: boolean }>> {
-  return apiCall<{ success: boolean }>(`/api/portfolio/${id}`, { method: "DELETE" })
+  return apiCall<{ success: boolean }>(`/api/portfolio/${encodeURIComponent(id)}`, { method: "DELETE" })
 }
 
 // ─── Analysis ─────────────────────────────────────────────────────────────────
 
 export function getCompactAnalysis(id: string): Promise<ApiResult<CompactAnalysis>> {
-  return apiCall<CompactAnalysis>(`/api/analysis/compact/${id}`, { method: "GET" })
+  return apiCall<CompactAnalysis>(`/api/analysis/compact/${encodeURIComponent(id)}`, { method: "GET" })
 }
 
 export function triggerDeepAnalysis(id: string): Promise<ApiResult<Record<string, unknown>>> {
-  return apiCall<Record<string, unknown>>(`/api/analysis/deep/${id}`, { method: "POST" })
+  return apiCall<Record<string, unknown>>(`/api/analysis/deep/${encodeURIComponent(id)}`, { method: "POST" })
 }
 
 export function getDeepAnalysis(id: string): Promise<ApiResult<Record<string, unknown>>> {
-  return apiCall<Record<string, unknown>>(`/api/analysis/deep/${id}`, { method: "GET" })
+  return apiCall<Record<string, unknown>>(`/api/analysis/deep/${encodeURIComponent(id)}`, { method: "GET" })
 }
 
 export function getMarketStats(city: string): Promise<ApiResult<Record<string, unknown>>> {
@@ -165,7 +165,7 @@ export function runScenario(
   id: string,
   params: ScenarioParams
 ): Promise<ApiResult<ScenarioResult>> {
-  return apiCall<ScenarioResult>(`/api/analysis/scenario/${id}`, {
+  return apiCall<ScenarioResult>(`/api/analysis/scenario/${encodeURIComponent(id)}`, {
     method: "POST",
     body: JSON.stringify({ scenario_params: params }),
   })
@@ -177,7 +177,7 @@ export function saveScenario(
   params: ScenarioParams
 ): Promise<ApiResult<{ id: string; scenario_name: string; created_at: string }>> {
   return apiCall<{ id: string; scenario_name: string; created_at: string }>(
-    `/api/analysis/scenario/${id}/save`,
+    `/api/analysis/scenario/${encodeURIComponent(id)}/save`,
     {
       method: "POST",
       body: JSON.stringify({ scenario_name: name, scenario_params: params }),
@@ -204,11 +204,11 @@ export function getStrategyMatches(): Promise<ApiResult<{ items: unknown[]; tota
 export function generateNegotiationBrief(
   id: string
 ): Promise<ApiResult<Record<string, unknown>>> {
-  return apiCall<Record<string, unknown>>(`/api/negotiate/${id}`, { method: "POST" })
+  return apiCall<Record<string, unknown>>(`/api/negotiate/${encodeURIComponent(id)}`, { method: "POST" })
 }
 
 export function getNegotiationBrief(id: string): Promise<ApiResult<Record<string, unknown>>> {
-  return apiCall<Record<string, unknown>>(`/api/negotiate/${id}`, { method: "GET" })
+  return apiCall<Record<string, unknown>>(`/api/negotiate/${encodeURIComponent(id)}`, { method: "GET" })
 }
 
 // ─── Profile ──────────────────────────────────────────────────────────────────
