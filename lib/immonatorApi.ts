@@ -154,6 +154,13 @@ export function getMarketStats(city: string): Promise<ApiResult<Record<string, u
   )
 }
 
+export function getMarketAnalysis(city: string): Promise<ApiResult<Record<string, unknown>>> {
+  return apiCall<Record<string, unknown>>(
+    `/api/analysis/market/${encodeURIComponent(city)}`,
+    { method: "GET" }
+  )
+}
+
 export function runScenario(
   id: string,
   params: ScenarioParams
@@ -255,6 +262,45 @@ export function joinWaitlist(
   })
 }
 
+// ─── Portfolio Analysis ───────────────────────────────────────────────────────
+
+interface PortfolioAnalysisShape {
+  quality_badge: string
+  summary: string
+  rankings: unknown[]
+  capital_plan: unknown[]
+  action_items: unknown[]
+}
+
+function normalizePortfolioAnalysis(raw: Record<string, unknown>): PortfolioAnalysisShape {
+  const analysis = (raw.analysis || {}) as Record<string, unknown>
+  return {
+    quality_badge: String(analysis.quality_badge || ""),
+    summary: String(analysis.summary || ""),
+    rankings: Array.isArray(analysis.rankings) ? analysis.rankings : [],
+    capital_plan: Array.isArray(analysis.capital_plan) ? analysis.capital_plan : [],
+    action_items: Array.isArray(analysis.action_items) ? analysis.action_items : [],
+  }
+}
+
+export async function triggerPortfolioAnalysis(): Promise<
+  ApiResult<{ analysis: PortfolioAnalysisShape }>
+> {
+  const res = await apiCall<Record<string, unknown>>("/api/analysis/portfolio", {
+    method: "POST",
+  })
+  if (!res.data) return { data: null, error: res.error }
+  return { data: { analysis: normalizePortfolioAnalysis(res.data) }, error: null }
+}
+
+export async function getPortfolioAnalysis(): Promise<ApiResult<PortfolioAnalysisShape>> {
+  const res = await apiCall<Record<string, unknown>>("/api/analysis/portfolio", {
+    method: "GET",
+  })
+  if (!res.data) return { data: null, error: res.error }
+  return { data: normalizePortfolioAnalysis(res.data), error: null }
+}
+
 // ─── Backward-compat object export ────────────────────────────────────────────
 
 export const immoApi = {
@@ -285,4 +331,7 @@ export const immoApi = {
   getChatHistory,
   submitFeedback,
   joinWaitlist,
+  triggerPortfolioAnalysis,
+  getPortfolioAnalysis,
+  getMarketAnalysis,
 }
