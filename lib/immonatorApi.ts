@@ -225,7 +225,7 @@ export function saveUserProfile(
   // and falling back to the legacy alias when present.
   const legacy = data as unknown as Record<string, unknown>
   return apiCall<Record<string, unknown>>("/api/users/profile", {
-    method: "PUT",
+    method: "POST",
     body: JSON.stringify({
       available_equity: data.available_equity ?? legacy.equity,
       monthly_income: data.monthly_income ?? legacy.income,
