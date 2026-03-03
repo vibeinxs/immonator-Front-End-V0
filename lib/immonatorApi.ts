@@ -220,9 +220,26 @@ export function getUserProfile(): Promise<ApiResult<Record<string, unknown>>> {
 export function saveUserProfile(
   data: UserProfileData
 ): Promise<ApiResult<Record<string, unknown>>> {
+  // Some callers (e.g. strategy wizard) pass legacy field names cast to this
+  // type. Resolve the correct API field name by preferring the canonical name
+  // and falling back to the legacy alias when present.
+  const legacy = data as unknown as Record<string, unknown>
   return apiCall<Record<string, unknown>>("/api/users/profile", {
     method: "PUT",
-    body: JSON.stringify(data),
+    body: JSON.stringify({
+      available_equity: data.available_equity ?? legacy.equity,
+      monthly_income: data.monthly_income ?? legacy.income,
+      monthly_expenses: data.monthly_expenses ?? legacy.expenses,
+      risk_tolerance: data.risk_tolerance ?? legacy.style,
+      investment_horizon_years: data.investment_horizon_years,
+      target_monthly_cashflow: data.target_monthly_cashflow,
+      target_yield_percent: data.target_yield_percent ?? legacy.min_yield,
+      preferred_cities: data.preferred_cities ?? legacy.cities,
+      preferred_property_types: data.preferred_property_types ?? legacy.types,
+      max_purchase_price: data.max_purchase_price,
+      financing_preference: data.financing_preference,
+      experience_level: data.experience_level,
+    }),
   })
 }
 
