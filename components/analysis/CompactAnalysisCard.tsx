@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react"
 import { immoApi } from "@/lib/immonatorApi"
 import { VerdictBadge } from "@/components/verdict-badge"
+import { copy } from "@/lib/copy"
 
 interface CompactData {
   verdict: "strong_buy" | "worth_analysing" | "proceed_with_caution" | "avoid"
@@ -33,7 +34,7 @@ function LoadingState() {
         ))}
       </div>
       <p className="mt-2 text-center text-xs text-text-muted">
-        Immonator is analysing this property{dots}
+        {copy.analysis.analysingText.replace(/\.+$/, "")}{dots}
       </p>
     </div>
   )
