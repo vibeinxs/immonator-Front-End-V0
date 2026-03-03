@@ -1,24 +1,20 @@
 "use client"
 
-import { getToken } from "./auth"
+import { ApiResult } from "@/types/api"
+import { getToken, logout } from "./auth"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || ""
 
-interface ApiResponse<T> {
-  data: T | null
-  error: string | null
-}
-
-async function request<T>(
+export async function apiCall<T>(
   endpoint: string,
   options: RequestInit = {}
-): Promise<ApiResponse<T>> {
+): Promise<ApiResult<T>> {
   const token = getToken()
 
-  const headers: HeadersInit = {
+  const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...options.headers,
+    ...(options.headers ? (options.headers as Record<string, string>) : {}),
   }
 
   try {
@@ -28,41 +24,72 @@ async function request<T>(
     })
 
     if (response.status === 401) {
-      return { data: null, error: "Unauthorized" }
+      logout()
+      return { data: null, error: "Session expired" }
     }
 
     if (!response.ok) {
       const errorBody = await response.json().catch(() => ({}))
       return {
         data: null,
-        error: errorBody.message || `Request failed with status ${response.status}`,
+        error: errorBody.detail || `Error ${response.status}`,
       }
     }
 
     const data = await response.json()
     return { data, error: null }
-  } catch (err) {
+  } catch {
     return {
       data: null,
-      error: err instanceof Error ? err.message : "An unknown error occurred",
+      error: "Network error. Check your connection.",
     }
   }
 }
 
+export async function apiStream(
+  endpoint: string,
+  body: object
+): Promise<Response | null> {
+  const token = getToken()
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  }
+
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+    })
+
+    if (response.status === 401) {
+      logout()
+      return null
+    }
+
+    return response
+  } catch {
+    return null
+  }
+}
+
+// Backward-compatible wrapper used by immonatorApi.ts
 export const api = {
-  get: <T>(endpoint: string) => request<T>(endpoint, { method: "GET" }),
+  get: <T>(endpoint: string) => apiCall<T>(endpoint, { method: "GET" }),
 
   post: <T>(endpoint: string, body?: unknown) =>
-    request<T>(endpoint, {
+    apiCall<T>(endpoint, {
       method: "POST",
       body: body ? JSON.stringify(body) : undefined,
     }),
 
   put: <T>(endpoint: string, body?: unknown) =>
-    request<T>(endpoint, {
+    apiCall<T>(endpoint, {
       method: "PUT",
       body: body ? JSON.stringify(body) : undefined,
     }),
 
-  delete: <T>(endpoint: string) => request<T>(endpoint, { method: "DELETE" }),
+  delete: <T>(endpoint: string) => apiCall<T>(endpoint, { method: "DELETE" }),
 }
