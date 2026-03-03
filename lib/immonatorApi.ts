@@ -213,8 +213,12 @@ export function getNegotiationBrief(id: string): Promise<ApiResult<Record<string
 
 // ─── Profile ──────────────────────────────────────────────────────────────────
 
-export function getUserProfile(): Promise<ApiResult<Record<string, unknown>>> {
-  return apiCall<Record<string, unknown>>("/api/users/profile", { method: "GET" })
+export async function getUserProfile(): Promise<ApiResult<Record<string, unknown>>> {
+  const res = await apiCall<Record<string, unknown>>("/api/users/profile", { method: "GET" })
+  if (!res.data) return { data: null, error: res.error }
+  // Backend returns {exists: false} when no profile is configured.
+  // Normalise to data: null so callers can gate on !!data without extra checks.
+  return { data: res.data.exists ? res.data : null, error: null }
 }
 
 export function saveUserProfile(
