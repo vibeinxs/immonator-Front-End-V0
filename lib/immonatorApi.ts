@@ -191,8 +191,11 @@ export function generateStrategy(): Promise<ApiResult<Record<string, unknown>>> 
   return apiCall<Record<string, unknown>>("/api/strategy/generate", { method: "POST" })
 }
 
-export function getStrategy(): Promise<ApiResult<Record<string, unknown>>> {
-  return apiCall<Record<string, unknown>>("/api/strategy", { method: "GET" })
+export async function getStrategy(): Promise<ApiResult<Record<string, unknown>>> {
+  const res = await apiCall<Record<string, unknown>>("/api/strategy", { method: "GET" })
+  if (!res.data) return { data: null, error: res.error }
+  // Backend returns { id, strategy: {...}, created_at }; unwrap the nested payload.
+  return { data: (res.data.strategy as Record<string, unknown>) ?? null, error: null }
 }
 
 export function getStrategyMatches(): Promise<ApiResult<{ items: unknown[]; total: number }>> {
