@@ -1,33 +1,22 @@
 "use client"
 
-import { api } from "./api"
-import { getToken } from "./auth"
+import { apiCall, apiStream } from "./api"
+import type {
+  ApiResult,
+  BetaLoginRequest,
+  BetaLoginResponse,
+  CompactAnalysis,
+  PortfolioItem,
+  PortfolioStatus,
+  Property,
+  PropertyFilters,
+  PropertyListResponse,
+  PropertyStatsResponse,
+  ScenarioParams,
+  ScenarioResult,
+} from "@/types/api"
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || ""
-
-/* ═══ Shared Types ═══════════════════════════════════ */
-
-export interface PropertyFilters {
-  city?: string
-  type?: string
-  maxPrice?: number
-  minRooms?: number
-  minYield?: number
-  sort?: string
-  page?: number
-  limit?: number
-}
-
-export interface ScenarioParams {
-  purchase_price: number
-  down_payment_pct: number
-  interest_rate_pct: number
-  loan_term_years: number
-  monthly_rent: number
-  vacancy_rate_pct: number
-  management_cost_pct: number
-  maintenance_cost_annual: number
-}
+// ─── Local types not yet in @/types/api ───────────────────────────────────────
 
 export interface UserProfileData {
   available_equity?: number
@@ -44,291 +33,207 @@ export interface UserProfileData {
   experience_level?: string
 }
 
-/* ═══ Auth ═══════════════════════════════════════════ */
+interface MeResponse {
+  user_id: string
+  display_name: string
+  email: string
+}
 
-export const immoApi = {
-  betaLogin: (betaCode: string, displayName?: string) =>
-    api.post<{ session_token: string; user_id: string; is_new_user: boolean }>(
-      "/api/auth/beta-login",
-      { beta_code: betaCode, display_name: displayName }
-    ),
+interface ChatRequest {
+  message: string
+  context_type: string
+  context_id?: string
+}
 
-  getMe: () =>
-    api.get<{ user_id: string; display_name: string; email: string }>(
-      "/api/auth/me"
-    ),
+interface FeedbackRequest {
+  type?: string
+  content?: string
+  page_context?: string
+  rating?: number
+}
 
-  /* ═══ Properties ══════════════════════════════════ */
+// ─── Auth ─────────────────────────────────────────────────────────────────────
 
-  fetchProperties: async (filters: PropertyFilters = {}) => {
-    const params = new URLSearchParams()
-    if (filters.city) params.set("city", filters.city)
-    if (filters.type) params.set("property_type", filters.type)
-    if (filters.maxPrice) params.set("max_price", String(filters.maxPrice))
-    if (filters.minRooms) params.set("min_rooms", String(filters.minRooms))
-    if (filters.sort) params.set("sort", filters.sort)
-    if (filters.page) params.set("page", String(filters.page))
-    if (filters.limit) params.set("limit", String(filters.limit))
-    const qs = params.toString()
-    const res = await api.get<unknown>(
-      `/api/properties${qs ? `?${qs}` : ""}`
-    )
-    if (!res.data) return { data: null, error: res.error }
+export function betaLogin(body: BetaLoginRequest): Promise<ApiResult<BetaLoginResponse>> {
+  return apiCall<BetaLoginResponse>("/api/auth/beta-login", {
+    method: "POST",
+    body: JSON.stringify(body),
+  })
+}
 
-    const raw = res.data as
-      | { items: Array<Record<string, unknown>>; total: number; page: number; limit: number; pages: number }
-      | Array<Record<string, unknown>>
-    let rawItems: Array<Record<string, unknown>> = []
-    let total = 0
-    let page = 1
-    let limit = 20
-    let pages = 1
+export function getMe(): Promise<ApiResult<MeResponse>> {
+  return apiCall<MeResponse>("/api/auth/me", { method: "GET" })
+}
 
-    if (Array.isArray(raw)) {
-      rawItems = raw
-      total = raw.length
-    } else {
-      rawItems = Array.isArray(raw.items) ? raw.items : []
-      total = Number(raw.total ?? rawItems.length)
-      page = Number(raw.page ?? page)
-      limit = Number(raw.limit ?? limit)
-      pages = Number(raw.pages ?? pages)
+// ─── Properties ───────────────────────────────────────────────────────────────
+
+export function fetchProperties(
+  filters: PropertyFilters = {}
+): Promise<ApiResult<PropertyListResponse>> {
+  const params = new URLSearchParams()
+  for (const [k, v] of Object.entries(filters)) {
+    if (v !== undefined) params.set(k, String(v))
+  }
+  const qs = params.toString()
+  return apiCall<PropertyListResponse>(`/api/properties${qs ? `?${qs}` : ""}`, {
+    method: "GET",
+  })
+}
+
+export function fetchPropertyById(id: string): Promise<ApiResult<Property>> {
+  return apiCall<Property>(`/api/properties/${encodeURIComponent(id)}`, { method: "GET" })
+}
+
+export function fetchPropertyStats(): Promise<ApiResult<PropertyStatsResponse>> {
+  return apiCall<PropertyStatsResponse>("/api/properties/stats", { method: "GET" })
+}
+
+export function triggerScrape(
+  body: Record<string, unknown>
+): Promise<ApiResult<{ message: string; job_id: string }>> {
+  return apiCall<{ message: string; job_id: string }>("/api/properties/trigger-scrape", {
+    method: "POST",
+    body: JSON.stringify(body),
+  })
+}
+
+// ─── Portfolio ────────────────────────────────────────────────────────────────
+
+export function saveToPortfolio(
+  propertyId: string
+): Promise<ApiResult<{ success: boolean; message: string }>> {
+  return apiCall<{ success: boolean; message: string }>(
+    `/api/portfolio/watch/${encodeURIComponent(propertyId)}`,
+    { method: "POST" }
+  )
+}
+
+export function getPortfolio(
+  status?: PortfolioStatus
+): Promise<ApiResult<{ items: PortfolioItem[]; total: number }>> {
+  const qs = status ? `?status=${status}` : ""
+  return apiCall<{ items: PortfolioItem[]; total: number }>(`/api/portfolio${qs}`, {
+    method: "GET",
+  })
+}
+
+export function updatePortfolioStatus(
+  id: string,
+  status: PortfolioStatus,
+  notes?: string,
+  price?: number
+): Promise<ApiResult<{ success: boolean }>> {
+  return apiCall<{ success: boolean }>(`/api/portfolio/${encodeURIComponent(id)}/status`, {
+    method: "PUT",
+    body: JSON.stringify({ status, notes, purchase_price: price }),
+  })
+}
+
+export function removeFromPortfolio(id: string): Promise<ApiResult<{ success: boolean }>> {
+  return apiCall<{ success: boolean }>(`/api/portfolio/${encodeURIComponent(id)}`, { method: "DELETE" })
+}
+
+// ─── Analysis ─────────────────────────────────────────────────────────────────
+
+export function getCompactAnalysis(id: string): Promise<ApiResult<CompactAnalysis>> {
+  return apiCall<CompactAnalysis>(`/api/analysis/compact/${encodeURIComponent(id)}`, { method: "GET" })
+}
+
+export function triggerDeepAnalysis(id: string): Promise<ApiResult<Record<string, unknown>>> {
+  return apiCall<Record<string, unknown>>(`/api/analysis/deep/${encodeURIComponent(id)}`, { method: "POST" })
+}
+
+export function getDeepAnalysis(id: string): Promise<ApiResult<Record<string, unknown>>> {
+  return apiCall<Record<string, unknown>>(`/api/analysis/deep/${encodeURIComponent(id)}`, { method: "GET" })
+}
+
+export function getMarketStats(city: string): Promise<ApiResult<Record<string, unknown>>> {
+  return apiCall<Record<string, unknown>>(
+    `/api/analysis/market/${encodeURIComponent(city)}/stats`,
+    { method: "GET" }
+  )
+}
+
+export function getMarketAnalysis(city: string): Promise<ApiResult<Record<string, unknown>>> {
+  return apiCall<Record<string, unknown>>(
+    `/api/analysis/market/${encodeURIComponent(city)}`,
+    { method: "GET" }
+  )
+}
+
+export function runScenario(
+  id: string,
+  params: ScenarioParams
+): Promise<ApiResult<ScenarioResult>> {
+  return apiCall<ScenarioResult>(`/api/analysis/scenario/${encodeURIComponent(id)}`, {
+    method: "POST",
+    body: JSON.stringify({ scenario_params: params }),
+  })
+}
+
+export function saveScenario(
+  id: string,
+  name: string,
+  params: ScenarioParams
+): Promise<ApiResult<{ id: string; scenario_name: string; created_at: string }>> {
+  return apiCall<{ id: string; scenario_name: string; created_at: string }>(
+    `/api/analysis/scenario/${encodeURIComponent(id)}/save`,
+    {
+      method: "POST",
+      body: JSON.stringify({ scenario_name: name, scenario_params: params }),
     }
+  )
+}
 
-    const properties = rawItems.map((item) => ({
-      id: String(item.id || ""),
-      title: String(item.title || ""),
-      address: String(item.address || ""),
-      city: String(item.city || ""),
-      zip: "",
-      price: Number(item.asking_price || 0),
-      price_per_sqm: Number(item.price_per_sqm || 0),
-      sqm: Number(item.living_area_sqm || 0),
-      rooms: Number(item.rooms || 0),
-      year_built: 0,
-      image_url: Array.isArray(item.images_urls) ? String(item.images_urls[0] || "") : undefined,
-      days_listed: Number(item.days_on_market || 0),
-      gross_yield: Number(item.gross_yield || 0),
-      compact_analysis: item.compact_analysis || undefined,
-      is_watched: false,
-    }))
-    const cities = Array.from(new Set(properties.map((p) => p.city))).filter(Boolean)
+// ─── Strategy ─────────────────────────────────────────────────────────────────
 
-    if (process.env.NODE_ENV !== "production") {
-      console.debug("[immoApi.fetchProperties] normalized response", {
-        itemCount: rawItems.length,
-        total,
-        page,
-        limit,
-        pages,
-      })
-    }
+export function generateStrategy(): Promise<ApiResult<Record<string, unknown>>> {
+  return apiCall<Record<string, unknown>>("/api/strategy/generate", { method: "POST" })
+}
 
-    return { data: { properties, total, cities, page, limit, pages }, error: null }
-  },
+export async function getStrategy(): Promise<ApiResult<Record<string, unknown>>> {
+  const res = await apiCall<Record<string, unknown>>("/api/strategy", { method: "GET" })
+  if (!res.data) return { data: null, error: res.error }
+  // Backend returns { id, strategy: {...}, created_at }; unwrap the nested payload.
+  return { data: (res.data.strategy as Record<string, unknown>) ?? null, error: null }
+}
 
-  fetchPropertyById: (id: string) =>
-    api.get<Record<string, unknown>>(`/api/properties/${id}`),
+export function getStrategyMatches(): Promise<ApiResult<{ items: unknown[]; total: number }>> {
+  return apiCall<{ items: unknown[]; total: number }>("/api/strategy/matches", { method: "GET" })
+}
 
-  fetchPropertyStats: async () => {
-    const res = await api.get<{
-      total_count: number
-      count_by_city: Record<string, number>
-      avg_price_by_city: Record<string, number>
-      avg_yield_by_city: Record<string, number>
-      added_last_7_days: number
-      added_last_30_days: number
-    }>("/api/properties/stats")
-    if (!res.data) return { data: null, error: res.error }
-    return {
-      data: {
-        total: res.data.total_count,
-        cities_count: Object.keys(res.data.count_by_city || {}).length,
-        avg_yield: 0,
-      },
-      error: null,
-    }
-  },
+// ─── Negotiation ──────────────────────────────────────────────────────────────
 
-  triggerScrape: (city: string, maxPrice: number, minRooms: number) =>
-    api.post<{ message: string; job_id: string }>(
-      "/api/properties/trigger-scrape",
-      { city, max_price: maxPrice, min_rooms: minRooms }
-    ),
+export function generateNegotiationBrief(
+  id: string
+): Promise<ApiResult<Record<string, unknown>>> {
+  return apiCall<Record<string, unknown>>(`/api/negotiate/${encodeURIComponent(id)}`, { method: "POST" })
+}
 
-  /* ═══ Portfolio ═══════════════════════════════════ */
+export function getNegotiationBrief(id: string): Promise<ApiResult<Record<string, unknown>>> {
+  return apiCall<Record<string, unknown>>(`/api/negotiate/${encodeURIComponent(id)}`, { method: "GET" })
+}
 
-  saveToPortfolio: (propertyId: string) =>
-    api.post<{ success: boolean; message: string }>(`/api/portfolio/watch/${propertyId}`),
+// ─── Profile ──────────────────────────────────────────────────────────────────
 
-  getPortfolio: async (status?: string) => {
-    const qs = status ? `?status=${status}` : ""
-    const res = await api.get<{ items: Array<Record<string, unknown>>; total: number }>(
-      `/api/portfolio${qs}`
-    )
-    if (!res.data) return { data: null, error: res.error }
-    const properties = res.data.items.map((item) => {
-      const compact = item.compact_analysis as Record<string, unknown> | null | undefined
-      const metrics = (compact?.calculated_metrics as Record<string, unknown> | undefined) || {}
-      return {
-        id: String(item.property_id || ""),
-        title: String(item.title || ""),
-        city: String(item.city || ""),
-        price: Number(item.asking_price || 0),
-        verdict: (compact?.verdict as string) || "worth_analysing",
-        gross_yield: Number(metrics.gross_yield || 0),
-        days_listed: Number(metrics.days_on_market || 0),
-        gap_percent: Number(metrics.overvaluation_percent || 0),
-        status: String(item.status || ""),
-      }
-    })
-    const total_value = properties.reduce((sum, p) => sum + p.price, 0)
-    const avg_yield = properties.length
-      ? properties.reduce((sum, p) => sum + (Number(p.gross_yield) || 0), 0) / properties.length
-      : 0
-    return {
-      data: {
-        properties,
-        analysis: null,
-        total_value,
-        monthly_cashflow: 0,
-        avg_yield,
-        equity_estimate: 0,
-      },
-      error: null,
-    }
-  },
+export async function getUserProfile(): Promise<ApiResult<Record<string, unknown>>> {
+  const res = await apiCall<Record<string, unknown>>("/api/users/profile", { method: "GET" })
+  if (!res.data) return { data: null, error: res.error }
+  // Backend returns {exists: false} when no profile is configured.
+  // Normalise to data: null so callers can gate on !!data without extra checks.
+  return { data: res.data.exists ? res.data : null, error: null }
+}
 
-  updatePortfolioStatus: (
-    propertyId: string,
-    status: string,
-    notes?: string,
-    purchasePrice?: number
-  ) =>
-    api.put<{ success: boolean }>(`/api/portfolio/${propertyId}/status`, {
-      status,
-      notes,
-      purchase_price: purchasePrice,
-    }),
-
-  removeFromPortfolio: (propertyId: string) =>
-    api.delete<{ success: boolean }>(`/api/portfolio/${propertyId}`),
-
-  /* ═══ Analysis ═══════════════════════════════════ */
-
-  getCompactAnalysis: (propertyId: string) =>
-    api.get<Record<string, unknown>>(
-      `/api/analysis/compact/${propertyId}`
-    ),
-
-  triggerDeepAnalysis: (propertyId: string) =>
-    api.post<Record<string, unknown>>(
-      `/api/analysis/deep/${propertyId}`
-    ),
-
-  getDeepAnalysis: (propertyId: string) =>
-    api.get<Record<string, unknown>>(
-      `/api/analysis/deep/${propertyId}`
-    ),
-
-  getMarketStats: (city: string) =>
-    api.get<Record<string, unknown>>(
-      `/api/analysis/market/${encodeURIComponent(city)}/stats`
-    ),
-
-  getMarketAnalysis: (city: string) =>
-    api.get<Record<string, unknown>>(
-      `/api/analysis/market/${encodeURIComponent(city)}`
-    ),
-
-  triggerPortfolioAnalysis: async () => {
-    const res = await api.post<Record<string, unknown>>("/api/analysis/portfolio")
-    if (!res.data) return { data: null, error: res.error }
-    const analysis = (res.data.analysis || {}) as Record<string, unknown>
-    return {
-      data: {
-        analysis: {
-          quality_badge: String(analysis.quality_badge || ""),
-          summary: String(analysis.summary || ""),
-          rankings: Array.isArray(analysis.rankings) ? analysis.rankings : [],
-          capital_plan: Array.isArray(analysis.capital_plan) ? analysis.capital_plan : [],
-          action_items: Array.isArray(analysis.action_items) ? analysis.action_items : [],
-        },
-      },
-      error: null,
-    }
-  },
-
-  getPortfolioAnalysis: async () => {
-    const res = await api.get<Record<string, unknown>>("/api/analysis/portfolio")
-    if (!res.data) return { data: null, error: res.error }
-    const analysis = (res.data.analysis || {}) as Record<string, unknown>
-    return {
-      data: {
-        quality_badge: String(analysis.quality_badge || ""),
-        summary: String(analysis.summary || ""),
-        rankings: Array.isArray(analysis.rankings) ? analysis.rankings : [],
-        capital_plan: Array.isArray(analysis.capital_plan) ? analysis.capital_plan : [],
-        action_items: Array.isArray(analysis.action_items) ? analysis.action_items : [],
-      },
-      error: null,
-    }
-  },
-
-  runScenario: (propertyId: string, params: ScenarioParams) =>
-    api.post<Record<string, unknown>>(
-      `/api/analysis/scenario/${propertyId}`,
-      { scenario_params: params }
-    ),
-
-  saveScenario: (propertyId: string, name: string, params: ScenarioParams) =>
-    api.post<{ id: string; scenario_name: string; created_at: string }>(
-      `/api/analysis/scenario/${propertyId}/save`,
-      { scenario_name: name, scenario_params: params }
-    ),
-
-  getSavedScenarios: (propertyId: string) =>
-    api.get<{ items: unknown[]; total: number }>(
-      `/api/analysis/scenario/${propertyId}`
-    ),
-
-  /* ═══ Strategy ═══════════════════════════════════ */
-
-  generateStrategy: () =>
-    api.post<Record<string, unknown>>("/api/strategy/generate"),
-
-  getStrategy: async () => {
-    const res = await api.get<Record<string, unknown>>("/api/strategy")
-    if (!res.data) return { data: null, error: res.error }
-    return { data: (res.data.strategy as Record<string, unknown>) || null, error: null }
-  },
-
-  getStrategyMatches: () =>
-    api.get<{ items: unknown[]; total: number }>("/api/strategy/matches"),
-
-  /* ═══ Negotiation ════════════════════════════════ */
-
-  generateNegotiationBrief: (propertyId: string) =>
-    api.post<Record<string, unknown>>(
-      `/api/negotiate/${propertyId}`
-    ),
-
-  getNegotiationBrief: (propertyId: string) =>
-    api.get<Record<string, unknown>>(
-      `/api/negotiate/${propertyId}`
-    ),
-
-  /* ═══ Profile ════════════════════════════════════ */
-
-  getUserProfile: async () => {
-    const res = await api.get<Record<string, unknown>>("/api/users/profile")
-    if (!res.data) return { data: null, error: res.error }
-    return { data: res.data.exists ? res.data : null, error: null }
-  },
-
-  saveUserProfile: (data: UserProfileData) => {
-    const legacy = data as unknown as Record<string, unknown>
-    return api.post<Record<string, unknown>>("/api/users/profile", {
+export function saveUserProfile(
+  data: UserProfileData
+): Promise<ApiResult<Record<string, unknown>>> {
+  // Some callers (e.g. strategy wizard) pass legacy field names cast to this
+  // type. Resolve the correct API field name by preferring the canonical name
+  // and falling back to the legacy alias when present.
+  const legacy = data as unknown as Record<string, unknown>
+  return apiCall<Record<string, unknown>>("/api/users/profile", {
+    method: "POST",
+    body: JSON.stringify({
       available_equity: data.available_equity ?? legacy.equity,
       monthly_income: data.monthly_income ?? legacy.income,
       monthly_expenses: data.monthly_expenses ?? legacy.expenses,
@@ -341,58 +246,116 @@ export const immoApi = {
       max_purchase_price: data.max_purchase_price,
       financing_preference: data.financing_preference,
       experience_level: data.experience_level,
-    })
-  },
-
-  /* ═══ Chat — returns raw Response for SSE streaming ═══ */
-
-  sendChatMessage: async (
-    message: string,
-    contextType: string,
-    contextId?: string
-  ): Promise<Response> => {
-    const token = getToken()
-    return fetch(`${API_URL}/api/chat`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify({
-        message,
-        context_type: contextType,
-        context_id: contextId,
-      }),
-    })
-  },
-
-  getChatHistory: (contextType: string, contextId?: string) => {
-    const params = new URLSearchParams({ context_type: contextType })
-    if (contextId) params.set("context_id", contextId)
-    return api.get<{ messages: unknown[]; total: number }>(`/api/chat/history?${params}`)
-  },
-
-  clearChatHistory: (contextType: string, contextId?: string) =>
-    api.delete<{ success: boolean; deleted: number }>(`/api/chat/history?${new URLSearchParams({
-      context_type: contextType,
-      ...(contextId ? { context_id: contextId } : {}),
-    })}`),
-
-  /* ═══ Feedback ══════════════════════════════════ */
-
-  submitFeedback: (
-    type: string,
-    content: string,
-    pageContext?: string,
-    rating?: number
-  ) =>
-    api.post<{ success: boolean }>("/api/feedback", {
-      type,
-      content,
-      page_context: pageContext,
-      rating,
     }),
+  })
+}
 
-  joinWaitlist: (email: string, feature: string) =>
-    api.post<{ success: boolean }>("/api/waitlist", { email, feature }),
+// ─── Chat ─────────────────────────────────────────────────────────────────────
+
+export function sendChatMessage(body: ChatRequest): Promise<Response | null> {
+  return apiStream("/api/chat", body)
+}
+
+export function getChatHistory(
+  contextType: string,
+  contextId?: string
+): Promise<ApiResult<{ messages: unknown[]; total: number }>> {
+  const params = new URLSearchParams({ context_type: contextType })
+  if (contextId) params.set("context_id", contextId)
+  return apiCall<{ messages: unknown[]; total: number }>(`/api/chat/history?${params}`, {
+    method: "GET",
+  })
+}
+
+// ─── Feedback ─────────────────────────────────────────────────────────────────
+
+export function submitFeedback(body: FeedbackRequest): Promise<ApiResult<{ success: boolean }>> {
+  return apiCall<{ success: boolean }>("/api/feedback", {
+    method: "POST",
+    body: JSON.stringify(body),
+  })
+}
+
+export function joinWaitlist(
+  email: string,
+  feature: string
+): Promise<ApiResult<{ success: boolean }>> {
+  return apiCall<{ success: boolean }>("/api/waitlist", {
+    method: "POST",
+    body: JSON.stringify({ email, feature }),
+  })
+}
+
+// ─── Portfolio Analysis ───────────────────────────────────────────────────────
+
+interface PortfolioAnalysisShape {
+  quality_badge: string
+  summary: string
+  rankings: unknown[]
+  capital_plan: unknown[]
+  action_items: unknown[]
+}
+
+function normalizePortfolioAnalysis(raw: Record<string, unknown>): PortfolioAnalysisShape {
+  const analysis = (raw.analysis || {}) as Record<string, unknown>
+  return {
+    quality_badge: String(analysis.quality_badge || ""),
+    summary: String(analysis.summary || ""),
+    rankings: Array.isArray(analysis.rankings) ? analysis.rankings : [],
+    capital_plan: Array.isArray(analysis.capital_plan) ? analysis.capital_plan : [],
+    action_items: Array.isArray(analysis.action_items) ? analysis.action_items : [],
+  }
+}
+
+export async function triggerPortfolioAnalysis(): Promise<
+  ApiResult<{ analysis: PortfolioAnalysisShape }>
+> {
+  const res = await apiCall<Record<string, unknown>>("/api/analysis/portfolio", {
+    method: "POST",
+  })
+  if (!res.data) return { data: null, error: res.error }
+  return { data: { analysis: normalizePortfolioAnalysis(res.data) }, error: null }
+}
+
+export async function getPortfolioAnalysis(): Promise<ApiResult<PortfolioAnalysisShape>> {
+  const res = await apiCall<Record<string, unknown>>("/api/analysis/portfolio", {
+    method: "GET",
+  })
+  if (!res.data) return { data: null, error: res.error }
+  return { data: normalizePortfolioAnalysis(res.data), error: null }
+}
+
+// ─── Backward-compat object export ────────────────────────────────────────────
+
+export const immoApi = {
+  betaLogin,
+  getMe,
+  fetchProperties,
+  fetchPropertyById,
+  fetchPropertyStats,
+  triggerScrape,
+  saveToPortfolio,
+  getPortfolio,
+  updatePortfolioStatus,
+  removeFromPortfolio,
+  getCompactAnalysis,
+  triggerDeepAnalysis,
+  getDeepAnalysis,
+  getMarketStats,
+  runScenario,
+  saveScenario,
+  generateStrategy,
+  getStrategy,
+  getStrategyMatches,
+  generateNegotiationBrief,
+  getNegotiationBrief,
+  getUserProfile,
+  saveUserProfile,
+  sendChatMessage,
+  getChatHistory,
+  submitFeedback,
+  joinWaitlist,
+  triggerPortfolioAnalysis,
+  getPortfolioAnalysis,
+  getMarketAnalysis,
 }
