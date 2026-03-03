@@ -832,7 +832,7 @@ export default function PropertiesPage() {
           </div>
         ) : filtered.length === 0 && !hasFilters && properties.length === 0 ? (
           <EmptyState
-            icon={"\\uD83D\\uDD0D"}
+            icon={"🔍"}
             headline={t("properties.empty.noProperties")}
             body={t("properties.empty.noPropertiesBody")}
             actionLabel={t("properties.empty.addUrl")}
