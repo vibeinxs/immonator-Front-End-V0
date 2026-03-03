@@ -161,16 +161,25 @@ export interface ScenarioParams {
   use_sonder_afa?: boolean
 }
 
-export interface ScenarioResult {
-  scenario_verdict: Verdict
+/**
+ * AI commentary block within a scenario response.
+ * Field names and structure confirmed from ScenarioModeller.tsx usage.
+ */
+export interface ScenarioAiCommentary {
+  verdict: Verdict
   one_line_summary: string
-  cashflow_commentary: string
+  commentary: string[]
   suggestion: string
-  monthly_cashflow: number
-  gross_yield: number
-  net_yield: number
-  dscr: number
-  cash_on_cash: number
+}
+
+/**
+ * Mirrors RunScenarioResponse from the OpenAPI schema.
+ * Consumers must read result.ai_commentary.verdict — not result.scenario_verdict —
+ * and result.calculated_metrics for the numeric outputs.
+ */
+export interface ScenarioResult {
+  calculated_metrics: Record<string, unknown>
+  ai_commentary: ScenarioAiCommentary
 }
 
 // ─── Portfolio ────────────────────────────────────────────────────────────────
