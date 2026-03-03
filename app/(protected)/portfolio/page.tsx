@@ -8,6 +8,7 @@ import { VerdictBadge } from "@/components/verdict-badge"
 import { useLocale } from "@/lib/i18n/locale-context"
 import { EUR, cn } from "@/lib/utils"
 import { immoApi } from "@/lib/immonatorApi"
+import { copy } from "@/lib/copy"
 import {
   Collapsible,
   CollapsibleContent,
@@ -160,7 +161,7 @@ export default function PortfolioPage() {
           icon={String.fromCharCode(128278)}
           headline={t("portfolio.empty.title")}
           body={t("portfolio.empty.body")}
-          actionLabel="Browse Properties →"
+          actionLabel={copy.portfolio.browseCta}
           onAction={() => router.push("/properties")}
         />
       </div>
@@ -182,7 +183,7 @@ export default function PortfolioPage() {
           disabled={analysing}
           className="shrink-0 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-hover disabled:opacity-60"
         >
-          {analysing ? "Analysing..." : t("portfolio.analyse")}
+          {analysing ? copy.portfolio.analysing : t("portfolio.analyse")}
         </button>
       </div>
 
@@ -204,9 +205,9 @@ export default function PortfolioPage() {
           {!data.analysis ? (
             <EmptyState
               icon={String.fromCharCode(128202)}
-              headline="Compare your shortlist."
-              body="Immonator ranks properties and shows which to prioritise and how to deploy capital."
-              actionLabel="Analyse My Portfolio"
+              headline={copy.portfolio.analysisEmptyHeadline}
+              body={copy.portfolio.analysisEmptyBody}
+              actionLabel={copy.portfolio.analysisEmptyCta}
               onAction={runAnalysis}
               disabled={data.properties.length < 2}
             />
@@ -221,7 +222,7 @@ export default function PortfolioPage() {
               </div>
               {/* Rankings */}
               <div>
-                <h4 className="text-[11px] font-medium uppercase tracking-wider text-text-muted mb-3">Rankings</h4>
+                <h4 className="text-[11px] font-medium uppercase tracking-wider text-text-muted mb-3">{copy.portfolio.rankingsLabel}</h4>
                 <div className="space-y-2">
                   {(data.analysis.rankings ?? []).map((r) => (
                     <div key={r.rank} className="flex items-center justify-between rounded-lg border border-border-default px-4 py-2.5">
@@ -242,9 +243,9 @@ export default function PortfolioPage() {
                 <table className="w-full text-sm">
                   <thead className="bg-bg-elevated">
                     <tr>
-                      <th className="px-4 py-2.5 text-left text-[11px] font-medium uppercase tracking-wider text-text-muted">Property</th>
-                      <th className="px-4 py-2.5 text-right text-[11px] font-medium uppercase tracking-wider text-text-muted">Allocation</th>
-                      <th className="px-4 py-2.5 text-right text-[11px] font-medium uppercase tracking-wider text-text-muted">Priority</th>
+                      <th className="px-4 py-2.5 text-left text-[11px] font-medium uppercase tracking-wider text-text-muted">{copy.portfolio.tableHeaders.property}</th>
+                      <th className="px-4 py-2.5 text-right text-[11px] font-medium uppercase tracking-wider text-text-muted">{copy.portfolio.tableHeaders.allocation}</th>
+                      <th className="px-4 py-2.5 text-right text-[11px] font-medium uppercase tracking-wider text-text-muted">{copy.portfolio.tableHeaders.priority}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -269,7 +270,7 @@ export default function PortfolioPage() {
               </div>
               {/* Action items */}
               <div>
-                <h4 className="text-[11px] font-medium uppercase tracking-wider text-text-muted mb-3">Action Plan</h4>
+                <h4 className="text-[11px] font-medium uppercase tracking-wider text-text-muted mb-3">{copy.portfolio.actionPlanLabel}</h4>
                 <div className="grid gap-2 md:grid-cols-2">
                   {(data.analysis.action_items ?? []).map((item, i) => (
                     <div key={i} className="flex items-start gap-2 text-sm text-text-secondary">
@@ -286,8 +287,8 @@ export default function PortfolioPage() {
 
       <ContextHint
         hintId="portfolio-analysis-tip"
-        headline="Compare your shortlist"
-        body="See which properties to prioritise."
+        headline={copy.portfolio.contextHintHeadline}
+        body={copy.portfolio.contextHintBody}
       />
 
       {/* Status Tabs */}
@@ -315,13 +316,13 @@ export default function PortfolioPage() {
             <table className="w-full text-sm">
               <thead className="bg-bg-elevated">
                 <tr>
-                  <th className="px-4 py-2.5 text-left text-[11px] font-medium uppercase tracking-wider text-text-muted">Property</th>
-                  <th className="px-4 py-2.5 text-left text-[11px] font-medium uppercase tracking-wider text-text-muted">Status</th>
-                  <th className="px-4 py-2.5 text-right text-[11px] font-medium uppercase tracking-wider text-text-muted">Price</th>
-                  <th className="px-4 py-2.5 text-left text-[11px] font-medium uppercase tracking-wider text-text-muted">Verdict</th>
-                  <th className="px-4 py-2.5 text-right text-[11px] font-medium uppercase tracking-wider text-text-muted">Yield</th>
-                  <th className="px-4 py-2.5 text-right text-[11px] font-medium uppercase tracking-wider text-text-muted">Days</th>
-                  <th className="px-4 py-2.5 text-right text-[11px] font-medium uppercase tracking-wider text-text-muted">Gap%</th>
+                  <th className="px-4 py-2.5 text-left text-[11px] font-medium uppercase tracking-wider text-text-muted">{copy.portfolio.tableHeaders.property}</th>
+                  <th className="px-4 py-2.5 text-left text-[11px] font-medium uppercase tracking-wider text-text-muted">{copy.portfolio.tableHeaders.status}</th>
+                  <th className="px-4 py-2.5 text-right text-[11px] font-medium uppercase tracking-wider text-text-muted">{copy.portfolio.tableHeaders.price}</th>
+                  <th className="px-4 py-2.5 text-left text-[11px] font-medium uppercase tracking-wider text-text-muted">{copy.portfolio.tableHeaders.verdict}</th>
+                  <th className="px-4 py-2.5 text-right text-[11px] font-medium uppercase tracking-wider text-text-muted">{copy.portfolio.tableHeaders.yield}</th>
+                  <th className="px-4 py-2.5 text-right text-[11px] font-medium uppercase tracking-wider text-text-muted">{copy.portfolio.tableHeaders.days}</th>
+                  <th className="px-4 py-2.5 text-right text-[11px] font-medium uppercase tracking-wider text-text-muted">{copy.portfolio.tableHeaders.gap}</th>
                   <th className="px-4 py-2.5 text-right text-[11px] font-medium uppercase tracking-wider text-text-muted">···</th>
                 </tr>
               </thead>
@@ -384,9 +385,9 @@ export default function PortfolioPage() {
       ) : (
         <EmptyState
           icon={String.fromCharCode(128278)}
-          headline="Your portfolio is empty."
-          body="Save a property to get an instant AI verdict."
-          actionLabel="Browse Properties →"
+          headline={copy.portfolio.emptyHeadline}
+          body={copy.portfolio.emptyBody}
+          actionLabel={copy.portfolio.browseCta}
           onAction={() => router.push("/properties")}
         />
       )}

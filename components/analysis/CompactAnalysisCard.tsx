@@ -104,7 +104,7 @@ export function CompactAnalysisCard({ propertyId }: { propertyId: string }) {
         <VerdictBadge verdict={data.verdict} data-slot="verdict-badge" />
         <div className="flex items-center gap-2">
           <span className="text-xs text-text-muted">
-            Confidence {data.confidence_score}/10
+            {copy.analysis.confidence} {data.confidence_score}{copy.analysis.confidenceScale}
           </span>
           <div className="h-1.5 w-16 rounded-full bg-bg-elevated">
             <div
@@ -122,7 +122,7 @@ export function CompactAnalysisCard({ propertyId }: { propertyId: string }) {
       <div className="mt-4 grid grid-cols-2 gap-4">
         <div>
           <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-text-muted">
-            POSITIVES
+            {copy.analysis.positives}
           </p>
           <div className="space-y-1.5">
             {data.top_3_positives.map((p, i) => (
@@ -134,7 +134,7 @@ export function CompactAnalysisCard({ propertyId }: { propertyId: string }) {
         </div>
         <div>
           <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-text-muted">
-            RISKS
+            {copy.analysis.risks}
           </p>
           <div className="space-y-1.5">
             {data.top_3_risks.map((r, i) => (
@@ -147,7 +147,7 @@ export function CompactAnalysisCard({ propertyId }: { propertyId: string }) {
       </div>
 
       <p className="mt-4 text-right text-[11px] text-text-muted">
-        {"Immonator AI"} {String.fromCharCode(183)} {"Just now"}
+        {copy.analysis.aiLabel} {String.fromCharCode(183)} {copy.analysis.aiJustNow}
       </p>
     </div>
   )

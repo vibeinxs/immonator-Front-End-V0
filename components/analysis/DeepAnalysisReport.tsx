@@ -14,6 +14,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog"
+import { copy } from "@/lib/copy"
 
 /* ── Types ─────────────────────────────────────────────── */
 
@@ -76,14 +77,7 @@ interface DeepData {
 
 /* ── Helpers ───────────────────────────────────────────── */
 
-const LOADING_MSGS = [
-  "Calculating valuations...",
-  "Analysing risk factors...",
-  "Running financing scenarios...",
-  "Evaluating market context...",
-  "Generating AI verdict...",
-  "Compiling report...",
-]
+const LOADING_MSGS = copy.analysis.loadingMessages
 
 const severityStyle: Record<string, { bg: string; text: string }> = {
   low:      { bg: "bg-success-bg", text: "text-success" },
@@ -199,10 +193,10 @@ export function DeepAnalysisReport({ propertyId }: { propertyId: string }) {
           onClick={handleRun}
           className="h-12 w-full rounded-xl bg-brand font-semibold text-white transition-colors hover:bg-brand-hover"
         >
-          Run Deep Analysis
+          {copy.analysis.runDeepAnalysis}
         </button>
         <p className="mt-2 text-center text-xs text-text-muted">
-          Takes 10-20 seconds {String.fromCharCode(183)} Saved for 24 hours
+          {copy.analysis.deepAnalysisHint}
         </p>
       </div>
     )
@@ -229,14 +223,14 @@ export function DeepAnalysisReport({ propertyId }: { propertyId: string }) {
   if (!data) return null
 
   const sections = [
-    { title: "Executive Summary", key: "summary" },
-    { title: "Property Assessment", key: "assessment" },
-    { title: "Valuation Analysis", key: "valuation" },
-    { title: "Investment Case", key: "investment" },
-    { title: "Risk Analysis", key: "risk" },
-    { title: "Financing", key: "financing" },
-    { title: "Market Context", key: "market" },
-    { title: "Action Plan", key: "action" },
+    { title: copy.analysis.sectionTitles[0], key: "summary" },
+    { title: copy.analysis.sectionTitles[1], key: "assessment" },
+    { title: copy.analysis.sectionTitles[2], key: "valuation" },
+    { title: copy.analysis.sectionTitles[3], key: "investment" },
+    { title: copy.analysis.sectionTitles[4], key: "risk" },
+    { title: copy.analysis.sectionTitles[5], key: "financing" },
+    { title: copy.analysis.sectionTitles[6], key: "market" },
+    { title: copy.analysis.sectionTitles[7], key: "action" },
   ]
 
   return (
@@ -247,16 +241,16 @@ export function DeepAnalysisReport({ propertyId }: { propertyId: string }) {
           onClick={() => setPdfDialog(true)}
           className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-hover"
         >
-          <Lock className="h-3 w-3" /> Download PDF
+          <Lock className="h-3 w-3" /> {copy.analysis.downloadPdf}
         </button>
       </div>
 
       <Dialog open={pdfDialog} onOpenChange={setPdfDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Available in Pro plan</DialogTitle>
+            <DialogTitle>{copy.analysis.pdfProTitle}</DialogTitle>
             <DialogDescription>
-              PDF export is available on the Pro plan. Join the waitlist to be notified when it launches.
+              {copy.analysis.pdfProDescription}
             </DialogDescription>
           </DialogHeader>
         </DialogContent>
@@ -291,7 +285,7 @@ export function DeepAnalysisReport({ propertyId }: { propertyId: string }) {
                       <p className="text-sm italic text-text-secondary">{data.key_insight}</p>
                     </div>
                     <p className="mt-3 text-sm italic text-text-secondary">
-                      If this were my money: {data.if_my_money}
+                      {copy.analysis.ifMyMoney} {data.if_my_money}
                     </p>
                   </div>
                 )}
@@ -355,7 +349,7 @@ export function DeepAnalysisReport({ propertyId }: { propertyId: string }) {
                       })}
                     </div>
                     <span className={`inline-block rounded-md px-2 py-0.5 text-[10px] font-bold uppercase ${data.is_fairly_priced ? "bg-success-bg text-success" : "bg-danger-bg text-danger"}`}>
-                      {data.is_fairly_priced ? "Fairly Priced" : "Overpriced"}
+                      {data.is_fairly_priced ? copy.analysis.fairlyPriced : copy.analysis.overpriced}
                     </span>
                     <p className="mt-3 text-sm leading-relaxed text-text-secondary">
                       {data.valuation_commentary}
@@ -385,7 +379,7 @@ export function DeepAnalysisReport({ propertyId }: { propertyId: string }) {
                 {idx === 4 && (
                   <div>
                     <span className={`mb-3 inline-block rounded-md px-2 py-0.5 text-xs font-bold uppercase ${(severityStyle[data.overall_risk_level] || severityStyle.medium).bg} ${(severityStyle[data.overall_risk_level] || severityStyle.medium).text}`}>
-                      {data.overall_risk_level} risk
+                      {data.overall_risk_level} {copy.analysis.riskSuffix}
                     </span>
                     {data.deal_breakers.length > 0 && (
                       <div className="mb-3 rounded-lg border-l-4 border-danger bg-danger-bg p-3 text-sm text-text-primary">
@@ -419,10 +413,10 @@ export function DeepAnalysisReport({ propertyId }: { propertyId: string }) {
                         >
                           <p className="mb-2 text-xs font-bold uppercase tracking-wider text-text-muted">{s.label}</p>
                           <div className="space-y-1">
-                            <p className="text-text-secondary">LTV: <span className="font-mono text-text-primary">{s.ltv}</span></p>
-                            <p className="text-text-secondary">Payment: <span className="font-mono text-text-primary">{s.monthly_payment}</span></p>
-                            <p className="text-text-secondary">Cashflow: <span className={`font-mono ${s.cashflow_positive ? "text-success" : "text-danger"}`}>{s.monthly_cashflow}</span></p>
-                            <p className="text-text-secondary">Equity: <span className="font-mono text-text-primary">{s.equity_needed}</span></p>
+                            <p className="text-text-secondary">{copy.analysis.financingLabels.ltv} <span className="font-mono text-text-primary">{s.ltv}</span></p>
+                            <p className="text-text-secondary">{copy.analysis.financingLabels.payment} <span className="font-mono text-text-primary">{s.monthly_payment}</span></p>
+                            <p className="text-text-secondary">{copy.analysis.financingLabels.cashflow} <span className={`font-mono ${s.cashflow_positive ? "text-success" : "text-danger"}`}>{s.monthly_cashflow}</span></p>
+                            <p className="text-text-secondary">{copy.analysis.financingLabels.equity} <span className="font-mono text-text-primary">{s.equity_needed}</span></p>
                           </div>
                         </div>
                       ))}
