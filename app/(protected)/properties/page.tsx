@@ -511,11 +511,11 @@ function PropertyCard({
         <div className="flex items-baseline justify-between">
           <span className="font-serif text-2xl text-text-primary">
             {EUR}
-            {property.price.toLocaleString("de-DE")}
+            {(property.price ?? 0).toLocaleString("de-DE")}
           </span>
           <span className="font-mono text-xs text-text-muted">
             {EUR}
-            {property.price_per_sqm.toLocaleString("de-DE")}/m{"\u00B2"}
+            {(property.price_per_sqm ?? 0).toLocaleString("de-DE")}/m{"\u00B2"}
           </span>
         </div>
 
@@ -556,7 +556,7 @@ function PropertyCard({
                   : "text-text-primary"
               }`}
             >
-              {property.gross_yield.toFixed(1)}%
+              {(property.gross_yield ?? 0).toFixed(1)}%
             </p>
           </div>
           <div>
@@ -564,7 +564,7 @@ function PropertyCard({
               {t("properties.card.eurSqm")}
             </p>
             <p className="font-mono text-xl text-text-primary">
-              {property.price_per_sqm.toLocaleString("de-DE")}
+              {(property.price_per_sqm ?? 0).toLocaleString("de-DE")}
             </p>
           </div>
         </div>
@@ -572,7 +572,7 @@ function PropertyCard({
         {/* AI summary */}
         <p className="mt-2 line-clamp-2 text-xs italic text-text-secondary">
           {property.compact_analysis
-            ? property.compact_analysis.one_line_summary
+            ? (property.compact_analysis.one_line_summary ?? "—")
             : (
                 <span className="not-italic text-text-muted">
                   {t("properties.card.saveAnalysis")}

@@ -174,7 +174,7 @@ export default function PortfolioPage() {
         <div>
           <h1 className="font-display text-3xl text-text-primary">{t("portfolio.title")}</h1>
           <p className="mt-1 text-sm text-text-secondary">
-            {`${data.properties.length} ${t("portfolio.subtitle")} ${String.fromCharCode(183)} Est. equity: ${EUR}${data.equity_estimate.toLocaleString("de-DE")}`}
+            {`${data.properties.length} ${t("portfolio.subtitle")} ${String.fromCharCode(183)} Est. equity: ${EUR}${(data.equity_estimate ?? 0).toLocaleString("de-DE")}`}
           </p>
         </div>
         <button
@@ -223,7 +223,7 @@ export default function PortfolioPage() {
               <div>
                 <h4 className="text-[11px] font-medium uppercase tracking-wider text-text-muted mb-3">Rankings</h4>
                 <div className="space-y-2">
-                  {data.analysis.rankings.map((r) => (
+                  {(data.analysis.rankings ?? []).map((r) => (
                     <div key={r.rank} className="flex items-center justify-between rounded-lg border border-border-default px-4 py-2.5">
                       <div className="flex items-center gap-3">
                         <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-subtle text-xs font-bold text-brand">
@@ -248,10 +248,10 @@ export default function PortfolioPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {data.analysis.capital_plan.map((c) => (
+                    {(data.analysis.capital_plan ?? []).map((c) => (
                       <tr key={c.title} className="border-t border-border-default hover:bg-bg-hover">
                         <td className="px-4 py-3 text-text-primary">{c.title}</td>
-                        <td className="px-4 py-3 text-right font-mono text-text-primary">{EUR}{c.amount.toLocaleString("de-DE")}</td>
+                        <td className="px-4 py-3 text-right font-mono text-text-primary">{EUR}{(c.amount ?? 0).toLocaleString("de-DE")}</td>
                         <td className="px-4 py-3 text-right">
                           <span className={cn(
                             "rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase",
@@ -271,7 +271,7 @@ export default function PortfolioPage() {
               <div>
                 <h4 className="text-[11px] font-medium uppercase tracking-wider text-text-muted mb-3">Action Plan</h4>
                 <div className="grid gap-2 md:grid-cols-2">
-                  {data.analysis.action_items.map((item, i) => (
+                  {(data.analysis.action_items ?? []).map((item, i) => (
                     <div key={i} className="flex items-start gap-2 text-sm text-text-secondary">
                       <span className="mt-0.5 text-success">{"+"}</span>
                       <span>{item}</span>
@@ -341,12 +341,12 @@ export default function PortfolioPage() {
                         {p.status}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-right font-mono text-text-primary">{EUR}{p.price.toLocaleString("de-DE")}</td>
+                    <td className="px-4 py-3 text-right font-mono text-text-primary">{EUR}{(p.price ?? 0).toLocaleString("de-DE")}</td>
                     <td className="px-4 py-3"><VerdictBadge verdict={p.verdict} /></td>
-                    <td className="px-4 py-3 text-right font-mono text-text-primary">{p.gross_yield.toFixed(1)}%</td>
-                    <td className="px-4 py-3 text-right font-mono text-text-muted">{p.days_listed}</td>
+                    <td className="px-4 py-3 text-right font-mono text-text-primary">{(p.gross_yield ?? 0).toFixed(1)}%</td>
+                    <td className="px-4 py-3 text-right font-mono text-text-muted">{p.days_listed ?? 0}</td>
                     <td className={cn("px-4 py-3 text-right font-mono", p.gap_percent < 0 ? "text-success" : "text-danger")}>
-                      {p.gap_percent > 0 ? "+" : ""}{p.gap_percent.toFixed(1)}%
+                      {(p.gap_percent ?? 0) > 0 ? "+" : ""}{(p.gap_percent ?? 0).toFixed(1)}%
                     </td>
                     <td className="px-4 py-3 text-right text-text-muted">···</td>
                   </tr>
@@ -371,10 +371,10 @@ export default function PortfolioPage() {
                   <VerdictBadge verdict={p.verdict} />
                 </div>
                 <div className="mt-3 flex items-center gap-4 text-sm">
-                  <span className="font-mono text-text-primary">{EUR}{p.price.toLocaleString("de-DE")}</span>
-                  <span className="font-mono text-text-secondary">{p.gross_yield.toFixed(1)}%</span>
+                  <span className="font-mono text-text-primary">{EUR}{(p.price ?? 0).toLocaleString("de-DE")}</span>
+                  <span className="font-mono text-text-secondary">{(p.gross_yield ?? 0).toFixed(1)}%</span>
                   <span className={cn("ml-auto font-mono text-xs", p.gap_percent < 0 ? "text-success" : "text-danger")}>
-                    {p.gap_percent > 0 ? "+" : ""}{p.gap_percent.toFixed(1)}%
+                    {(p.gap_percent ?? 0) > 0 ? "+" : ""}{(p.gap_percent ?? 0).toFixed(1)}%
                   </span>
                 </div>
               </div>

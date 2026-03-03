@@ -6,8 +6,8 @@ import { EUR } from "@/lib/utils"
 import Link from "next/link"
 
 interface MarketStats {
-  avg_price_per_sqm: number
-  avg_days_on_market: number
+  avg_price_per_sqm: number | null
+  avg_days_on_market: number | null
   total_listings: number
 }
 
@@ -47,10 +47,10 @@ export function MarketAnalysisCard({ city }: { city: string }) {
       {stats && (
         <div className="mt-3 flex flex-wrap gap-2">
           <span className="rounded-lg bg-bg-elevated px-2.5 py-1 font-mono text-xs text-text-secondary">
-            Avg {EUR}/m{String.fromCharCode(178)}: {stats.avg_price_per_sqm.toLocaleString("de-DE")}
+            Avg {EUR}/m{String.fromCharCode(178)}: {(stats.avg_price_per_sqm ?? 0).toLocaleString("de-DE")}
           </span>
           <span className="rounded-lg bg-bg-elevated px-2.5 py-1 font-mono text-xs text-text-secondary">
-            Avg {stats.avg_days_on_market} days
+            Avg {stats.avg_days_on_market ?? 0} days
           </span>
         </div>
       )}

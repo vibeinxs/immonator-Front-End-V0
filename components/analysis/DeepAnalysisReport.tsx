@@ -151,7 +151,35 @@ export function DeepAnalysisReport({ propertyId }: { propertyId: string }) {
 
     if (result?.analysis) {
       setTimeout(() => {
-        setData({ ...(result.analysis || {}), ...(result.calculated_metrics || {}) } as unknown as DeepData)
+        const merged = { ...(result.analysis || {}), ...(result.calculated_metrics || {}) } as Record<string, unknown>
+        setData({
+          verdict: (merged.verdict as DeepData["verdict"]) || "worth_analysing",
+          headline: (merged.headline as string) ?? "—",
+          key_insight: (merged.key_insight as string) ?? "—",
+          if_my_money: (merged.if_my_money as string) ?? "—",
+          strengths: (merged.strengths as string[]) ?? [],
+          weaknesses: (merged.weaknesses as string[]) ?? [],
+          hidden_costs: (merged.hidden_costs as HiddenCost[]) ?? [],
+          asking_price: Number(merged.asking_price ?? 0),
+          ertragswert: Number(merged.ertragswert ?? 0),
+          sachwert: Number(merged.sachwert ?? 0),
+          is_fairly_priced: Boolean(merged.is_fairly_priced),
+          valuation_commentary: (merged.valuation_commentary as string) ?? "—",
+          bull_case: (merged.bull_case as string) ?? "—",
+          base_case: (merged.base_case as string) ?? "—",
+          bear_case: (merged.bear_case as string) ?? "—",
+          overall_risk_level: (merged.overall_risk_level as DeepData["overall_risk_level"]) || "medium",
+          deal_breakers: (merged.deal_breakers as string[]) ?? [],
+          risks: (merged.risks as RiskRow[]) ?? [],
+          scenarios: (merged.scenarios as FinancingScenario[]) ?? [],
+          kfw_programs: (merged.kfw_programs as string[]) ?? [],
+          market_commentary: (merged.market_commentary as string) ?? "—",
+          macro_risks: (merged.macro_risks as string[]) ?? [],
+          action: (merged.action as string) ?? "hold",
+          recommended_offer: Number(merged.recommended_offer ?? 0),
+          due_diligence: (merged.due_diligence as string[]) ?? [],
+          next_steps: (merged.next_steps as string[]) ?? [],
+        })
         setState("loaded")
       }, 300)
     } else {
@@ -310,8 +338,8 @@ export function DeepAnalysisReport({ propertyId }: { propertyId: string }) {
                         { label: "Sachwert", value: data.sachwert, color: "bg-brand" },
                         { label: "Asking", value: data.asking_price, color: "bg-danger" },
                       ].map((v) => {
-                        const maxVal = Math.max(data.ertragswert, data.sachwert, data.asking_price)
-                        const heightPct = (v.value / maxVal) * 100
+                        const maxVal = Math.max(data.ertragswert, data.sachwert, data.asking_price, 1)
+                        const heightPct = (Number(v.value || 0) / maxVal) * 100
                         return (
                           <div key={v.label} className="flex flex-1 flex-col items-center gap-1">
                             <span className="font-mono text-xs text-text-secondary">{formatEur(v.value)}</span>

@@ -385,14 +385,14 @@ export default function StrategyPage() {
 
       {/* Metrics */}
       <div className="grid gap-4 md:grid-cols-3">
-        <MetricCard label="Target Yield" value={strategy.target_yield} suffix="%" sentiment="positive" />
-        <MetricCard label="Max Price" value={strategy.max_price} prefix={EUR} sentiment="neutral" />
-        <MetricCard label="Timeline" value={strategy.timeline} sentiment="neutral" />
+        <MetricCard label="Target Yield" value={strategy.target_yield ?? 0} suffix="%" sentiment="positive" />
+        <MetricCard label="Max Price" value={strategy.max_price ?? 0} prefix={EUR} sentiment="neutral" />
+        <MetricCard label="Timeline" value={strategy.timeline ?? "—"} sentiment="neutral" />
       </div>
 
       {/* Cities */}
       <div className="flex gap-3 overflow-x-auto pb-2">
-        {strategy.cities.map((c) => (
+        {(strategy.cities ?? []).map((c) => (
           <div key={c.name} className="shrink-0 min-w-[160px] rounded-xl border border-border-default bg-bg-surface p-4">
             <p className="font-display text-xl text-text-primary">{c.name}</p>
             <p className="mt-1 text-xs text-text-secondary">{c.reason}</p>
@@ -403,7 +403,7 @@ export default function StrategyPage() {
 
       {/* Criteria */}
       <div className="grid gap-2 md:grid-cols-2">
-        {strategy.criteria.map((c, i) => (
+        {(strategy.criteria ?? []).map((c, i) => (
           <div key={i} className="flex items-start gap-2 text-sm text-text-secondary">
             <span className="mt-0.5 text-success font-medium">{"+"}</span>
             <span>{c}</span>
@@ -422,7 +422,7 @@ export default function StrategyPage() {
             </tr>
           </thead>
           <tbody>
-            {strategy.financing.map((f) => (
+            {(strategy.financing ?? []).map((f) => (
               <tr key={f.type} className={cn("border-t border-border-default", f.recommended && "bg-brand-subtle/30 font-medium")}>
                 <td className="px-4 py-3 text-text-primary">{f.type}{f.recommended && <span className="ml-2 text-[10px] font-bold text-brand">REC</span>}</td>
                 <td className="px-4 py-3 text-right font-mono text-text-primary">{f.rate}</td>
@@ -436,11 +436,11 @@ export default function StrategyPage() {
 
       <AnalysisChat contextType="general" title="your strategy" />
       {/* Matching properties */}
-      {strategy.matches.length > 0 && (
+      {(strategy.matches ?? []).length > 0 && (
         <div>
           <h3 className="text-[11px] font-medium uppercase tracking-wider text-text-muted mb-3">Top Matches</h3>
           <div className="space-y-0 divide-y divide-border-default">
-            {strategy.matches.slice(0, 5).map((m) => (
+            {(strategy.matches ?? []).slice(0, 5).map((m) => (
               <div
                 key={m.id}
                 onClick={() => router.push(`/properties/${m.id}`)}
@@ -451,7 +451,7 @@ export default function StrategyPage() {
                   <span className="ml-2 text-text-muted">{m.city}</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="font-mono text-text-primary">{m.yield.toFixed(1)}%</span>
+                  <span className="font-mono text-text-primary">{(m.yield ?? 0).toFixed(1)}%</span>
                   {m.verdict ? <VerdictBadge verdict={m.verdict} /> : null}
                 </div>
               </div>

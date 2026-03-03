@@ -60,7 +60,13 @@ export function CompactAnalysisCard({ propertyId }: { propertyId: string }) {
       }
 
       if (result?.analysis) {
-        setData(result.analysis)
+        setData({
+          verdict: result.analysis.verdict || "worth_analysing",
+          confidence_score: Number(result.analysis.confidence_score ?? 0),
+          one_line_summary: result.analysis.one_line_summary ?? "—",
+          top_3_positives: result.analysis.top_3_positives ?? [],
+          top_3_risks: result.analysis.top_3_risks ?? [],
+        })
         setLoading(false)
         return
       }
