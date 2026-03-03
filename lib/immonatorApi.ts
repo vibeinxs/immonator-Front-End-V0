@@ -75,7 +75,9 @@ export const immoApi = {
     )
     if (!res.data) return { data: null, error: res.error }
 
-    const raw = res.data as Record<string, unknown> | Array<Record<string, unknown>>
+    const raw = res.data as
+      | { items: Array<Record<string, unknown>>; total: number; page: number; limit: number; pages: number }
+      | Array<Record<string, unknown>>
     let rawItems: Array<Record<string, unknown>> = []
     let total = 0
     let page = 1
@@ -86,15 +88,7 @@ export const immoApi = {
       rawItems = raw
       total = raw.length
     } else {
-      const maybeItems =
-        (Array.isArray(raw.items) ? raw.items : null) ||
-        (Array.isArray(raw.data) ? raw.data : null) ||
-        (Array.isArray(raw.results) ? raw.results : null) ||
-        (raw.data && typeof raw.data === "object" && Array.isArray((raw.data as Record<string, unknown>).items)
-          ? (raw.data as Record<string, unknown>).items as Array<Record<string, unknown>>
-          : null)
-
-      rawItems = maybeItems || []
+      rawItems = Array.isArray(raw.items) ? raw.items : []
       total = Number(raw.total ?? rawItems.length)
       page = Number(raw.page ?? page)
       limit = Number(raw.limit ?? limit)
