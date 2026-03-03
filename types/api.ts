@@ -39,7 +39,31 @@ export interface PropertyCompactSnippet {
 }
 
 /**
- * Unified property type covering both list and detail endpoint shapes.
+ * Matches a single row from GET /api/properties (PropertyListItem schema).
+ * Only fields the list endpoint guarantees are present here.
+ * Detail-only fields (zip_code, year_built, price_history, …) are absent.
+ */
+export interface PropertyListItem {
+  id: string
+  title: string
+  address: string
+  city: string
+  asking_price: number | null
+  living_area_sqm: number | null
+  rooms: number | null
+  property_type: string
+  source_url: string | null
+  gross_yield: number | null
+  net_yield: number | null
+  bodenrichtwert: number | null
+  price_per_sqm: number | null
+  days_on_market: number | null
+  images_urls: string[]
+  compact_analysis?: PropertyCompactSnippet | null
+}
+
+/**
+ * Matches GET /api/properties/{id} (PropertyDetailResponse schema).
  * Field names match exactly what the backend sends.
  *
  *   Backend name        Task-spec alias (ignored per instructions)
@@ -60,20 +84,15 @@ export interface Property {
   price_per_sqm: number | null
   living_area_sqm: number | null
   rooms: number | null
+  property_type: string
+  source_url: string | null
+  days_on_market: number | null
+  images_urls: string[]
   year_built: number | null
   heating_type: string | null
   monthly_rent: number | null
-  gross_yield: number | null
-  images_urls: string[]
-  source_url: string | null
-  days_on_market: number | null
   price_history: PriceHistoryEntry[]
   created_at: string
-  property_type: string
-  // Additional fields not present in every response shape
-  net_yield?: number | null
-  bodenrichtwert?: number | null
-  compact_analysis?: PropertyCompactSnippet | null
 }
 
 export interface PropertyFilters {
@@ -91,7 +110,7 @@ export interface PropertyFilters {
 }
 
 export interface PropertyListResponse {
-  items: Property[]
+  items: PropertyListItem[]
   total: number
   page: number
   limit: number
@@ -182,11 +201,11 @@ export interface PortfolioCompactAnalysis {
 /**
  * Portfolio item as returned by GET /api/portfolio.
  * The backend flattens property fields into the item — there is no
- * nested `property` object. Shared fields are derived from Property
- * via Pick so any rename in Property is automatically reflected here.
+ * nested `property` object. Shared fields are derived from PropertyListItem
+ * via Pick so any rename in the list schema is automatically reflected here.
  */
 export type PortfolioItem = Pick<
-  Property,
+  PropertyListItem,
   | "title"
   | "city"
   | "address"
