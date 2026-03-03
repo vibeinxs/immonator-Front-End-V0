@@ -1,0 +1,221 @@
+// ─── Auth ─────────────────────────────────────────────────────────────────────
+
+export interface BetaLoginRequest {
+  beta_code: string
+  display_name?: string | null
+}
+
+export interface BetaLoginResponse {
+  session_token: string
+  user_id: string
+  is_new_user: boolean
+}
+
+// ─── Shared ───────────────────────────────────────────────────────────────────
+
+export interface PriceHistoryEntry {
+  date: string
+  price: number
+}
+
+/**
+ * Verdict values as sent by the backend.
+ */
+export type Verdict =
+  | "strong_buy"
+  | "worth_analysing"
+  | "proceed_with_caution"
+  | "avoid"
+
+// ─── Properties ───────────────────────────────────────────────────────────────
+
+/**
+ * Inline compact-analysis snippet embedded in PropertyListItem responses.
+ * Uses the properties router's CompactAnalysisOut shape.
+ */
+export interface PropertyCompactSnippet {
+  verdict: Verdict
+  one_line_summary: string | null
+}
+
+/**
+ * Unified property type covering both list and detail endpoint shapes.
+ * Field names match exactly what the backend sends.
+ *
+ *   Backend name        Task-spec alias (ignored per instructions)
+ *   asking_price        price
+ *   living_area_sqm     size_sqm
+ *   images_urls         images
+ *   source_url          listing_url
+ *   days_on_market      days_listed
+ *   monthly_rent        estimated_rent
+ */
+export interface Property {
+  id: string
+  title: string
+  address: string
+  city: string
+  zip_code: string
+  asking_price: number | null
+  price_per_sqm: number | null
+  living_area_sqm: number | null
+  rooms: number | null
+  year_built: number | null
+  heating_type: string | null
+  monthly_rent: number | null
+  gross_yield: number | null
+  images_urls: string[]
+  source_url: string | null
+  days_on_market: number | null
+  price_history: PriceHistoryEntry[]
+  created_at: string
+  // Additional fields present in list and/or detail responses
+  property_type?: string
+  net_yield?: number | null
+  bodenrichtwert?: number | null
+  compact_analysis?: PropertyCompactSnippet | null
+}
+
+export interface PropertyFilters {
+  city?: string
+  property_type?: string
+  min_price?: number
+  max_price?: number
+  min_rooms?: number
+  /** Not yet in the OpenAPI spec but accepted by the backend. */
+  min_yield?: number
+  /** Not yet in the OpenAPI spec but accepted by the backend. */
+  sort?: string
+  page?: number
+  limit?: number
+}
+
+export interface PropertyListResponse {
+  items: Property[]
+  total: number
+  page: number
+  limit: number
+  pages: number
+}
+
+export interface PropertyStatsResponse {
+  total_count: number
+  count_by_city: Record<string, number>
+  avg_price_by_city: Record<string, number>
+  avg_yield_by_city: Record<string, number>
+  added_last_7_days: number
+  added_last_30_days: number
+}
+
+// ─── Analysis ─────────────────────────────────────────────────────────────────
+
+/**
+ * Status strings returned by GET /api/analysis/compact/{id}.
+ * "not_generated" → analysis has not been produced yet; poll again.
+ * "generated"     → analysis is available in the `analysis` field.
+ */
+export type CompactAnalysisStatus = "not_generated" | "generated"
+
+/**
+ * Response shape of GET /api/analysis/compact/{id}.
+ * Combines the status wrapper with flattened analysis fields.
+ * Field names match the portfolio router's CompactAnalysisOut schema.
+ *
+ *   Backend name      Task-spec alias (ignored per instructions)
+ *   top_3_positives   positives
+ *   top_3_risks       risks
+ *   created_at        generated_at
+ */
+export interface CompactAnalysis {
+  status: CompactAnalysisStatus
+  verdict?: Verdict
+  one_line_summary?: string
+  confidence_score?: number
+  top_3_positives?: string[]
+  top_3_risks?: string[]
+  created_at?: string
+}
+
+export interface ScenarioParams {
+  purchase_price: number
+  monthly_rent: number
+  down_payment_pct?: number
+  interest_rate_pct?: number
+  loan_term_years?: number
+  vacancy_rate_pct?: number
+  management_cost_pct?: number
+  maintenance_cost_annual?: number
+  /** AfA (straight-line depreciation) flag — not yet in OpenAPI spec. */
+  use_afa?: boolean
+  /** Sonder-AfA (accelerated depreciation) flag — not yet in OpenAPI spec. */
+  use_sonder_afa?: boolean
+}
+
+export interface ScenarioResult {
+  scenario_verdict: Verdict
+  one_line_summary: string
+  cashflow_commentary: string
+  suggestion: string
+  monthly_cashflow: number
+  gross_yield: number
+  net_yield: number
+  dscr: number
+  cash_on_cash: number
+}
+
+// ─── Portfolio ────────────────────────────────────────────────────────────────
+
+export type PortfolioStatus =
+  | "watching"
+  | "analysing"
+  | "negotiating"
+  | "purchased"
+  | "rejected"
+
+/**
+ * Full compact-analysis object stored on portfolio items.
+ * Uses the portfolio router's CompactAnalysisOut shape.
+ */
+export interface PortfolioCompactAnalysis {
+  id: string
+  verdict: Verdict
+  verdict_reason: string
+  one_line_summary: string
+  confidence_score: number
+  top_3_positives: string[]
+  top_3_risks: string[]
+  calculated_metrics: Record<string, unknown>
+  created_at: string
+}
+
+/**
+ * Portfolio item as returned by GET /api/portfolio.
+ * The backend flattens property fields into the item — there is no
+ * nested `property` object.
+ */
+export interface PortfolioItem {
+  portfolio_id: string
+  property_id: string
+  status: PortfolioStatus
+  notes: string | null
+  purchase_price: number | null
+  added_at: string
+  // Flattened property fields
+  title: string
+  city: string
+  address: string
+  asking_price: number | null
+  living_area_sqm: number | null
+  rooms: number | null
+  property_type: string
+  source_url: string | null
+  images_urls: string[]
+  compact_analysis?: PortfolioCompactAnalysis | null
+}
+
+// ─── Generic wrapper ──────────────────────────────────────────────────────────
+
+export interface ApiResult<T> {
+  data: T | null
+  error: string | null
+}
