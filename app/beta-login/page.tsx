@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { isLoggedIn, setAuth } from "@/lib/auth"
+import { isLoggedIn, saveSession } from "@/lib/auth"
 import { immoApi } from "@/lib/immonatorApi"
 import { LocaleSwitcher } from "@/components/locale-switcher"
 import { useLocale } from "@/lib/i18n/locale-context"
@@ -33,13 +33,7 @@ export default function BetaLoginPage() {
       const demoToken = "demo_token_" + Date.now()
       const demoUserId = "demo_user_001"
       const demoName = name || "Demo User"
-      setAuth(demoToken, demoUserId, demoName)
-      if (typeof window !== "undefined") {
-        document.cookie = `immo_token=${demoToken}; path=/; max-age=604800`
-        document.cookie = `immo_user_id=${demoUserId}; path=/; max-age=604800`
-        document.cookie = `immo_name=${demoName}; path=/; max-age=604800`
-        document.cookie = `immo_new_user=true; path=/; max-age=604800`
-      }
+      saveSession(demoToken, demoUserId, demoName, true)
       router.push("/properties")
       return
     }
@@ -52,13 +46,7 @@ export default function BetaLoginPage() {
       return
     }
 
-    setAuth(data.session_token, data.user_id, name || "Investor")
-    if (typeof window !== "undefined") {
-      document.cookie = `immo_token=${data.session_token}; path=/; max-age=604800`
-      document.cookie = `immo_user_id=${data.user_id}; path=/; max-age=604800`
-      if (name) document.cookie = `immo_name=${name}; path=/; max-age=604800`
-      document.cookie = `immo_new_user=true; path=/; max-age=604800`
-    }
+    saveSession(data.session_token, data.user_id, name || "Investor", true)
     router.push("/properties")
   }
 

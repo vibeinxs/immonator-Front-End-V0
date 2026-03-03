@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { VerdictBadge } from "@/components/verdict-badge"
 import { immoApi } from "@/lib/immonatorApi"
-import { getDisplayName } from "@/lib/auth"
+import { getUserName, isNewUser, setNewUserSeen } from "@/lib/auth"
 import { useLocale } from "@/lib/i18n/locale-context"
 import { EUR } from "@/lib/utils"
 
@@ -161,10 +161,10 @@ function ContextHint({
 function OnboardingOverlay({ onClose }: { onClose: () => void }) {
   const { t } = useLocale()
   const [screen, setScreen] = useState(0)
-  const name = getDisplayName() || "Investor"
+  const name = getUserName() || "Investor"
 
   const dismiss = () => {
-    localStorage.setItem("immo_new_user", "false")
+    setNewUserSeen()
     onClose()
   }
 
@@ -665,7 +665,7 @@ export default function PropertiesPage() {
 
     // Check onboarding
     if (typeof window !== "undefined") {
-      if (localStorage.getItem("immo_new_user") === "true") {
+      if (isNewUser()) {
         setShowOnboarding(true)
       }
     }

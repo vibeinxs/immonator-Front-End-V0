@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { FeedbackModal } from "@/components/feedback-modal"
 import { LocaleSwitcher } from "@/components/locale-switcher"
-import { getDisplayName, getInitials, logout } from "@/lib/auth"
+import { getUserName, getInitials, logout } from "@/lib/auth"
 import { useLocale } from "@/lib/i18n/locale-context"
 
 const NAV_KEYS = [
@@ -34,7 +34,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const { t } = useLocale()
   const [feedbackOpen, setFeedbackOpen] = useState(false)
-  const displayName = getDisplayName() || "User"
+  const displayName = getUserName() || "User"
   const initials = getInitials(displayName)
 
   const isActive = (href: string) => {
