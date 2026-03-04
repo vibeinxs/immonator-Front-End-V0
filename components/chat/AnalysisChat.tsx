@@ -2,9 +2,9 @@
 
 import { useEffect, useState, useRef, useCallback } from "react"
 import { ChevronDown, ArrowRight } from "lucide-react"
-import { getToken } from "@/lib/auth"
 import { immoApi } from "@/lib/immonatorApi"
 import { copy } from "@/lib/copy"
+import { useToast } from "@/hooks/use-toast"
 
 interface ChatMessage {
   role: "user" | "assistant"
@@ -22,67 +22,88 @@ export function AnalysisChat({
   contextId?: string
   title: string
 }) {
+  const { toast } = useToast()
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState("")
   const [streaming, setStreaming] = useState(false)
   const [didLoadHistory, setDidLoadHistory] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const readerRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null)
+  const abortedRef = useRef(false)
 
   // Load history on mount
   useEffect(() => {
     if (didLoadHistory) return
     setDidLoadHistory(true)
-    immoApi.getChatHistory(contextType, contextId)
+    immoApi
+      .getChatHistory(contextType, contextId)
       .then(({ data }) => {
         if (data?.messages) setMessages(data.messages as ChatMessage[])
       })
       .catch(() => {})
   }, [contextType, contextId, didLoadHistory])
 
-  // Auto-scroll
+  // Cancel any in-flight stream on unmount
+  useEffect(() => {
+    abortedRef.current = false
+    return () => {
+      abortedRef.current = true
+      readerRef.current?.cancel().catch(() => {})
+    }
+  }, [])
+
+  // Auto-scroll to bottom whenever messages update
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
   }, [messages])
 
+  const popLastMessage = useCallback(
+    () => setMessages((prev) => prev.slice(0, -1)),
+    []
+  )
+
   const send = useCallback(
     async (text: string) => {
       if (!text.trim() || streaming) return
 
-      const userMsg: ChatMessage = { role: "user", message: text.trim() }
-      setMessages((prev) => [...prev, userMsg])
+      setMessages((prev) => [...prev, { role: "user", message: text.trim() }])
       setInput("")
       setStreaming(true)
-
-      // Add empty assistant message
       setMessages((prev) => [...prev, { role: "assistant", message: "" }])
 
       try {
-        const res = await immoApi.sendChatMessage(text.trim(), contextType, contextId)
+        const res = await immoApi.sendChatMessage({
+          message: text.trim(),
+          context_type: contextType,
+          context_id: contextId,
+        })
+
+        if (!res) {
+          popLastMessage()
+          setStreaming(false)
+          toast({ title: copy.chat.errorNetwork, variant: "destructive" })
+          return
+        }
 
         if (!res.ok || !res.body) {
-          setMessages((prev) => {
-            const msgs = [...prev]
-            msgs[msgs.length - 1] = {
-              role: "assistant",
-              message: copy.chat.errorGeneric,
-            }
-            return msgs
-          })
+          popLastMessage()
           setStreaming(false)
+          toast({ title: copy.chat.errorGeneric, variant: "destructive" })
           return
         }
 
         const reader = res.body.getReader()
+        readerRef.current = reader
         const decoder = new TextDecoder()
         let buffer = ""
         let fullContent = ""
 
         while (true) {
           const { done, value } = await reader.read()
-          if (done) break
+          if (done || abortedRef.current) break
 
           buffer += decoder.decode(value, { stream: true })
           const lines = buffer.split("\n")
@@ -90,47 +111,40 @@ export function AnalysisChat({
 
           for (const line of lines) {
             const trimmed = line.trim()
-            if (trimmed.startsWith("data:")) {
-              const jsonStr = trimmed.slice(5).trim()
-              if (jsonStr === "[DONE]") continue
-              try {
-                const parsed = JSON.parse(jsonStr)
-                if (parsed.content) {
-                  fullContent += parsed.content
-                  setMessages((prev) => {
-                    const msgs = [...prev]
-                    msgs[msgs.length - 1] = {
-                      role: "assistant",
-                      message: fullContent,
-                    }
-                    return msgs
-                  })
-                }
-              } catch {
-                /* skip invalid JSON */
+            if (!trimmed.startsWith("data:")) continue
+            const jsonStr = trimmed.slice(5).trim()
+            if (jsonStr === "[DONE]") continue
+            try {
+              const parsed = JSON.parse(jsonStr)
+              if (parsed.content) {
+                fullContent += parsed.content
+                setMessages((prev) => {
+                  const msgs = [...prev]
+                  msgs[msgs.length - 1] = { role: "assistant", message: fullContent }
+                  return msgs
+                })
               }
+            } catch {
+              /* skip invalid JSON */
             }
           }
         }
       } catch {
-        setMessages((prev) => {
-          const msgs = [...prev]
-          msgs[msgs.length - 1] = {
-            role: "assistant",
-            message: copy.chat.errorNetwork,
-          }
-          return msgs
-        })
+        if (!abortedRef.current) {
+          popLastMessage()
+          toast({ title: copy.chat.errorNetwork, variant: "destructive" })
+        }
       }
 
-      setStreaming(false)
+      if (!abortedRef.current) setStreaming(false)
+      readerRef.current = null
     },
-    [streaming, contextType, contextId]
+    [streaming, contextType, contextId, toast, popLastMessage]
   )
 
   return (
     <div className="rounded-xl border border-border bg-white">
-      {/* Header */}
+      {/* Header — click to toggle */}
       <button
         onClick={() => setOpen((o) => !o)}
         className="flex w-full items-center justify-between rounded-t-xl border-b border-border bg-white p-4 transition-colors hover:bg-bg-hover"
@@ -143,10 +157,10 @@ export function AnalysisChat({
         />
       </button>
 
-      {/* Expanded */}
+      {/* Expanded panel */}
       {open && (
         <div>
-          {/* Messages */}
+          {/* Message area */}
           <div
             ref={scrollRef}
             className="max-h-96 space-y-3 overflow-y-auto bg-bg-base/50 p-4"
@@ -154,7 +168,7 @@ export function AnalysisChat({
             {messages.map((msg, i) => (
               <div
                 key={i}
-                className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"} animate-fade-up`}
+                className={`flex animate-fade-up ${msg.role === "user" ? "justify-end" : "justify-start"}`}
                 style={{ animationDelay: "0ms" }}
               >
                 <div
@@ -166,29 +180,31 @@ export function AnalysisChat({
                 >
                   <p className="whitespace-pre-wrap">{msg.message}</p>
                   {msg.role === "assistant" && msg.message && (
-                    <p className="mt-1 text-[11px] text-text-muted">{copy.chat.aiLabel}</p>
+                    <p className="mt-1 text-[11px] text-text-muted">{copy.analysis.aiLabel}</p>
                   )}
                 </div>
               </div>
             ))}
 
-            {/* Typing indicator */}
-            {streaming && messages.length > 0 && messages[messages.length - 1].message === "" && (
-              <div className="flex justify-start">
-                <div className="flex gap-1 rounded-2xl rounded-bl-sm border border-border bg-white px-4 py-3">
-                  {[0, 1, 2].map((i) => (
-                    <div
-                      key={i}
-                      className="h-1.5 w-1.5 animate-pulse rounded-full bg-text-muted"
-                      style={{ animationDelay: `${i * 200}ms` }}
-                    />
-                  ))}
+            {/* Typing indicator — 3 animated dots while empty assistant message is streaming */}
+            {streaming &&
+              messages.length > 0 &&
+              messages[messages.length - 1].message === "" && (
+                <div className="flex justify-start">
+                  <div className="flex gap-1 rounded-2xl rounded-bl-sm border border-border bg-white px-4 py-3">
+                    {[0, 1, 2].map((i) => (
+                      <div
+                        key={i}
+                        className="h-1.5 w-1.5 animate-pulse rounded-full bg-text-muted"
+                        style={{ animationDelay: `${i * 200}ms` }}
+                      />
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
           </div>
 
-          {/* Suggestion chips (when empty) */}
+          {/* Suggestion chips — empty state only */}
           {messages.length === 0 && (
             <div className="flex flex-wrap gap-2 border-t border-border bg-white p-4">
               {SUGGESTION_CHIPS.map((chip) => (
