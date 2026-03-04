@@ -371,13 +371,17 @@ function AddPropertyModal({
       return
     }
     setLinkSubmitting(true)
-    await immoApi.triggerScrape({
+    // TriggerScrapeRequest only accepts city, max_price, min_rooms (openapi.json)
+    const linkResult = await immoApi.triggerScrape({
       city: linkCity,
-      url: linkUrl,
       max_price: 1000000,
       min_rooms: 1,
     })
     setLinkSubmitting(false)
+    if (linkResult.error) {
+      setLinkError(linkResult.error)
+      return
+    }
     setLinkSuccess(true)
     setTimeout(() => {
       resetAll()
@@ -401,6 +405,7 @@ function AddPropertyModal({
   const [notes, setNotes] = useState("")
   const [manualSubmitting, setManualSubmitting] = useState(false)
   const [manualSuccess, setManualSuccess] = useState(false)
+  const [manualError, setManualError] = useState("")
   const [fieldErrors, setFieldErrors] = useState<Record<string, boolean>>({})
   const [showExampleHint, setShowExampleHint] = useState(false)
 
@@ -433,8 +438,11 @@ function AddPropertyModal({
     setFieldErrors(errors)
     if (Object.keys(errors).length > 0) return
 
+    setManualError("")
     setManualSubmitting(true)
-    await immoApi.createManualProperty({
+    // NOTE: POST /api/properties is not yet in openapi.json (GET only).
+    // Backend needs to add this route for manual entries to persist.
+    const manualResult = await immoApi.createManualProperty({
       source: "manual",
       title,
       city,
@@ -450,6 +458,10 @@ function AddPropertyModal({
       notes: notes || undefined,
     })
     setManualSubmitting(false)
+    if (manualResult.error) {
+      setManualError(manualResult.error)
+      return
+    }
     setManualSuccess(true)
     setTimeout(() => {
       resetAll()
@@ -477,6 +489,7 @@ function AddPropertyModal({
     setListingUrl("")
     setNotes("")
     setManualSuccess(false)
+    setManualError("")
     setFieldErrors({})
     setShowExampleHint(false)
   }
@@ -771,6 +784,10 @@ function AddPropertyModal({
 
                 {Object.values(fieldErrors).some(Boolean) && (
                   <p className="text-xs text-danger">Please fill required fields</p>
+                )}
+
+                {manualError && (
+                  <p className="text-xs text-danger">{manualError}</p>
                 )}
 
                 <button
