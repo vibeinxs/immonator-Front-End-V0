@@ -60,6 +60,11 @@ export function AnalysisChat({
     }
   }, [messages])
 
+  const popLastMessage = useCallback(
+    () => setMessages((prev) => prev.slice(0, -1)),
+    []
+  )
+
   const send = useCallback(
     async (text: string) => {
       if (!text.trim() || streaming) return
@@ -77,12 +82,14 @@ export function AnalysisChat({
         })
 
         if (!res) {
+          popLastMessage()
           setStreaming(false)
           toast({ title: copy.chat.errorNetwork, variant: "destructive" })
           return
         }
 
         if (!res.ok || !res.body) {
+          popLastMessage()
           setStreaming(false)
           toast({ title: copy.chat.errorGeneric, variant: "destructive" })
           return
@@ -124,6 +131,7 @@ export function AnalysisChat({
         }
       } catch {
         if (!abortedRef.current) {
+          popLastMessage()
           toast({ title: copy.chat.errorNetwork, variant: "destructive" })
         }
       }
@@ -131,7 +139,7 @@ export function AnalysisChat({
       if (!abortedRef.current) setStreaming(false)
       readerRef.current = null
     },
-    [streaming, contextType, contextId, toast]
+    [streaming, contextType, contextId, toast, popLastMessage]
   )
 
   return (
