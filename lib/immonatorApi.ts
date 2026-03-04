@@ -344,7 +344,8 @@ export async function translateTexts(
     if (!res.ok) return { data: null, error: `Error ${res.status}` }
     const data = await res.json()
     return { data, error: null }
-  } catch {
+  } catch (e) {
+    console.error("Translation API network error:", e)
     return { data: null, error: "Network error. Check your connection." }
   }
 }
