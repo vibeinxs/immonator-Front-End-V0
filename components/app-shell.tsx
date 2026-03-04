@@ -20,6 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { FeedbackModal } from "@/components/feedback-modal"
+import { useSessionHeartbeat } from "@/hooks/useSessionHeartbeat"
 import { LocaleSwitcher } from "@/components/locale-switcher"
 import { getUserName, getInitials, logout } from "@/lib/auth"
 import { useLocale } from "@/lib/i18n/locale-context"
@@ -33,6 +34,8 @@ const NAV_KEYS = [
 ]
 
 export function AppShell({ children }: { children: React.ReactNode }) {
+  useSessionHeartbeat()
+
   const pathname = usePathname()
   const { t } = useLocale()
   const [feedbackOpen, setFeedbackOpen] = useState(false)
