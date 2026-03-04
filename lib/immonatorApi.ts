@@ -97,6 +97,31 @@ export function triggerScrape(
   })
 }
 
+export interface ManualPropertyBody {
+  source: "manual"
+  title: string
+  city: string
+  zip_code?: string
+  price: number
+  size_sqm: number
+  rooms: number
+  year_built?: number
+  estimated_rent?: number
+  heating_type?: string
+  floor?: string
+  listing_url?: string
+  notes?: string
+}
+
+export function createManualProperty(
+  body: ManualPropertyBody
+): Promise<ApiResult<{ id: string; message: string }>> {
+  return apiCall<{ id: string; message: string }>("/api/properties", {
+    method: "POST",
+    body: JSON.stringify(body),
+  })
+}
+
 // ─── Portfolio ────────────────────────────────────────────────────────────────
 
 export function saveToPortfolio(
@@ -359,6 +384,7 @@ export const immoApi = {
   fetchPropertyById,
   fetchPropertyStats,
   triggerScrape,
+  createManualProperty,
   saveToPortfolio,
   getPortfolio,
   updatePortfolioStatus,
