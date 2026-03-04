@@ -1,6 +1,6 @@
 "use client"
 
-import { use, useEffect, useState, useCallback, useRef, type ReactNode } from "react"
+import { use, useEffect, useState, useCallback, type ReactNode } from "react"
 import Link from "next/link"
 import { ArrowLeft, AlertCircle } from "lucide-react"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
@@ -17,8 +17,8 @@ import { MarketAnalysisCard } from "@/components/analysis/MarketAnalysisCard"
 import { AnalysisChat } from "@/components/chat/AnalysisChat"
 import {
   immoApi,
-  getFinancialMetrics,
-  triggerAndGetFinancialMetrics,
+  analyseProperty,
+  type YearData,
   type FinancialMetrics,
 } from "@/lib/immonatorApi"
 import { EUR } from "@/lib/utils"
@@ -336,9 +336,6 @@ function ChartSkeleton() {
 
 /* ─── Main page ──────────────────────────────────────────── */
 
-const POLL_MS   = 3000
-const MAX_POLLS = 20
-
 export default function PropertyDetailPage({
   params,
 }: {
@@ -359,9 +356,6 @@ export default function PropertyDetailPage({
   const [metricsLoading, setMetricsLoading]   = useState(true)
   const [metricsError, setMetricsError]       = useState<string | null>(null)
   const [triggering, setTriggering]           = useState(false)
-
-  const pollCountRef = useRef(0)
-  const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   /* ── Seed demo data instantly (no API) ── */
   useEffect(() => {
@@ -407,44 +401,77 @@ export default function PropertyDetailPage({
     return () => { alive = false }
   }, [id, isDemo])
 
-  /* ── Financial metrics (real IDs only) ── */
-  const startFinancialPoll = useCallback(async () => {
-    if (isDemo) return
-    pollCountRef.current = 0
-    if (pollTimerRef.current) clearTimeout(pollTimerRef.current)
-
-    const schedule = async () => {
-      const { data, error } = await getFinancialMetrics(id)
-      if (error) { setMetricsError(error); setMetricsLoading(false); return }
-      if (data?.status === "generated") {
-        setMetrics(data.metrics); setMetricsLoading(false); setMetricsError(null); return
-      }
-      if (++pollCountRef.current >= MAX_POLLS) { setMetricsLoading(false); return }
-      pollTimerRef.current = setTimeout(schedule, POLL_MS)
-    }
-    schedule()
-  }, [id, isDemo])
-
-  useEffect(() => {
-    if (isDemo) return
-    startFinancialPoll()
-    return () => { if (pollTimerRef.current) clearTimeout(pollTimerRef.current) }
-  }, [startFinancialPoll, isDemo])
-
   /* ── Manual trigger ── */
   const handleTrigger = useCallback(async () => {
-    if (isDemo) return
-    setTriggering(true); setMetricsError(null)
-    const { data, error } = await triggerAndGetFinancialMetrics(id)
+    if (isDemo || !property) return
+    setTriggering(true)
+    setMetricsError(null)
+    setMetricsLoading(true)
+
+    const { data, error } = await analyseProperty({
+      address: `${property.address}, ${property.city}`,
+      sqm: property.living_area_sqm ?? 1,
+      year_built: property.year_built ?? 1990,
+      condition: "existing",
+      purchase_price: property.asking_price ?? 1,
+      equity: (property.asking_price ?? 1) * 0.2,
+      rent_monthly: property.monthly_rent ?? 0,
+      interest_rate: 3.8,
+      repayment_rate: 2,
+      transfer_tax_pct: 6,
+      notary_pct: 2,
+      land_share_pct: 20,
+      hausgeld_monthly: 0,
+      maintenance_nd: 0,
+      management_nd: 0,
+      rent_growth: 2,
+      appreciation: 2,
+      tax_rate: 42,
+      vacancy_rate: 3,
+      holding_years: 20,
+      afa_rate_input: 2,
+      special_afa_enabled: false,
+    })
+
     setTriggering(false)
-    if (error) { setMetricsError(error); return }
-    if (data?.calculated_metrics || data?.analysis) {
-      const { data: fresh } = await getFinancialMetrics(id)
-      if (fresh?.metrics) { setMetrics(fresh.metrics); setMetricsLoading(false) }
-    } else {
-      setMetricsLoading(true); startFinancialPoll()
+
+    if (error || !data) {
+      setMetricsError(error ?? "Failed to run analysis")
+      setMetricsLoading(false)
+      return
     }
-  }, [id, isDemo, startFinancialPoll])
+
+    setMetrics({
+      gross_yield_pct: Number(data.gross_yield_pct ?? 0),
+      net_yield_pct: Number(data.net_yield_pct ?? 0),
+      kpf: Number(data.kpf ?? 0),
+      irr_10: Number(data.irr_10 ?? 0),
+      irr_15: Number(data.irr_15 ?? 0),
+      irr_20: Number(data.irr_20 ?? 0),
+      equity_multiple_10: Number(data.equity_multiple_10 ?? 0),
+      equity_multiple_15: Number(data.equity_multiple_15 ?? 0),
+      equity_multiple_20: Number(data.equity_multiple_20 ?? 0),
+      cash_flow_monthly_yr1: Number(data.cash_flow_monthly_yr1 ?? 0),
+      ltv: Number(data.ltv_pct ?? 0),
+      monthly_annuity: Number(data.annuity_monthly ?? 0),
+      closing_costs: Number(data.closing_costs ?? 0),
+      afa_saving: Number(data.afa_tax_saving_yr1 ?? 0),
+      year_data: (data.year_data ?? []).map((row) => {
+        const r = row as Record<string, unknown>
+        return {
+          year: Number(r.year ?? 0),
+          cashflow_monthly:
+            r.cash_flow_monthly !== undefined
+              ? Number(r.cash_flow_monthly)
+              : r.cash_flow !== undefined
+                ? Number(r.cash_flow) / 12
+                : 0,
+          cumulative_cashflow: Number(r.net_worth ?? 0),
+        }
+      }) as YearData[],
+    })
+    setMetricsLoading(false)
+  }, [isDemo, property])
 
   /* ── Derived ── */
   const flags = metrics

@@ -117,6 +117,56 @@ export interface PropertyListResponse {
   pages: number
 }
 
+export interface AnalyseRequest {
+  address: string
+  sqm: number
+  year_built: number
+  condition: "existing" | "newbuild"
+  afa_method?: string
+  afa_rate_input?: number | null
+  purchase_price: number
+  equity: number
+  interest_rate?: number
+  repayment_rate?: number
+  transfer_tax_pct?: number
+  notary_pct?: number
+  land_share_pct?: number
+  rent_monthly: number
+  hausgeld_monthly?: number
+  maintenance_nd?: number
+  management_nd?: number
+  rent_growth?: number
+  appreciation?: number
+  tax_rate?: number
+  vacancy_rate?: number
+  holding_years?: number
+  special_afa_enabled?: boolean
+}
+
+export interface AnalyseYearData {
+  year: number
+  cash_flow?: number
+  cash_flow_monthly?: number
+  equity_multiple?: number
+  net_worth?: number
+}
+
+export interface AnalyseResponse {
+  score: number
+  verdict: string
+  net_yield_pct: number
+  kpf: number
+  irr_10: number
+  irr_15: number
+  irr_20: number
+  cash_flow_monthly_yr1: number
+  equity_multiple_10: number
+  equity_multiple_15: number
+  equity_multiple_20: number
+  year_data: AnalyseYearData[]
+  [key: string]: unknown
+}
+
 export interface PropertyStatsResponse {
   total_count: number
   count_by_city: Record<string, number>
