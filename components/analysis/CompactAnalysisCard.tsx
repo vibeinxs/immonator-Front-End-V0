@@ -55,12 +55,7 @@ export function CompactAnalysisCard({ propertyId }: { propertyId: string }) {
       }
       if (!polling) return
 
-      if (result?.status === "not_generated") {
-        setTimeout(fetchData, 3000)
-        return
-      }
-
-      if (result?.analysis) {
+      if (result?.status === "generated" && result.analysis?.verdict) {
         setData({
           verdict: result.analysis.verdict || "worth_analysing",
           confidence_score: Number(result.analysis.confidence_score ?? 0),
@@ -72,7 +67,7 @@ export function CompactAnalysisCard({ propertyId }: { propertyId: string }) {
         return
       }
 
-      setLoading(false)
+      setTimeout(fetchData, 3000)
     }
 
     fetchData()

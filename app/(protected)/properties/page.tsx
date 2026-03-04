@@ -24,7 +24,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { VerdictBadge } from "@/components/verdict-badge"
-import { immoApi } from "@/lib/immonatorApi"
+import { immoApi, saveToPortfolio, getCompactAnalysis } from "@/lib/immonatorApi"
+import { copy } from "@/lib/copy"
 import { getUserName, isNewUser, setNewUserSeen } from "@/lib/auth"
 import { useLocale } from "@/lib/i18n/locale-context"
 import { EUR } from "@/lib/utils"
@@ -1102,16 +1103,59 @@ export default function PropertiesPage() {
 
   // Watch handler
   const handleWatch = async (id: string) => {
-    await immoApi.saveToPortfolio(id)
+    const { error } = await saveToPortfolio(id)
+    if (error) {
+      setToast({ message: copy.toasts.error, variant: "warning" })
+      return
+    }
+
     setProperties((prev) =>
-      prev.map((p) =>
-        p.id === id ? { ...p, is_watched: !p.is_watched } : p
-      )
+      prev.map((p) => (p.id === id ? { ...p, is_watched: true } : p))
     )
-    setToast({
-      message: t("properties.toast.saved"),
-      variant: "success",
-    })
+
+    const isFirstSave =
+      typeof window !== "undefined" && !localStorage.getItem("immo_first_save")
+    if (isFirstSave) {
+      localStorage.setItem("immo_first_save", "true")
+      setToast({ message: copy.toasts.firstSave, variant: "success" })
+    } else {
+      setToast({ message: copy.toasts.saved, variant: "success" })
+    }
+
+    const verdictLabels: Record<string, string> = {
+      strong_buy: "Strong Buy",
+      worth_analysing: "Worth Analysing",
+      proceed_with_caution: "Proceed with Caution",
+      avoid: "Avoid",
+    }
+
+    let attempts = 0
+    const poll = async () => {
+      if (attempts >= 10) return
+      attempts++
+      const { data } = await getCompactAnalysis(id)
+      if (data?.status === "generated" && data.analysis?.verdict) {
+        const label = verdictLabels[data.analysis.verdict] ?? data.analysis.verdict
+        setToast({ message: copy.toasts.analysisReady(label), variant: "success" })
+        setProperties((prev) =>
+          prev.map((p) =>
+            p.id === id && data.analysis
+              ? {
+                  ...p,
+                  compact_analysis: {
+                    verdict: data.analysis.verdict,
+                    one_line_summary: data.analysis.one_line_summary,
+                  },
+                }
+              : p
+          )
+        )
+        return
+      }
+      setTimeout(poll, 3000)
+    }
+
+    setTimeout(poll, 3000)
   }
 
   return (
