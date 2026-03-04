@@ -96,7 +96,7 @@ export function ScenarioModeller({ propertyId, askingPrice, monthlyRent }: Scena
   const grossYield   = price > 0 ? (rent * 12) / price * 100 : 0
   const netYield     = price > 0 ? ((effRent - mgmtCost) * 12 - maintenance) / price * 100 : 0
   const dscr         = mortgage > 0 ? (effRent * 12) / (mortgage * 12) : 0
-  const cashOnCash   = equity > 0 ? (cashflow * 12) / (price * (down / 100)) * 100 : 0
+  const cashOnCash   = equity > 0 ? (cashflow * 12) / equity * 100 : 0
 
   /* ── Handle Sonder-AfA dependency on Linear AfA ─────────────────────────── */
   const handleAfaToggle = (checked: boolean) => {
