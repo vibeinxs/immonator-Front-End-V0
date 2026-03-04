@@ -133,9 +133,9 @@ export function DeepAnalysisReport({ propertyId }: { propertyId: string }) {
   const [checkedItems, setCheckedItems] = useState<Record<number, boolean>>({})
   const [openSections, setOpenSections] = useState<Record<number, boolean>>(ALL_OPEN)
 
-  const pollRef     = useRef<ReturnType<typeof setInterval> | null>(null)
+  const pollRef     = useRef<ReturnType<typeof setTimeout> | null>(null)
   const stepRef     = useRef<ReturnType<typeof setInterval> | null>(null)
-  const progressRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const timeoutRef  = useRef<ReturnType<typeof setTimeout> | null>(null)
   const attemptsRef = useRef(0)
 
   // Restore due-diligence checklist state
@@ -146,12 +146,23 @@ export function DeepAnalysisReport({ propertyId }: { propertyId: string }) {
     } catch { /* ignore */ }
   }, [propertyId])
 
-  // Cleanup all intervals on unmount
+  // Trigger CSS progress animation when entering loading state (0 → 85% over 15 s)
+  useEffect(() => {
+    if (state !== "loading") return
+    // Double RAF ensures the 0% frame has painted before starting the transition
+    const raf1 = requestAnimationFrame(() => {
+      const raf2 = requestAnimationFrame(() => setProgress(85))
+      return () => cancelAnimationFrame(raf2)
+    })
+    return () => cancelAnimationFrame(raf1)
+  }, [state])
+
+  // Cleanup all timers on unmount
   useEffect(() => {
     return () => {
-      if (pollRef.current)     clearInterval(pollRef.current)
-      if (stepRef.current)     clearInterval(stepRef.current)
-      if (progressRef.current) clearInterval(progressRef.current)
+      if (pollRef.current)    clearTimeout(pollRef.current)
+      if (stepRef.current)    clearInterval(stepRef.current)
+      if (timeoutRef.current) clearTimeout(timeoutRef.current)
     }
   }, [])
 
@@ -161,9 +172,9 @@ export function DeepAnalysisReport({ propertyId }: { propertyId: string }) {
   }, [propertyId])
 
   const stopAll = () => {
-    if (pollRef.current)     { clearInterval(pollRef.current);     pollRef.current = null }
-    if (stepRef.current)     { clearInterval(stepRef.current);     stepRef.current = null }
-    if (progressRef.current) { clearInterval(progressRef.current); progressRef.current = null }
+    if (pollRef.current)    { clearTimeout(pollRef.current);    pollRef.current = null }
+    if (stepRef.current)    { clearInterval(stepRef.current);   stepRef.current = null }
+    if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null }
   }
 
   const handleRun = async () => {
@@ -173,46 +184,65 @@ export function DeepAnalysisReport({ propertyId }: { propertyId: string }) {
     setStepIdx(0)
     attemptsRef.current = 0
 
-    // Progress bar: 0 → 85% over 15 s
-    const start = Date.now()
-    progressRef.current = setInterval(() => {
-      const elapsed = Date.now() - start
-      setProgress(Math.min(85, (elapsed / 15000) * 85))
-    }, 150)
-
-    // Cycle progress steps every 4 s
+    // Cycle progress steps every 4 s (CSS handles the 0→85% animation via useEffect)
     stepRef.current = setInterval(() => {
       setStepIdx((s) => (s + 1) % PROGRESS_STEPS.length)
     }, 4000)
 
-    // Fire-and-forget: trigger the analysis
-    await immoApi.triggerDeepAnalysis(propertyId)
+    // Trigger; backend may return a cached completed result — short-circuit if so
+    const { data: triggerResult, error: triggerError } = await immoApi.triggerDeepAnalysis(propertyId) as unknown as {
+      data: { analysis?: Record<string, unknown>; calculated_metrics?: Record<string, unknown> } | null
+      error?: unknown
+    }
 
-    // Poll GET every 3 s, max 20 attempts (~60 s)
-    pollRef.current = setInterval(async () => {
-      attemptsRef.current += 1
+    if (triggerError || !triggerResult) {
+      stopAll()
+      setProgress(0)
+      setState("idle")
+      setErrorMsg(copy.errors.generic)
+      return
+    }
 
-      if (attemptsRef.current > MAX_POLL_ATTEMPTS) {
-        stopAll()
-        setProgress(0)
-        setState("idle")
-        setErrorMsg(copy.errors.generic)
-        return
-      }
+    if (triggerResult.analysis) {
+      stopAll()
+      setProgress(100)
+      setData(parseDeepData(triggerResult as Record<string, unknown>))
+      timeoutRef.current = setTimeout(() => setState("loaded"), 300)
+      return
+    }
 
-      const { data: result } = await immoApi.getDeepAnalysis(propertyId) as unknown as {
-        data: { status?: string; analysis?: Record<string, unknown>; calculated_metrics?: Record<string, unknown> } | null
-      }
+    // Self-scheduling poll: awaits each request before scheduling the next tick,
+    // preventing concurrent overlapping requests on slow connections.
+    const schedulePoll = () => {
+      pollRef.current = setTimeout(async () => {
+        attemptsRef.current += 1
 
-      if (result?.status === "generated") {
-        stopAll()
-        setProgress(100)
-        if (result.analysis) {
-          setData(parseDeepData(result as Record<string, unknown>))
+        if (attemptsRef.current > MAX_POLL_ATTEMPTS) {
+          stopAll()
+          setProgress(0)
+          setState("idle")
+          setErrorMsg(copy.errors.generic)
+          return
         }
-        setTimeout(() => setState("loaded"), 300)
-      }
-    }, POLL_INTERVAL_MS)
+
+        const { data: result } = await immoApi.getDeepAnalysis(propertyId) as unknown as {
+          data: { analysis?: Record<string, unknown>; calculated_metrics?: Record<string, unknown> } | null
+        }
+
+        if (result?.analysis) {
+          stopAll()
+          setProgress(100)
+          setData(parseDeepData(result as Record<string, unknown>))
+          timeoutRef.current = setTimeout(() => setState("loaded"), 300)
+          return
+        }
+
+        // Not ready yet — schedule next tick only after this request completes
+        schedulePoll()
+      }, POLL_INTERVAL_MS)
+    }
+
+    schedulePoll()
   }
 
   const toggleSection = (idx: number) =>
@@ -244,8 +274,11 @@ export function DeepAnalysisReport({ propertyId }: { propertyId: string }) {
       <div>
         <div className="h-1 w-full rounded-full bg-bg-elevated">
           <div
-            className="h-full rounded-full bg-brand transition-all duration-150"
-            style={{ width: `${progress}%` }}
+            className="h-full rounded-full bg-brand"
+            style={{
+              width: `${progress}%`,
+              transition: progress === 0 ? "none" : progress >= 100 ? "width 0.2s ease" : "width 15s linear",
+            }}
           />
         </div>
         <p className="mt-3 text-center text-sm text-text-secondary">
