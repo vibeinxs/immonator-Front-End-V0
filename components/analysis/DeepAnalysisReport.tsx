@@ -189,6 +189,7 @@ export function DeepAnalysisReport({ propertyId }: { propertyId: string }) {
 
   const handleRun = async () => {
     setErrorMsg(null)
+    setData(null)
     setState("loading")
     setProgress(0)
     setStepIdx(0)
