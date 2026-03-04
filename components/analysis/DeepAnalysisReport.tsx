@@ -39,36 +39,28 @@ interface FinancingScenario {
 }
 
 interface DeepData {
-  // Section 1 - Executive Summary
   verdict: "strong_buy" | "worth_analysing" | "proceed_with_caution" | "avoid"
   headline: string
   key_insight: string
   if_my_money: string
-  // Section 2 - Property Assessment
   strengths: string[]
   weaknesses: string[]
   hidden_costs: HiddenCost[]
-  // Section 3 - Valuation Analysis
   asking_price: number
   ertragswert: number
   sachwert: number
   is_fairly_priced: boolean
   valuation_commentary: string
-  // Section 4 - Investment Case
   bull_case: string
   base_case: string
   bear_case: string
-  // Section 5 - Risk Analysis
   overall_risk_level: "low" | "medium" | "high" | "critical"
   deal_breakers: string[]
   risks: RiskRow[]
-  // Section 6 - Financing
   scenarios: FinancingScenario[]
   kfw_programs: string[]
-  // Section 7 - Market Context
   market_commentary: string
   macro_risks: string[]
-  // Section 8 - Action
   action: string
   recommended_offer: number
   due_diligence: string[]
@@ -77,7 +69,10 @@ interface DeepData {
 
 /* ── Helpers ───────────────────────────────────────────── */
 
-const LOADING_MSGS = copy.analysis.loadingMessages
+const PROGRESS_STEPS = copy.analysis.progressSteps
+
+const POLL_INTERVAL_MS = 3000
+const MAX_POLL_ATTEMPTS = 20
 
 const severityStyle: Record<string, { bg: string; text: string }> = {
   low:      { bg: "bg-success-bg", text: "text-success" },
@@ -90,19 +85,60 @@ function formatEur(n: number) {
   return EUR + n.toLocaleString("de-DE")
 }
 
+function parseDeepData(result: Record<string, unknown>): DeepData {
+  const analysis = (result.analysis as Record<string, unknown>) ?? {}
+  const metrics  = (result.calculated_metrics as Record<string, unknown>) ?? {}
+  const m = { ...analysis, ...metrics }
+  return {
+    verdict:             (m.verdict as DeepData["verdict"]) || "worth_analysing",
+    headline:            (m.headline as string) ?? "—",
+    key_insight:         (m.key_insight as string) ?? "—",
+    if_my_money:         (m.if_my_money as string) ?? "—",
+    strengths:           (m.strengths as string[]) ?? [],
+    weaknesses:          (m.weaknesses as string[]) ?? [],
+    hidden_costs:        (m.hidden_costs as HiddenCost[]) ?? [],
+    asking_price:        Number(m.asking_price ?? 0),
+    ertragswert:         Number(m.ertragswert ?? 0),
+    sachwert:            Number(m.sachwert ?? 0),
+    is_fairly_priced:    Boolean(m.is_fairly_priced),
+    valuation_commentary:(m.valuation_commentary as string) ?? "—",
+    bull_case:           (m.bull_case as string) ?? "—",
+    base_case:           (m.base_case as string) ?? "—",
+    bear_case:           (m.bear_case as string) ?? "—",
+    overall_risk_level:  (m.overall_risk_level as DeepData["overall_risk_level"]) || "medium",
+    deal_breakers:       (m.deal_breakers as string[]) ?? [],
+    risks:               (m.risks as RiskRow[]) ?? [],
+    scenarios:           (m.scenarios as FinancingScenario[]) ?? [],
+    kfw_programs:        (m.kfw_programs as string[]) ?? [],
+    market_commentary:   (m.market_commentary as string) ?? "—",
+    macro_risks:         (m.macro_risks as string[]) ?? [],
+    action:              (m.action as string) ?? "hold",
+    recommended_offer:   Number(m.recommended_offer ?? 0),
+    due_diligence:       (m.due_diligence as string[]) ?? [],
+    next_steps:          (m.next_steps as string[]) ?? [],
+  }
+}
+
+const ALL_OPEN = Object.fromEntries(Array.from({ length: 8 }, (_, i) => [i, true]))
+
 /* ── Component ─────────────────────────────────────────── */
 
 export function DeepAnalysisReport({ propertyId }: { propertyId: string }) {
-  const [state, setState] = useState<"idle" | "loading" | "loaded">("idle")
-  const [data, setData] = useState<DeepData | null>(null)
-  const [progress, setProgress] = useState(0)
-  const [loadingMsg, setLoadingMsg] = useState(0)
-  const [pdfDialog, setPdfDialog] = useState(false)
+  const [state, setState]           = useState<"idle" | "loading" | "loaded">("idle")
+  const [data, setData]             = useState<DeepData | null>(null)
+  const [progress, setProgress]     = useState(0)
+  const [stepIdx, setStepIdx]       = useState(0)
+  const [errorMsg, setErrorMsg]     = useState<string | null>(null)
+  const [pdfDialog, setPdfDialog]   = useState(false)
   const [checkedItems, setCheckedItems] = useState<Record<number, boolean>>({})
-  const [openSections, setOpenSections] = useState<Record<number, boolean>>({ 0: true })
-  const progressRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [openSections, setOpenSections] = useState<Record<number, boolean>>(ALL_OPEN)
 
-  // Load due diligence state from localStorage
+  const pollRef     = useRef<ReturnType<typeof setInterval> | null>(null)
+  const stepRef     = useRef<ReturnType<typeof setInterval> | null>(null)
+  const progressRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const attemptsRef = useRef(0)
+
+  // Restore due-diligence checklist state
   useEffect(() => {
     try {
       const stored = localStorage.getItem(`immo_dd_${propertyId}`)
@@ -110,90 +146,90 @@ export function DeepAnalysisReport({ propertyId }: { propertyId: string }) {
     } catch { /* ignore */ }
   }, [propertyId])
 
+  // Cleanup all intervals on unmount
+  useEffect(() => {
+    return () => {
+      if (pollRef.current)     clearInterval(pollRef.current)
+      if (stepRef.current)     clearInterval(stepRef.current)
+      if (progressRef.current) clearInterval(progressRef.current)
+    }
+  }, [])
+
   const saveChecked = useCallback((items: Record<number, boolean>) => {
     setCheckedItems(items)
-    try {
-      localStorage.setItem(`immo_dd_${propertyId}`, JSON.stringify(items))
-    } catch { /* ignore */ }
+    try { localStorage.setItem(`immo_dd_${propertyId}`, JSON.stringify(items)) } catch { /* ignore */ }
   }, [propertyId])
 
+  const stopAll = () => {
+    if (pollRef.current)     { clearInterval(pollRef.current);     pollRef.current = null }
+    if (stepRef.current)     { clearInterval(stepRef.current);     stepRef.current = null }
+    if (progressRef.current) { clearInterval(progressRef.current); progressRef.current = null }
+  }
+
   const handleRun = async () => {
+    setErrorMsg(null)
     setState("loading")
     setProgress(0)
-    setLoadingMsg(0)
+    setStepIdx(0)
+    attemptsRef.current = 0
 
-    // Fake progress 0->85% in 15s
+    // Progress bar: 0 → 85% over 15 s
     const start = Date.now()
     progressRef.current = setInterval(() => {
       const elapsed = Date.now() - start
-      const pct = Math.min(85, (elapsed / 15000) * 85)
-      setProgress(pct)
-    }, 100)
+      setProgress(Math.min(85, (elapsed / 15000) * 85))
+    }, 150)
 
-    // Cycle loading messages
-    const msgId = setInterval(() => {
-      setLoadingMsg((m) => (m + 1) % LOADING_MSGS.length)
+    // Cycle progress steps every 4 s
+    stepRef.current = setInterval(() => {
+      setStepIdx((s) => (s + 1) % PROGRESS_STEPS.length)
     }, 4000)
 
-    const { data: result } = await immoApi.triggerDeepAnalysis(propertyId) as unknown as {
-      data: { analysis?: Record<string, unknown>; calculated_metrics?: Record<string, unknown> } | null
-    }
+    // Fire-and-forget: trigger the analysis
+    await immoApi.triggerDeepAnalysis(propertyId)
 
-    clearInterval(progressRef.current!)
-    clearInterval(msgId)
-    setProgress(100)
+    // Poll GET every 3 s, max 20 attempts (~60 s)
+    pollRef.current = setInterval(async () => {
+      attemptsRef.current += 1
 
-    if (result?.analysis) {
-      setTimeout(() => {
-        const merged = { ...(result.analysis || {}), ...(result.calculated_metrics || {}) } as Record<string, unknown>
-        setData({
-          verdict: (merged.verdict as DeepData["verdict"]) || "worth_analysing",
-          headline: (merged.headline as string) ?? "—",
-          key_insight: (merged.key_insight as string) ?? "—",
-          if_my_money: (merged.if_my_money as string) ?? "—",
-          strengths: (merged.strengths as string[]) ?? [],
-          weaknesses: (merged.weaknesses as string[]) ?? [],
-          hidden_costs: (merged.hidden_costs as HiddenCost[]) ?? [],
-          asking_price: Number(merged.asking_price ?? 0),
-          ertragswert: Number(merged.ertragswert ?? 0),
-          sachwert: Number(merged.sachwert ?? 0),
-          is_fairly_priced: Boolean(merged.is_fairly_priced),
-          valuation_commentary: (merged.valuation_commentary as string) ?? "—",
-          bull_case: (merged.bull_case as string) ?? "—",
-          base_case: (merged.base_case as string) ?? "—",
-          bear_case: (merged.bear_case as string) ?? "—",
-          overall_risk_level: (merged.overall_risk_level as DeepData["overall_risk_level"]) || "medium",
-          deal_breakers: (merged.deal_breakers as string[]) ?? [],
-          risks: (merged.risks as RiskRow[]) ?? [],
-          scenarios: (merged.scenarios as FinancingScenario[]) ?? [],
-          kfw_programs: (merged.kfw_programs as string[]) ?? [],
-          market_commentary: (merged.market_commentary as string) ?? "—",
-          macro_risks: (merged.macro_risks as string[]) ?? [],
-          action: (merged.action as string) ?? "hold",
-          recommended_offer: Number(merged.recommended_offer ?? 0),
-          due_diligence: (merged.due_diligence as string[]) ?? [],
-          next_steps: (merged.next_steps as string[]) ?? [],
-        })
-        setState("loaded")
-      }, 300)
-    } else {
-      setState("idle")
-    }
+      if (attemptsRef.current > MAX_POLL_ATTEMPTS) {
+        stopAll()
+        setProgress(0)
+        setState("idle")
+        setErrorMsg(copy.errors.generic)
+        return
+      }
+
+      const { data: result } = await immoApi.getDeepAnalysis(propertyId) as unknown as {
+        data: { status?: string; analysis?: Record<string, unknown>; calculated_metrics?: Record<string, unknown> } | null
+      }
+
+      if (result?.status === "generated") {
+        stopAll()
+        setProgress(100)
+        if (result.analysis) {
+          setData(parseDeepData(result as Record<string, unknown>))
+        }
+        setTimeout(() => setState("loaded"), 300)
+      }
+    }, POLL_INTERVAL_MS)
   }
 
-  const toggleSection = (idx: number) => {
+  const toggleSection = (idx: number) =>
     setOpenSections((prev) => ({ ...prev, [idx]: !prev[idx] }))
-  }
 
-  /* ── STATE A: Idle ───────────────────────────────────── */
+  /* ── STATE A ─────────────────────────────────────────── */
   if (state === "idle") {
     return (
       <div className="text-center">
+        {errorMsg && (
+          <p className="mb-3 text-sm text-danger">{errorMsg}</p>
+        )}
         <button
           onClick={handleRun}
           className="h-12 w-full rounded-xl bg-brand font-semibold text-white transition-colors hover:bg-brand-hover"
         >
-          {copy.analysis.runDeepAnalysis}
+          {copy.analysis.deepAnalysisButton}
         </button>
         <p className="mt-2 text-center text-xs text-text-muted">
           {copy.analysis.deepAnalysisHint}
@@ -202,24 +238,24 @@ export function DeepAnalysisReport({ propertyId }: { propertyId: string }) {
     )
   }
 
-  /* ── STATE B: Loading ────────────────────────────────── */
+  /* ── STATE B ─────────────────────────────────────────── */
   if (state === "loading") {
     return (
       <div>
         <div className="h-1 w-full rounded-full bg-bg-elevated">
           <div
-            className="h-full rounded-full bg-brand transition-all duration-300"
+            className="h-full rounded-full bg-brand transition-all duration-150"
             style={{ width: `${progress}%` }}
           />
         </div>
         <p className="mt-3 text-center text-sm text-text-secondary">
-          {LOADING_MSGS[loadingMsg]}
+          {PROGRESS_STEPS[stepIdx]}
         </p>
       </div>
     )
   }
 
-  /* ── STATE C: Loaded ─────────────────────────────────── */
+  /* ── STATE C ─────────────────────────────────────────── */
   if (!data) return null
 
   const sections = [
@@ -249,14 +285,12 @@ export function DeepAnalysisReport({ propertyId }: { propertyId: string }) {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{copy.analysis.pdfProTitle}</DialogTitle>
-            <DialogDescription>
-              {copy.analysis.pdfProDescription}
-            </DialogDescription>
+            <DialogDescription>{copy.analysis.pdfProDescription}</DialogDescription>
           </DialogHeader>
         </DialogContent>
       </Dialog>
 
-      {/* 8 Collapsible Sections */}
+      {/* 8 Collapsible Sections — all open by default */}
       <div className="space-y-3">
         {sections.map((section, idx) => (
           <Collapsible
@@ -274,9 +308,10 @@ export function DeepAnalysisReport({ propertyId }: { propertyId: string }) {
                   className={`h-4 w-4 text-text-muted transition-transform duration-200 ${openSections[idx] ? "rotate-180" : ""}`}
                 />
               </CollapsibleTrigger>
+
               <CollapsibleContent className="px-4 pb-4">
 
-                {/* SECTION 1 - Executive Summary */}
+                {/* 1 · Executive Summary */}
                 {idx === 0 && (
                   <div>
                     <VerdictBadge verdict={data.verdict} className="text-xs" />
@@ -284,70 +319,32 @@ export function DeepAnalysisReport({ propertyId }: { propertyId: string }) {
                     <div className="mt-3 rounded-xl border-l-4 border-brand bg-bg-elevated p-4">
                       <p className="text-sm italic text-text-secondary">{data.key_insight}</p>
                     </div>
-                    <p className="mt-3 text-sm italic text-text-secondary">
-                      {copy.analysis.ifMyMoney} {data.if_my_money}
-                    </p>
                   </div>
                 )}
 
-                {/* SECTION 2 - Property Assessment */}
+                {/* 2 · Strengths | Weaknesses */}
                 {idx === 1 && (
-                  <div>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div className="space-y-1.5">
-                        {data.strengths.map((s, i) => (
-                          <p key={i} className="text-text-primary">
-                            <span className="text-success">{"✓ "}</span>{s}
-                          </p>
-                        ))}
-                      </div>
-                      <div className="space-y-1.5">
-                        {data.weaknesses.map((w, i) => (
-                          <p key={i} className="text-text-primary">
-                            <span className="text-danger">{"✗ "}</span>{w}
-                          </p>
-                        ))}
-                      </div>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="space-y-1.5">
+                      {data.strengths.map((s, i) => (
+                        <p key={i} className="text-text-primary">
+                          <span className="text-success">{"✓ "}</span>{s}
+                        </p>
+                      ))}
                     </div>
-                    {data.hidden_costs.length > 0 && (
-                      <div className="mt-4">
-                        {data.hidden_costs.map((c, i) => (
-                          <div key={i} className="flex justify-between border-b border-border py-2 text-sm last:border-0">
-                            <span className="text-text-secondary">{c.item}</span>
-                            <span className="font-mono text-text-primary">{c.cost}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                    <div className="space-y-1.5">
+                      {data.weaknesses.map((w, i) => (
+                        <p key={i} className="text-text-primary">
+                          <span className="text-danger">{"✗ "}</span>{w}
+                        </p>
+                      ))}
+                    </div>
                   </div>
                 )}
 
-                {/* SECTION 3 - Valuation Analysis */}
+                {/* 3 · Valuation */}
                 {idx === 2 && (
                   <div>
-                    {/* Valuation gap bar */}
-                    <div className="mb-4 flex items-end gap-3">
-                      {[
-                        { label: "Ertragswert", value: data.ertragswert, color: "bg-success" },
-                        { label: "Sachwert", value: data.sachwert, color: "bg-brand" },
-                        { label: "Asking", value: data.asking_price, color: "bg-danger" },
-                      ].map((v) => {
-                        const maxVal = Math.max(data.ertragswert, data.sachwert, data.asking_price, 1)
-                        const heightPct = (Number(v.value || 0) / maxVal) * 100
-                        return (
-                          <div key={v.label} className="flex flex-1 flex-col items-center gap-1">
-                            <span className="font-mono text-xs text-text-secondary">{formatEur(v.value)}</span>
-                            <div className="w-full rounded-t bg-bg-elevated" style={{ height: "80px" }}>
-                              <div
-                                className={`w-full rounded-t ${v.color} transition-all`}
-                                style={{ height: `${heightPct}%`, marginTop: `${100 - heightPct}%` }}
-                              />
-                            </div>
-                            <span className="text-[10px] text-text-muted">{v.label}</span>
-                          </div>
-                        )
-                      })}
-                    </div>
                     <span className={`inline-block rounded-md px-2 py-0.5 text-[10px] font-bold uppercase ${data.is_fairly_priced ? "bg-success-bg text-success" : "bg-danger-bg text-danger"}`}>
                       {data.is_fairly_priced ? copy.analysis.fairlyPriced : copy.analysis.overpriced}
                     </span>
@@ -357,7 +354,7 @@ export function DeepAnalysisReport({ propertyId }: { propertyId: string }) {
                   </div>
                 )}
 
-                {/* SECTION 4 - Investment Case */}
+                {/* 4 · Investment Case */}
                 {idx === 3 && (
                   <div className="grid grid-cols-3 gap-3 text-sm">
                     <div className="rounded-xl border border-success/20 bg-success-bg p-4">
@@ -375,24 +372,17 @@ export function DeepAnalysisReport({ propertyId }: { propertyId: string }) {
                   </div>
                 )}
 
-                {/* SECTION 5 - Risk Analysis */}
+                {/* 5 · Risks */}
                 {idx === 4 && (
                   <div>
-                    <span className={`mb-3 inline-block rounded-md px-2 py-0.5 text-xs font-bold uppercase ${(severityStyle[data.overall_risk_level] || severityStyle.medium).bg} ${(severityStyle[data.overall_risk_level] || severityStyle.medium).text}`}>
+                    <span className={`mb-3 inline-block rounded-md px-2 py-0.5 text-xs font-bold uppercase ${(severityStyle[data.overall_risk_level] ?? severityStyle.medium).bg} ${(severityStyle[data.overall_risk_level] ?? severityStyle.medium).text}`}>
                       {data.overall_risk_level} {copy.analysis.riskSuffix}
                     </span>
-                    {data.deal_breakers.length > 0 && (
-                      <div className="mb-3 rounded-lg border-l-4 border-danger bg-danger-bg p-3 text-sm text-text-primary">
-                        {data.deal_breakers.map((d, i) => (
-                          <p key={i}>{d}</p>
-                        ))}
-                      </div>
-                    )}
-                    <div>
+                    <div className="mt-2">
                       {data.risks.map((r, i) => (
                         <div key={i} className="flex items-center justify-between border-b border-border py-2.5 text-sm last:border-0">
-                          <span className="text-text-primary">{r.risk}</span>
-                          <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase ${(severityStyle[r.severity] || severityStyle.medium).bg} ${(severityStyle[r.severity] || severityStyle.medium).text}`}>
+                          <span className="flex-1 text-text-primary">{r.risk}</span>
+                          <span className={`mx-3 rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase ${(severityStyle[r.severity] ?? severityStyle.medium).bg} ${(severityStyle[r.severity] ?? severityStyle.medium).text}`}>
                             {r.severity}
                           </span>
                           <span className="max-w-[40%] text-right text-xs text-text-secondary">{r.mitigation}</span>
@@ -402,7 +392,7 @@ export function DeepAnalysisReport({ propertyId }: { propertyId: string }) {
                   </div>
                 )}
 
-                {/* SECTION 6 - Financing */}
+                {/* 6 · Financing */}
                 {idx === 5 && (
                   <div>
                     <div className="grid grid-cols-3 gap-3 text-sm">
@@ -431,7 +421,7 @@ export function DeepAnalysisReport({ propertyId }: { propertyId: string }) {
                   </div>
                 )}
 
-                {/* SECTION 7 - Market Context */}
+                {/* 7 · Market Context */}
                 {idx === 6 && (
                   <div>
                     <p className="text-sm leading-relaxed text-text-secondary">{data.market_commentary}</p>
@@ -445,7 +435,7 @@ export function DeepAnalysisReport({ propertyId }: { propertyId: string }) {
                   </div>
                 )}
 
-                {/* SECTION 8 - Action Plan */}
+                {/* 8 · Action */}
                 {idx === 7 && (
                   <div>
                     <span className={`inline-block rounded-md px-2 py-0.5 text-xs font-bold uppercase ${data.action === "buy" ? "bg-success-bg text-success" : data.action === "negotiate" ? "bg-brand-subtle text-brand" : "bg-warning-bg text-warning"}`}>
@@ -453,28 +443,27 @@ export function DeepAnalysisReport({ propertyId }: { propertyId: string }) {
                     </span>
                     <p className="mt-2 font-serif text-4xl text-success">{formatEur(data.recommended_offer)}</p>
 
-                    {/* Due diligence checklist */}
-                    <div className="mt-4 space-y-2.5">
-                      {data.due_diligence.map((item, i) => (
-                        <label key={i} className="flex items-center gap-2.5 text-sm text-text-primary">
-                          <Checkbox
-                            checked={!!checkedItems[i]}
-                            onCheckedChange={(checked) => {
-                              const next = { ...checkedItems, [i]: !!checked }
-                              saveChecked(next)
-                            }}
-                          />
-                          {item}
-                        </label>
-                      ))}
-                    </div>
+                    {data.due_diligence.length > 0 && (
+                      <div className="mt-4 space-y-2.5">
+                        {data.due_diligence.map((item, i) => (
+                          <label key={i} className="flex items-center gap-2.5 text-sm text-text-primary">
+                            <Checkbox
+                              checked={!!checkedItems[i]}
+                              onCheckedChange={(checked) => saveChecked({ ...checkedItems, [i]: !!checked })}
+                            />
+                            {item}
+                          </label>
+                        ))}
+                      </div>
+                    )}
 
-                    {/* Next steps */}
-                    <ol className="mt-3 list-inside list-decimal space-y-2 text-sm text-text-secondary">
-                      {data.next_steps.map((s, i) => (
-                        <li key={i}>{s}</li>
-                      ))}
-                    </ol>
+                    {data.next_steps.length > 0 && (
+                      <ol className="mt-3 list-inside list-decimal space-y-2 text-sm text-text-secondary">
+                        {data.next_steps.map((s, i) => (
+                          <li key={i}>{s}</li>
+                        ))}
+                      </ol>
+                    )}
                   </div>
                 )}
 
