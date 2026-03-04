@@ -1,7 +1,7 @@
 import { useEffect } from "react"
 
-import { isLoggedIn } from "@/lib/auth"
 import { getMe } from "@/lib/immonatorApi"
+import { isLoggedIn } from "@/lib/auth"
 
 export function useSessionHeartbeat() {
   useEffect(() => {
@@ -12,7 +12,7 @@ export function useSessionHeartbeat() {
       // 401 → lib/api.ts calls logout() automatically
     }
 
-    void check()
+    check()
     const interval = setInterval(check, 5 * 60 * 1000)
 
     return () => clearInterval(interval)
