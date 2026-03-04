@@ -85,12 +85,22 @@ function formatEur(n: number) {
   return EUR + n.toLocaleString("de-DE")
 }
 
+const VERDICTS = new Set<DeepData["verdict"]>(["strong_buy", "worth_analysing", "proceed_with_caution", "avoid"])
+const RISK_LEVELS = new Set<DeepData["overall_risk_level"]>(["low", "medium", "high", "critical"])
+
+function parseVerdict(v: unknown): DeepData["verdict"] {
+  return VERDICTS.has(v as DeepData["verdict"]) ? (v as DeepData["verdict"]) : "worth_analysing"
+}
+function parseRiskLevel(v: unknown): DeepData["overall_risk_level"] {
+  return RISK_LEVELS.has(v as DeepData["overall_risk_level"]) ? (v as DeepData["overall_risk_level"]) : "medium"
+}
+
 function parseDeepData(result: Record<string, unknown>): DeepData {
   const analysis = (result.analysis as Record<string, unknown>) ?? {}
   const metrics  = (result.calculated_metrics as Record<string, unknown>) ?? {}
   const m = { ...analysis, ...metrics }
   return {
-    verdict:             (m.verdict as DeepData["verdict"]) || "worth_analysing",
+    verdict:             parseVerdict(m.verdict),
     headline:            (m.headline as string) ?? "—",
     key_insight:         (m.key_insight as string) ?? "—",
     if_my_money:         (m.if_my_money as string) ?? "—",
@@ -105,7 +115,7 @@ function parseDeepData(result: Record<string, unknown>): DeepData {
     bull_case:           (m.bull_case as string) ?? "—",
     base_case:           (m.base_case as string) ?? "—",
     bear_case:           (m.bear_case as string) ?? "—",
-    overall_risk_level:  (m.overall_risk_level as DeepData["overall_risk_level"]) || "medium",
+    overall_risk_level:  parseRiskLevel(m.overall_risk_level),
     deal_breakers:       (m.deal_breakers as string[]) ?? [],
     risks:               (m.risks as RiskRow[]) ?? [],
     scenarios:           (m.scenarios as FinancingScenario[]) ?? [],
