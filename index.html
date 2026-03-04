@@ -1,0 +1,1178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Immonator — German Real Estate Intelligence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"DM Sans","SF Pro Text",sans-serif;font-size:14px;background:#f2f2f7;color:#1d1d1f;-webkit-font-smoothing:antialiased;}
+:root{
+  --bg:#f2f2f7;--surface:#ffffff;--s2:#f5f5f7;
+  --border:rgba(0,0,0,0.08);--border2:rgba(0,0,0,0.13);
+  --text:#1d1d1f;--t2:#6e6e73;--t3:#aeaeb2;
+  --blue:#0071e3;--blue2:#0057b8;
+  --green:#34c759;--orange:#ff9500;--red:#ff3b30;
+  --r:10px;--card-r:16px;--sw:360px;--hh:52px;
+}
+/* ── Shell ── */
+#shell{display:grid;grid-template-rows:var(--hh) 1fr 32px;grid-template-columns:var(--sw) 1fr;height:100vh;width:100vw;}
+/* ── Top bar ── */
+#topbar{grid-column:1/-1;display:flex;align-items:center;padding:0 20px;background:rgba(255,255,255,0.88);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid var(--border);gap:14px;z-index:100;}
+.brand{display:flex;align-items:center;gap:9px;}
+.brand-icon{width:30px;height:30px;background:var(--blue);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0;box-shadow:0 2px 8px rgba(0,113,227,.35);}
+.brand-name{font-size:16px;font-weight:700;letter-spacing:-.4px;}
+.brand-name span{color:var(--blue);}
+.sep{flex:1;}
+.tb-chip{display:flex;align-items:center;gap:6px;padding:5px 12px;background:var(--s2);border-radius:20px;font-size:12px;font-weight:500;color:var(--t2);cursor:pointer;border:none;font-family:inherit;transition:background .15s;}
+.tb-chip:hover{background:#e5e5ea;}
+.tb-chip .dot{width:7px;height:7px;border-radius:50%;background:var(--green);}
+.tb-chip .dot.or{background:var(--orange);}
+.tb-chip .dot.gr{background:var(--t3);}
+#settingsBtn{width:32px;height:32px;border-radius:50%;background:var(--s2);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--t2);font-size:15px;transition:background .15s;}
+#settingsBtn:hover{background:#e5e5ea;}
+/* ── Sidebar ── */
+#sidebar{background:var(--surface);border-right:1px solid var(--border);overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:var(--border2) transparent;}
+#sidebar::-webkit-scrollbar{width:4px;}
+#sidebar::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px;}
+.sb-head{padding:20px 20px 0;}
+.sb-title{font-size:20px;font-weight:700;letter-spacing:-.5px;}
+.sb-sub{font-size:12px;color:var(--t2);margin-top:3px;line-height:1.4;}
+.fsec{padding:16px 20px 4px;}
+.flabel{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--t3);margin-bottom:10px;}
+.fgroup{background:var(--s2);border-radius:var(--r);overflow:hidden;}
+.assumptions-group{overflow:visible;}
+.assumptions-group .flb{white-space:normal;}
+.frow{display:flex;align-items:center;padding:10px 14px;gap:10px;border-bottom:1px solid var(--border);transition:background .1s;min-width:0;}
+.frow:last-child{border-bottom:none;}
+.frow:focus-within{background:rgba(0,113,227,.04);}
+.frow.stack{flex-direction:column;align-items:stretch;gap:6px;}
+.frow.tw{gap:0;}
+.fhalf{flex:1;display:flex;align-items:center;gap:8px;min-width:0;}
+.fhalf+.fhalf{border-left:1px solid var(--border);padding-left:12px;}
+.flb{font-size:12.5px;color:var(--t2);flex-shrink:0;white-space:nowrap;}
+.fsp{flex:1;min-width:0;}
+.finp{background:none;border:none;outline:none;font-family:"DM Mono",monospace;font-size:13px;font-weight:500;color:var(--text);text-align:right;width:80px;}
+.finp::-webkit-inner-spin-button,.finp::-webkit-outer-spin-button{-webkit-appearance:none;}
+.funit{font-size:11.5px;color:var(--t3);font-family:"DM Mono",monospace;flex-shrink:0;}
+.fhint{font-size:11px;color:var(--t3);line-height:1.4;}
+/* FIX 3: Added missing .fwarn CSS class so the warning is actually visible */
+.fwarn{font-size:11px;color:var(--orange);line-height:1.4;}
+.ferr{font-size:11px;color:var(--red);line-height:1.4;display:none;}
+.afa-line{display:flex;align-items:center;gap:12px;min-width:0;width:100%;}
+.afa-label{white-space:normal;line-height:1.25;max-width:170px;}
+.afa-value{font-size:11px;color:var(--blue);font-family:"DM Mono",monospace;background:rgba(0,113,227,.09);padding:2px 6px;border-radius:6px;flex-shrink:0;}
+.fsel{background:none;border:none;outline:none;font-family:inherit;font-size:13px;font-weight:500;color:var(--text);cursor:pointer;-webkit-appearance:none;appearance:none;max-width:160px;text-align:right;}
+.seg{display:flex;background:var(--s2);border-radius:var(--r);padding:3px;gap:2px;}
+.tog{position:relative;display:inline-block;width:36px;height:20px;flex-shrink:0;}
+.tog input{opacity:0;width:0;height:0;position:absolute;}
+.tog-sl{position:absolute;cursor:pointer;inset:0;background:#ccc;border-radius:20px;transition:.2s;}
+.tog-sl:before{content:'';position:absolute;height:16px;width:16px;left:2px;bottom:2px;background:#fff;border-radius:50%;transition:.2s;}
+.tog input:checked+.tog-sl{background:var(--blue);}
+.tog input:checked+.tog-sl:before{transform:translateX(16px);}
+#fin_rows{transition:opacity .15s ease;}
+.seg input[type=radio]{display:none;}
+input[type=range]{width:100%;min-width:0;flex:1 1 auto;}
+.seg label{flex:1;text-align:center;font-size:12px;font-weight:500;color:var(--t2);padding:5px 2px;border-radius:8px;cursor:pointer;transition:all .18s;user-select:none;}
+.seg input[type=radio]:checked+label{background:var(--surface);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.12);}
+.btn-go{display:flex;align-items:center;justify-content:center;gap:8px;width:calc(100% - 40px);margin:16px 20px 20px;padding:13px 20px;background:var(--blue);color:#fff;border:none;border-radius:var(--r);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s,transform .1s;letter-spacing:-.1px;}
+.btn-go:hover{background:var(--blue2);}
+.btn-go:active{transform:scale(.98);}
+.mbadge{margin-left:auto;font-size:11px;font-weight:500;opacity:.7;font-family:"DM Mono",monospace;}
+/* ── Main ── */
+#main{overflow-y:auto;overflow-x:hidden;background:var(--bg);position:relative;}
+#emptyState{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:12px;padding:40px;text-align:center;}
+.ei{width:64px;height:64px;background:var(--surface);border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:28px;box-shadow:0 2px 16px rgba(0,0,0,.06);margin-bottom:4px;}
+.et{font-size:18px;font-weight:700;letter-spacing:-.4px;}
+.ed{font-size:13px;color:var(--t2);max-width:280px;line-height:1.5;}
+.chips{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:4px;}
+.chip{padding:4px 10px;background:var(--surface);border-radius:20px;font-size:11px;font-weight:500;color:var(--t2);border:1px solid var(--border);}
+/* ── Results ── */
+#resultsContent{display:none;}
+/* Tabs */
+.tabs{display:flex;padding:0 20px;background:rgba(242,242,247,.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10;}
+.tab{padding:12px 16px;background:none;border:none;font-family:inherit;font-size:13px;font-weight:500;color:var(--t2);cursor:pointer;border-bottom:2px solid transparent;transition:color .15s,border-color .15s;white-space:nowrap;}
+.tab.on{color:var(--blue);border-bottom-color:var(--blue);font-weight:600;}
+.tab:hover:not(.on){color:var(--text);}
+/* Tab panels */
+.tpanel{padding:20px;display:none;}
+.tpanel.on{display:block;}
+/* Score hero */
+.hero{background:var(--surface);border-radius:var(--card-r);padding:24px;display:flex;align-items:flex-start;gap:20px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+.ring-wrap{position:relative;width:80px;height:80px;flex-shrink:0;}
+.ring-wrap svg{transform:rotate(-90deg);}
+.ring-track{fill:none;stroke:var(--s2);stroke-width:6;}
+.ring-fill{fill:none;stroke:var(--blue);stroke-width:6;stroke-linecap:round;stroke-dasharray:220;stroke-dashoffset:220;transition:stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1),stroke .3s;}
+.ring-num{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:20px;font-weight:700;letter-spacing:-1px;color:var(--text);line-height:1;}
+.ring-num small{font-size:10px;font-weight:400;color:var(--t3);letter-spacing:0;}
+.hero-body{flex:1;min-width:0;}
+.vey{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--t3);margin-bottom:4px;}
+.vt{font-size:22px;font-weight:700;letter-spacing:-.6px;margin-bottom:8px;}
+.vt.g{color:#1a7f3c;}.vt.o{color:#c15200;}.vt.r{color:var(--red);}
+.vs{font-size:13px;color:var(--t2);line-height:1.55;}
+/* Metrics */
+.mgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;}
+.mc{background:var(--surface);border-radius:var(--card-r);padding:14px 16px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+.mv{font-size:20px;font-weight:700;letter-spacing:-.6px;font-family:"DM Mono",monospace;margin-bottom:2px;}
+.mv.ok{color:#1a7f3c;}.mv.mid{color:#c15200;}.mv.bad{color:var(--red);}
+.ml{font-size:11px;font-weight:500;color:var(--t3);letter-spacing:.1px;}
+.mb{font-size:10.5px;color:var(--t3);margin-top:4px;font-family:"DM Mono",monospace;}
+/* Two col */
+.twoc{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+/* Card */
+.card{background:var(--surface);border-radius:var(--card-r);box-shadow:0 1px 3px rgba(0,0,0,.04);overflow:hidden;margin-bottom:12px;}
+.card:last-child{margin-bottom:0;}
+.ch{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;border-bottom:1px solid var(--border);}
+.ct{font-size:13px;font-weight:600;letter-spacing:-.2px;}
+.ctag{font-size:11px;font-weight:500;padding:3px 8px;border-radius:6px;background:var(--s2);color:var(--t2);}
+.ctag.g{background:#d1fadf;color:#1a7f3c;}.ctag.or{background:#fff3e0;color:#c15200;}
+.cb{padding:14px 16px;}
+/* Bar chart */
+.bw{display:flex;align-items:flex-end;gap:8px;height:80px;}
+.bc{display:flex;flex-direction:column;align-items:center;flex:1;gap:4px;}
+.bv{font-size:9.5px;font-family:"DM Mono",monospace;color:var(--t2);text-align:center;}
+.bb{width:100%;border-radius:4px 4px 0 0;min-height:4px;transition:height .6s cubic-bezier(.4,0,.2,1);}
+.bb.p{background:var(--green);}.bb.n{background:var(--red);}
+.byr{font-size:9px;color:var(--t3);font-family:"DM Mono",monospace;}
+/* Flags */
+.flist{display:flex;flex-direction:column;gap:8px;padding:12px 16px;}
+.fi{display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--t2);line-height:1.4;}
+.fd{width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:4px;}
+.fd.ok{background:var(--green);}.fd.warn{background:var(--orange);}.fd.bad{background:var(--red);}.fd.info{background:var(--blue);}
+/* Table */
+.dt{width:100%;border-collapse:collapse;font-size:12px;}
+.dt th{text-align:left;padding:10px 16px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--t3);background:var(--s2);border-bottom:1px solid var(--border);}
+.dt td{padding:9px 16px;color:var(--text);border-bottom:1px solid var(--border);font-family:"DM Mono",monospace;font-size:12px;}
+.dt tr:last-child td{border-bottom:none;}
+.dt tr.hl{background:rgba(0,113,227,.04);}
+.dt td.pos{color:#1a7f3c;}.dt td.neg{color:var(--red);}
+.note{padding:10px 16px;font-size:11px;color:var(--t3);}
+/* AI text */
+.aitext{font-size:14px;line-height:1.7;color:var(--text);white-space:pre-wrap;padding:20px;font-family:-apple-system,BlinkMacSystemFont,"DM Sans",sans-serif;}
+/* Market grid */
+.mgrd{display:grid;grid-template-columns:1fr 1fr;}
+.mc2{padding:16px 18px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);}
+.mc2:nth-child(2n){border-right:none;}
+.mc2:nth-last-child(-n+2){border-bottom:none;}
+.mk{font-size:11px;color:var(--t3);margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px;font-weight:500;}
+.mv2{font-size:17px;font-weight:700;font-family:"DM Mono",monospace;letter-spacing:-.5px;}
+.ms{font-size:10.5px;color:var(--t3);margin-top:2px;}
+/* Loading */
+#loadingOverlay{display:none;position:absolute;inset:0;background:rgba(242,242,247,.88);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);align-items:center;justify-content:center;z-index:50;}
+#loadingOverlay.on{display:flex;}
+.lcard{background:var(--surface);border-radius:20px;padding:28px 32px;min-width:320px;box-shadow:0 8px 40px rgba(0,0,0,.12);text-align:center;}
+.ltitle{font-size:16px;font-weight:700;margin-bottom:6px;letter-spacing:-.3px;}
+.lstep{font-size:13px;color:var(--t2);margin-bottom:18px;min-height:20px;}
+.ltrack{height:4px;background:var(--s2);border-radius:4px;overflow:hidden;}
+.lfill{height:4px;background:var(--blue);border-radius:4px;width:0;transition:width 6s cubic-bezier(.4,0,.2,1);}
+.ldots{display:flex;gap:6px;justify-content:center;margin-top:16px;}
+.ldot{width:7px;height:7px;border-radius:50%;background:var(--border2);transition:background .3s;}
+.ldot.on{background:var(--blue);}
+/* ── Settings Modal ── */
+.backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);z-index:200;align-items:center;justify-content:center;}
+.backdrop.on{display:flex;}
+.modal{background:var(--surface);border-radius:20px;width:480px;max-width:calc(100vw - 40px);box-shadow:0 24px 60px rgba(0,0,0,.22);overflow:hidden;animation:min .22s cubic-bezier(.4,0,.2,1);}
+@keyframes min{from{opacity:0;transform:scale(.95) translateY(8px);}to{opacity:1;transform:none;}}
+.mh{display:flex;align-items:center;justify-content:space-between;padding:20px 24px 16px;border-bottom:1px solid var(--border);}
+.mhttl{font-size:17px;font-weight:700;letter-spacing:-.4px;}
+.mclose{width:28px;height:28px;border-radius:50%;background:var(--s2);border:none;cursor:pointer;font-size:13px;color:var(--t2);display:flex;align-items:center;justify-content:center;}
+.mbody{padding:20px 24px;}
+.mseclabel{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--t3);margin-bottom:10px;}
+.mopt{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:var(--r);cursor:pointer;transition:background .12s;margin-bottom:4px;border:2px solid transparent;}
+.mopt:hover{background:var(--s2);}
+.mopt.sel{background:rgba(0,113,227,.06);border-color:rgba(0,113,227,.3);}
+.micon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;background:var(--s2);}
+.minfo{flex:1;}
+.mname{font-size:14px;font-weight:600;}
+.mdesc{font-size:12px;color:var(--t2);margin-top:1px;}
+.mradio{width:18px;height:18px;border-radius:50%;border:2px solid var(--border2);flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:border-color .15s;}
+.mradio.on{border-color:var(--blue);}
+.mradio.on::after{content:'';width:8px;height:8px;border-radius:50%;background:var(--blue);}
+.minpgrp{margin-top:12px;}
+.minprow{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--s2);border-radius:var(--r);margin-bottom:6px;}
+.minprow label{font-size:12.5px;color:var(--t2);flex-shrink:0;width:100px;}
+.minprow input,.minprow select{flex:1;background:none;border:none;outline:none;font-size:13px;font-family:"DM Mono",monospace;color:var(--text);font-weight:500;}
+.mfoot{padding:16px 24px 20px;display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--border);}
+.btp{padding:9px 20px;background:var(--blue);color:#fff;border:none;border-radius:8px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:background .15s;}
+.btp:hover{background:var(--blue2);}
+.bts{padding:9px 20px;background:var(--s2);color:var(--text);border:none;border-radius:8px;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;}
+/* ── Footer ── */
+#footer{grid-column:1/-1;display:flex;align-items:center;justify-content:center;gap:6px;padding:0 20px;height:32px;background:rgba(255,255,255,0.88);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);border-top:1px solid var(--border);font-size:11px;color:var(--t3);flex-shrink:0;}
+#footer strong{color:var(--t2);font-weight:600;}
+/* Responsive */
+@media(max-width:900px){:root{--sw:300px;}.mgrid{grid-template-columns:repeat(2,1fr);}.twoc{grid-template-columns:1fr;}}
+@media(max-width:660px){#shell{grid-template-columns:1fr;grid-template-rows:var(--hh) 45vh 1fr 32px;}#sidebar{grid-row:2;}#main{grid-row:3;}#footer{grid-row:4;}.mgrid{grid-template-columns:repeat(2,1fr);}}
+/* ── Language toggle ── */
+.lang-seg{display:flex;background:var(--s2);border-radius:20px;padding:2px;gap:2px;}
+.lang-btn{padding:3px 10px;border:none;border-radius:18px;font-size:11.5px;font-weight:600;cursor:pointer;font-family:inherit;color:var(--t2);background:none;transition:all .15s;letter-spacing:.2px;}
+.lang-btn.on{background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.1);}
+</style>
+</head>
+<body>
+<div id="shell">
+
+<!-- TOP BAR -->
+<header id="topbar">
+  <div class="brand">
+    <div class="brand-icon">
+      <!-- Immonator logo mark: sharp angular building with power-peak roofline -->
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <!-- Roof: sharp central peak suggesting upward power -->
+        <polygon points="10,2 18,10 14,10 14,9 10,5 6,9 6,10 2,10" fill="white"/>
+        <!-- Building body -->
+        <rect x="4" y="10" width="12" height="8" rx="0.5" fill="white"/>
+        <!-- Windows row 1 -->
+        <rect x="6"  y="12" width="3" height="2.5" rx="0.4" fill="#0071e3"/>
+        <rect x="11" y="12" width="3" height="2.5" rx="0.4" fill="#0071e3"/>
+        <!-- Door -->
+        <rect x="8.5" y="14.8" width="3" height="3.2" rx="0.4" fill="#0071e3"/>
+      </svg>
+    </div>
+    <div class="brand-name">Immo<span>nator</span></div>
+  </div>
+  <div class="sep"></div>
+  <div class="lang-seg">
+    <button class="lang-btn on" id="langEN" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" id="langDE" onclick="setLang('de')">DE</button>
+  </div>
+  <button class="tb-chip" id="modelChip" onclick="openSettings()">
+    <span class="dot gr" id="modelDot"></span>
+    <span id="chipLabel" data-i18n="chip_configure">Configure AI</span>
+  </button>
+  <button id="settingsBtn" onclick="openSettings()">⚙</button>
+</header>
+
+<!-- SIDEBAR -->
+<aside id="sidebar">
+  <div class="sb-head"><div class="sb-title" data-i18n="s_title">Property Analysis</div><div class="sb-sub" data-i18n="s_sub">Immonator · AfA · IRR · 20-yr projection</div></div>
+
+  <div class="fsec"><div class="flabel" data-i18n="sec_property">Property</div>
+    <div class="fgroup">
+      <div class="frow"><span class="flb" data-i18n="f_address">Address</span><span class="fsp"></span><input id="f_address" class="finp" type="text" value="Schönhauser Allee 36, 10435 Berlin" style="width:160px;text-align:right;font-family:inherit;font-size:12px;"></div>
+      <div class="frow tw">
+        <div class="fhalf"><span class="flb" data-i18n="f_area">Area</span><span class="fsp"></span><input id="f_sqm" class="finp" type="number" value="78"><span class="funit">m²</span></div>
+        <div class="fhalf"><span class="flb" data-i18n="f_built">Built</span><span class="fsp"></span><input id="f_yearbuilt" class="finp" type="number" value="1992" style="width:55px;"></div>
+      </div>
+      <div class="frow"><span class="flb" data-i18n="f_condition">Condition</span><span class="fsp"></span>
+        <select id="f_condition" class="fsel">
+          <option value="existing" data-i18n="opt_existing">Existing building</option>
+          <option value="existing" data-i18n="opt_partial">Partially renovated</option>
+          <option value="newbuild" data-i18n="opt_newbuild">New build (5% AfA)</option>
+        </select>
+      </div>
+      <div class="frow"><span class="flb" data-i18n="f_energy_class">Energy class</span><span class="fsp"></span>
+        <select id="f_energy_class" class="fsel">
+          <option value="A+">A+</option>
+          <option value="A">A</option>
+          <option value="B">B</option>
+          <option value="C">C</option>
+          <option value="D">D</option>
+          <option value="E">E</option>
+          <option value="F">F</option>
+          <option value="G" selected>G</option>
+          <option value="H">H</option>
+          <option value="?" data-i18n="opt_energy_unknown">Unknown</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="fsec"><div class="flabel" data-i18n="sec_financing">Financing</div>
+    <div class="fgroup">
+      <div class="frow"><span class="flb" data-i18n="f_price">Purchase price</span><span class="fsp"></span><input id="f_price" class="finp" type="number" value="420000"><span class="funit">€</span></div>
+      <div class="frow" style="align-items:center;">
+        <span class="flb" data-i18n="f_financed">Bank financed</span><span class="fsp"></span>
+        <label class="tog"><input type="checkbox" id="f_financed" checked><span class="tog-sl"></span></label>
+      </div>
+      <div id="fin_rows">
+        <div class="frow tw">
+          <div class="fhalf"><span class="flb" data-i18n="f_equity">Equity</span><span class="fsp"></span><input id="f_equity" class="finp" type="number" value="100000"><span class="funit">€</span></div>
+          <div class="fhalf"><span class="flb" data-i18n="f_interest">Interest</span><span class="fsp"></span><input id="f_interest" class="finp" type="number" value="3.8" step="0.1" style="width:40px;"><span class="funit">%</span></div>
+        </div>
+        <div class="frow tw">
+          <div class="fhalf"><span class="flb" data-i18n="f_repayment">Repayment</span><span class="fsp"></span><input id="f_repayment" class="finp" type="number" value="2.0" step="0.1" style="width:40px;"><span class="funit">%</span></div>
+        </div>
+      </div>
+      <div class="frow tw">
+        <div class="fhalf"><span class="flb">GrESt</span><span class="fsp"></span><input id="f_grunderwerb" class="finp" type="number" value="6.0" step="0.5" style="width:40px;"><span class="funit">%</span></div>
+        <div class="fhalf"><span class="flb" data-i18n="f_notary">Notary</span><span class="fsp"></span><input id="f_notary" class="finp" type="number" value="2.0" step="0.1" style="width:40px;"><span class="funit">%</span></div>
+      </div>
+      <div class="frow"><span class="flb" data-i18n="f_land_value">Land value</span><span class="fsp"></span><input id="f_land_value" class="finp" type="number" value="84000" style="width:70px;"><span class="funit">€</span></div>
+      <div class="frow"><span class="flb" data-i18n="f_agent">Makler</span><span class="fsp"></span><input id="f_agent" class="finp" type="number" value="0" min="0" max="5" step="0.5" style="width:40px;"><span class="funit">%</span></div>
+      <div class="frow" style="padding-top:4px;padding-bottom:6px;">
+        <span id="landshare_hint" class="fhint"></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="fsec"><div class="flabel" data-i18n="sec_income">Income & Costs</div>
+    <div class="fgroup">
+      <div class="frow">
+        <span class="flb" data-i18n="f_rent">Cold rent</span><span class="fsp"></span>
+        <input id="f_rent" class="finp" type="number" value="1420"><span class="funit" data-i18n="unit_euro_mo">€/mo</span>
+      </div>
+      <div class="frow">
+        <span class="flb">Hausgeld</span><span class="fsp"></span>
+        <input id="f_hausgeld" class="finp" type="number" value="200"><span class="funit" data-i18n="unit_euro_mo">€/mo</span>
+      </div>
+      <div class="frow">
+        <span class="flb" data-i18n="f_maintenance">Maintenance</span><span class="fsp"></span>
+        <input id="f_maintenance" class="finp" type="number" value="1200"><span class="funit" data-i18n="unit_euro_yr">€/yr</span>
+      </div>
+      <div class="frow">
+        <span class="flb" data-i18n="f_management">Management</span><span class="fsp"></span>
+        <input id="f_management" class="finp" type="number" value="600"><span class="funit" data-i18n="unit_euro_yr">€/yr</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="fsec"><div class="flabel" data-i18n="sec_assumptions">Assumptions</div>
+    <div class="fgroup assumptions-group">
+      <div class="frow tw">
+        <div class="fhalf"><span class="flb" data-i18n="f_rentgrowth">Rent growth</span><span class="fsp"></span><input id="f_rentgrowth" class="finp" type="number" value="2.0" step="0.1" style="width:40px;"><span class="funit">%</span></div>
+        <div class="fhalf"><span class="flb" data-i18n="f_appreciation">Appreciation</span><span class="fsp"></span><input id="f_appreciation" class="finp" type="number" value="2.0" step="0.1" style="width:40px;"><span class="funit">%</span></div>
+      </div>
+      <div class="frow tw">
+        <div class="fhalf"><span class="flb" data-i18n="f_taxrate">Tax rate</span><span class="fsp"></span><input id="f_taxrate" class="finp" type="number" value="44" step="1" style="width:40px;"><span class="funit">%</span></div>
+        <div class="fhalf"><span class="flb" data-i18n="f_horizon">Horizon</span><span class="fsp"></span><input id="f_horizon" class="finp" type="number" value="10" style="width:40px;"><span class="funit" data-i18n="unit_yr">yr</span></div>
+      </div>
+      <!-- AfA rate slider — single, canonical control -->
+      <div class="frow stack">
+        <div class="afa-line">
+          <span class="flb afa-label" data-i18n="f_afa_lbl">AfA rate (§7 EStG)</span><span class="fsp"></span>
+          <input id="f_afa_rate" type="range" min="0" max="7" step="0.1" value="2.0" style="flex:1;">
+          <span class="afa-value" id="f_afa_rate_value">2.0%</span>
+        </div>
+      </div>
+      <!-- Vacancy -->
+      <div class="frow" style="flex-direction:column;align-items:stretch;gap:8px;">
+        <span class="flb" data-i18n="f_vacancy">Vacancy</span>
+        <div class="seg">
+          <input type="radio" name="vac" id="v1" checked><label for="v1">1%</label>
+          <input type="radio" name="vac" id="v3"><label for="v3">3%</label>
+          <input type="radio" name="vac" id="v5"><label for="v5">5%</label>
+          <input type="radio" name="vac" id="v8"><label for="v8">8%</label>
+        </div>
+      </div>
+      <div class="frow">
+        <span class="flb">Sonder-AfA</span><span class="fsp"></span>
+        <input id="f_special_afa_enabled" type="checkbox">
+      </div>
+      <div id="specialAfaBlock" class="frow stack" style="display:none;">
+        <div class="fhint" style="color:var(--blue);" data-i18n="f_safa_hint">§7b EStG — flat annual deduction for years 1–N, always linear regardless of AfA method above.</div>
+        <div class="afa-line">
+          <span class="flb afa-label">Sonder-AfA rate</span><span class="fsp"></span>
+          <input id="f_special_afa_rate" type="range" min="0" max="7" step="0.1" value="0" style="flex:1;">
+          <span class="afa-value" id="f_special_afa_rate_value">0.0%</span>
+        </div>
+        <div class="afa-line" style="margin-top:4px;">
+          <span class="flb" data-i18n="f_safa_years">Years (max 4)</span><span class="fsp"></span>
+          <input id="f_special_afa_years" class="finp" type="number" value="4" min="1" max="4" step="1" style="width:72px;">
+          <span class="funit" data-i18n="unit_yr">yr</span>
+        </div>
+        <div class="ferr" id="f_special_afa_error" data-i18n="f_safa_err">Sonder-AfA years must be between 1 and 4.</div>
+      </div>
+    </div>
+  </div>
+
+  <button class="btn-go" onclick="runAnalysis()">
+    <span data-i18n="btn_analyse">Analyse Now</span>
+    <span class="mbadge" id="btnBadge" data-i18n="chip_instant">Instant</span>
+  </button>
+</aside>
+
+<!-- MAIN -->
+<main id="main">
+  <div id="emptyState">
+    <div class="ei">
+      <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <polygon points="16,3 28,14 23,14 23,13 16,7 9,13 9,14 4,14" fill="#0071e3"/>
+        <rect x="6" y="14" width="20" height="14" rx="1" fill="#0071e3" opacity="0.12"/>
+        <rect x="6" y="14" width="20" height="14" rx="1" fill="none" stroke="#0071e3" stroke-width="1.5"/>
+        <rect x="9"  y="18" width="5" height="4" rx="0.8" fill="#0071e3"/>
+        <rect x="18" y="18" width="5" height="4" rx="0.8" fill="#0071e3"/>
+        <rect x="13" y="22.5" width="6" height="5.5" rx="0.8" fill="#0071e3"/>
+      </svg>
+    </div>
+    <div class="et" data-i18n="es_title">Ready to Analyse</div>
+    <div class="ed" data-i18n="es_desc">Fill in the property details, then click Analyse. Get AfA tax savings, IRR projections, and optional AI commentary.</div>
+    <div class="chips">
+      <span class="chip">AfA §7 EStG</span><span class="chip">IRR 10/15/20yr</span>
+      <span class="chip">Bodenrichtwert</span><span class="chip">Mietspiegel</span>
+      <span class="chip">Instant · AI Powered</span>
+    </div>
+  </div>
+
+  <div id="resultsContent">
+    <div class="tabs">
+      <button class="tab on" onclick="sw(this,'ov')" data-i18n="tab_overview">Overview</button>
+      <button class="tab" onclick="sw(this,'pr')" data-i18n="tab_projections">Projections</button>
+      <button class="tab" onclick="sw(this,'ai')" data-i18n="tab_ai">AI Analysis</button>
+      <button class="tab" onclick="sw(this,'mk')" data-i18n="tab_market">Market Data</button>
+    </div>
+
+    <!-- OVERVIEW -->
+    <div class="tpanel on" id="tp-ov">
+      <div class="hero">
+        <div class="ring-wrap">
+          <svg width="80" height="80" viewBox="0 0 80 80">
+            <circle class="ring-track" cx="40" cy="40" r="34"/>
+            <circle class="ring-fill" cx="40" cy="40" r="34" id="scoreArc"/>
+          </svg>
+          <div class="ring-num" id="scoreNum">—<small>/10</small></div>
+        </div>
+        <div class="hero-body">
+          <div class="vey" data-i18n="verdict_label">Investment Verdict</div>
+          <div class="vt" id="verdictTitle">—</div>
+          <div class="vs" id="verdictSummary"></div>
+        </div>
+      </div>
+
+      <div class="mgrid">
+        <div class="mc"><div class="mv" id="mv_ny">—</div><div class="ml" data-i18n="mc_ny_lbl">Net Rental Yield</div><div class="mb" data-i18n="mc_ny_bm">Benchmark 3.2%</div></div>
+        <div class="mc"><div class="mv" id="mv_kpf">—</div><div class="ml" data-i18n="mc_kpf_lbl">Kaufpreisfaktor</div><div class="mb" data-i18n="mc_kpf_bm">Target &lt;25×</div></div>
+        <div class="mc"><div class="mv" id="mv_irr">—</div><div class="ml" data-i18n="mc_irr_lbl">IRR 10 yr</div><div class="mb" data-i18n="mc_irr_bm">Target &gt;5%</div></div>
+        <div class="mc"><div class="mv" id="mv_cf">—</div><div class="ml" data-i18n="mc_cf_lbl">Cash Flow/Mo Yr1</div><div class="mb" data-i18n="mc_cf_bm">After tax &amp; debt</div></div>
+        <div class="mc"><div class="mv" id="mv_ltv">—</div><div class="ml" data-i18n="mc_ltv_lbl">Loan-to-Value</div><div class="mb" data-i18n="mc_ltv_bm">Bank limit 80%</div></div>
+        <div class="mc"><div class="mv" id="mv_afa">—</div><div class="ml" data-i18n="mc_afa_lbl">AfA Tax Saving/yr</div><div class="mb" id="mb_afa">—</div></div>
+        <div class="mc"><div class="mv" id="mv_ann">—</div><div class="ml" data-i18n="mc_ann_lbl">Monthly Annuity</div><div class="mb" data-i18n="mc_ann_bm">Principal+interest</div></div>
+        <div class="mc"><div class="mv" id="mv_nk">—</div><div class="ml" data-i18n="mc_nk_lbl">Closing Costs</div><div class="mb" id="mb_nk">—</div></div>
+      </div>
+
+      <div class="card" style="margin-bottom:12px;">
+        <div class="ch">
+          <span class="ct" data-i18n="ls_card_title">Land Share (Grundstücksanteil)</span>
+          <span class="ctag" id="ls_pct_badge">—</span>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:24px;padding:14px 16px 10px;">
+          <div>
+            <div class="mv" id="ls_eur_value">—</div>
+            <div class="ml" data-i18n="ls_label_value">Land value</div>
+          </div>
+          <div>
+            <div class="mv" id="ls_pct_value">—</div>
+            <div class="ml" data-i18n="ls_label_pct">of purchase price</div>
+          </div>
+        </div>
+        <div style="padding:0 16px 14px;font-size:12px;color:var(--t2);line-height:1.6;" id="ls_expl" data-i18n="ls_explanation">In Germany, land cannot be depreciated — only the building qualifies for AfA (§7 EStG). A lower land share means a larger AfA basis and higher annual tax deductions. Values under 10% are considered excellent for tax efficiency.</div>
+      </div>
+
+      <div class="twoc">
+        <div class="card">
+          <div class="ch"><span class="ct" data-i18n="card_cashflow">Annual Cash Flow</span><span class="ctag" data-i18n="tag_basecase">Base Case</span></div>
+          <div class="cb"><div class="bw" id="barChart"></div></div>
+        </div>
+        <div class="card">
+          <div class="ch"><span class="ct" data-i18n="card_flags">Investment Flags</span></div>
+          <div class="flist" id="flagsList"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PROJECTIONS -->
+    <div class="tpanel" id="tp-pr">
+      <div class="card">
+        <div class="ch"><span class="ct" data-i18n="card_returns">Returns at Exit Horizons</span><span class="ctag" data-i18n="tag_irr">IRR &amp; Equity Multiple</span></div>
+        <table class="dt"><thead><tr><th data-i18n="th_horizon">Horizon</th><th>IRR</th><th data-i18n="th_em">Equity Multiple</th><th data-i18n="th_gain">Net Gain on Equity</th></tr></thead><tbody id="irrTable"></tbody></table>
+      </div>
+      <div class="card">
+        <div class="ch"><span class="ct" data-i18n="card_detail">Year-by-Year Overview</span><span class="ctag" data-i18n="tag_basecase">Base Case</span></div>
+        <table class="dt">
+          <thead><tr><th data-i18n="th_year">Year</th><th data-i18n="th_rent">Gross Rent</th><th data-i18n="th_interest">Interest</th><th data-i18n="th_afa">AfA (reg.)</th><th>Sonder-AfA</th><th data-i18n="th_tax">Tax Impact</th><th data-i18n="th_cf">Cash Flow</th><th data-i18n="th_pv">Property Value</th></tr></thead>
+          <tbody id="detailTable"></tbody>
+        </table>
+        <div class="note" data-i18n="note_proj">📌 Positive tax impact = refund (Werbungskostenüberschuss). AfA basis excludes land share.</div>
+      </div>
+    </div>
+
+    <!-- AI ANALYSIS -->
+    <div class="tpanel" id="tp-ai">
+      <div class="card">
+        <div class="ch"><span class="ct" data-i18n="card_ai">Expert Analysis</span><span class="ctag" id="aiBadge">—</span></div>
+        <div class="aitext" id="aiText">Switch to AI Powered mode in ⚙ Settings to get an expert narrative on this property.</div>
+      </div>
+    </div>
+
+    <!-- MARKET DATA -->
+    <div class="tpanel" id="tp-mk">
+      <div class="card" style="margin-bottom:12px;">
+        <div class="ch"><span class="ct" data-i18n="card_market">Live Market Data</span><span class="ctag" id="mktBadge">—</span></div>
+        <div class="mgrd" id="mktGrid"></div>
+      </div>
+      <div class="card">
+        <div class="ch"><span class="ct" data-i18n="card_afa_summary">AfA Depreciation Summary</span></div>
+        <table class="dt"><thead><tr><th data-i18n="th_param">Parameter</th><th data-i18n="th_value">Value</th><th data-i18n="th_note">Note</th></tr></thead><tbody id="afaBody"></tbody></table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div id="loadingOverlay">
+    <div class="lcard">
+      <div class="ltitle" data-i18n="loading_title">Analysing…</div>
+      <div class="lstep" id="lstep" data-i18n="loading_start">Starting…</div>
+      <div class="ltrack"><div class="lfill" id="lfill"></div></div>
+      <div class="ldots" id="ldots">
+        <div class="ldot"></div><div class="ldot"></div><div class="ldot"></div>
+        <div class="ldot"></div><div class="ldot"></div><div class="ldot"></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- FOOTER -->
+<footer id="footer">
+  <strong>Rudraksh Shrivastava</strong>
+  <span>·</span>
+  <span>Immonator © 2026 · All rights reserved</span>
+</footer>
+</div>
+
+<!-- SETTINGS MODAL -->
+<div class="backdrop" id="backdrop" onclick="if(event.target===this)closeSettings()">
+  <div class="modal">
+    <div class="mh"><span class="mhttl" data-i18n="modal_title">Immonator — Analysis Mode</span><button class="mclose" onclick="closeSettings()">✕</button></div>
+    <div class="mbody">
+      <div class="mseclabel" data-i18n="modal_sec">Choose Analysis Mode</div>
+
+      <div class="mopt" id="opt_local" onclick="selModel('local')">
+        <div class="micon">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <rect x="3" y="4" width="14" height="10" rx="2" stroke="#6e6e73" stroke-width="1.5" fill="none"/>
+            <path d="M7 17h6" stroke="#6e6e73" stroke-width="1.5" stroke-linecap="round"/>
+            <path d="M10 14v3" stroke="#6e6e73" stroke-width="1.5" stroke-linecap="round"/>
+            <path d="M6 8h2M6 11h4" stroke="#6e6e73" stroke-width="1.2" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="minfo">
+          <div class="mname" data-i18n="mode_instant">Instant</div>
+          <div class="mdesc" data-i18n="mode_instant_desc">Pure calculations — AfA, IRR, cash flow and all projections computed instantly.</div>
+        </div>
+        <div class="mradio" id="r_local"></div>
+      </div>
+
+      <div class="mopt" id="opt_claude" onclick="selModel('claude')">
+        <div class="micon">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <circle cx="10" cy="10" r="7.5" stroke="#0071e3" stroke-width="1.5" fill="none"/>
+            <path d="M7 10.5c.8 1.2 2 2 3 2s2.2-.8 3-2" stroke="#0071e3" stroke-width="1.4" stroke-linecap="round" fill="none"/>
+            <circle cx="7.5" cy="8.5" r="1" fill="#0071e3"/>
+            <circle cx="12.5" cy="8.5" r="1" fill="#0071e3"/>
+            <path d="M10 3v1.5M10 15.5V17M3 10h1.5M15.5 10H17" stroke="#0071e3" stroke-width="1.2" stroke-linecap="round" opacity="0.4"/>
+          </svg>
+        </div>
+        <div class="minfo">
+          <div class="mname" data-i18n="mode_ai">AI Powered</div>
+          <div class="mdesc" data-i18n="mode_ai_desc">All calculations plus an expert AI narrative — market context, risk flags, and a plain-English Buy / Hold / Avoid verdict written by our custom intelligent analyst.</div>
+        </div>
+        <div class="mradio" id="r_claude"></div>
+      </div>
+    </div>
+    <div class="mfoot">
+      <button class="bts" onclick="closeSettings()" data-i18n="btn_cancel">Cancel</button>
+      <button class="btp" onclick="saveSettings()" data-i18n="btn_save">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════ I18N ═════════════════════════════════════════
+let lang = 'en';
+let lastResult = null, lastParams = null;
+
+const T = {
+  en: {
+    s_title:'Property Analysis', s_sub:'Immonator · AfA · IRR · 20-yr projection',
+    sec_property:'Property', sec_financing:'Financing', sec_income:'Income & Costs', sec_assumptions:'Assumptions',
+    f_address:'Address', f_area:'Area', f_built:'Built', f_condition:'Condition',
+    opt_existing:'Existing building', opt_partial:'Partially renovated', opt_newbuild:'New build (5% AfA)',
+    f_energy_class:'Energy class', opt_energy_unknown:'Unknown',
+    ls_card_title:'Land Share (Grundstücksanteil)',
+    ls_label_value:'Land value', ls_label_pct:'of purchase price',
+    ls_explanation:'In Germany, land (Grundstück) cannot be depreciated — only the building portion qualifies for AfA (§7 EStG). A lower land share means a larger AfA basis and higher annual tax deductions. Values under 10% are considered excellent for tax efficiency.',
+    f_price:'Purchase price', f_financed:'Bank financed', f_equity:'Equity', f_interest:'Interest',
+    f_repayment:'Repayment', f_notary:'Notary', f_land_value:'Land value', f_agent:'Makler',
+    ls_of_price:'of purchase price',
+    ls_hint_excellent:'excellent for AfA (maximises depreciation basis)',
+    ls_hint_good:'good AfA advantage',
+    ls_hint_typical:'typical; reduces AfA basis',
+    ls_hint_high:'high share — significantly reduces AfA basis',
+    f_rent:'Cold rent', f_maintenance:'Maintenance', f_management:'Management',
+    f_rentgrowth:'Rent growth', f_appreciation:'Appreciation', f_taxrate:'Tax rate', f_horizon:'Horizon',
+    f_afa_lbl:'AfA rate (§7 EStG)', f_vacancy:'Vacancy', f_safa_years:'Years (max 4)',
+    f_safa_hint:'§7b EStG — flat annual deduction for years 1–N, always linear regardless of AfA method above.',
+    f_safa_err:'Sonder-AfA years must be between 1 and 4.',
+    unit_euro_mo:'€/mo', unit_euro_yr:'€/yr', unit_yr:'yr',
+    btn_analyse:'Analyse Now', chip_instant:'Instant', chip_configure:'Configure AI', chip_ai:'AI Powered',
+    es_title:'Ready to Analyse',
+    es_desc:'Fill in the property details, then click Analyse. Get AfA tax savings, IRR projections, and optional AI commentary.',
+    tab_overview:'Overview', tab_projections:'Projections', tab_ai:'AI Analysis', tab_market:'Market Data',
+    verdict_label:'Investment Verdict',
+    mc_ny_lbl:'Net Rental Yield', mc_ny_bm:'Benchmark 3.2%',
+    mc_kpf_lbl:'Kaufpreisfaktor', mc_kpf_bm:'Target <25×',
+    mc_irr_lbl:'IRR 10 yr', mc_irr_bm:'Target >5%',
+    mc_cf_lbl:'Cash Flow/Mo Yr1', mc_cf_bm:'After tax & debt',
+    mc_ltv_lbl:'Loan-to-Value', mc_ltv_bm:'Bank limit 80%',
+    mc_afa_lbl:'AfA Tax Saving/yr', mc_ann_lbl:'Monthly Annuity', mc_ann_bm:'Principal+interest', mc_nk_lbl:'Closing Costs',
+    card_cashflow:'Annual Cash Flow', tag_basecase:'Base Case', card_flags:'Investment Flags',
+    card_returns:'Returns at Exit Horizons', tag_irr:'IRR & Equity Multiple',
+    card_detail:'Year-by-Year Overview',
+    th_horizon:'Horizon', th_em:'Equity Multiple', th_gain:'Net Gain on Equity',
+    th_year:'Year', th_rent:'Gross Rent', th_interest:'Interest', th_afa:'AfA (reg.)',
+    th_tax:'Tax Impact', th_cf:'Cash Flow', th_pv:'Property Value',
+    th_param:'Parameter', th_value:'Value', th_note:'Note',
+    note_proj:'📌 Positive tax impact = refund (Werbungskostenüberschuss). AfA basis excludes land share.',
+    card_ai:'Expert Analysis', card_market:'Live Market Data', card_afa_summary:'AfA Depreciation Summary',
+    loading_title:'Analysing…', loading_start:'Starting…',
+    modal_title:'Immonator — Analysis Mode', modal_sec:'Choose Analysis Mode',
+    mode_instant:'Instant', mode_instant_desc:'Pure calculations — AfA, IRR, cash flow and all projections computed instantly.',
+    mode_ai:'AI Powered', mode_ai_desc:'All calculations plus an expert AI narrative — market context, risk flags, and a plain-English Buy / Hold / Avoid verdict written by our custom intelligent analyst.',
+    btn_cancel:'Cancel', btn_save:'Save',
+    // Verdicts & dynamic
+    v_strong_buy:'Strong Buy', v_buy:'Buy', v_hold:'Hold / Review', v_caution:'Caution', v_avoid:'Avoid',
+    vs_net_yield:'Net yield', vs_kpf:'Kaufpreisfaktor', vs_irr:'IRR', vs_afa_saving:'AfA tax saving', vs_cf:'CF', vs_ltv:'LTV',
+    vs_yr:'yr', vs_mo:'/mo', vs_years:'years', vs_na:'N/A', vs_cash_purchase:'Cash purchase',
+    vs_no_leverage:'Cash purchase — no leverage, full equity investment',
+    fl_kpf_fair:'fair value', fl_kpf_high:'above 25× threshold',
+    fl_yield_ok:'Net yield {v} exceeds 3.5% target', fl_yield_warn:'Net yield {v} — below 3.5% target', fl_yield_bad:'Net yield {v} — significantly below market',
+    fl_cf:'Yr 1 cash flow: {sign}€{v}/mo after tax', fl_cf_debt:' & debt service',
+    fl_ltv_ok:'within bank limits', fl_ltv_bad:'exceeds 80% limit',
+    fl_afa:'AfA €{afa}/yr → €{saving} tax saving yr 1',
+    fl_rent:'Rent €{r}/m² vs market €{m}/m²',
+    afa_price:'Purchase price', afa_closing:'Closing costs', afa_land:'Land value (excl.)', afa_basis:'AfA basis',
+    afa_closing_note:'Price + Closing − Land', afa_rate:'Regular AfA rate', afa_newbuild:'§7 EStG new build',
+    afa_existing:'§7 EStG existing building', afa_annual:'Regular AfA / yr', afa_annual_note:'Deductible each year (all years)',
+    afa_sonder_rate:'Sonder-AfA rate', afa_sonder_note:'§7b EStG — flat annual bonus', afa_sonder_annual:'Sonder-AfA / yr',
+    afa_total:'Total AfA yr 1–', afa_total_note:'Regular + Sonder-AfA combined',
+    afa_taxrate:'Tax rate', afa_taxrate_note:'Marginal rate incl. Solidaritätszuschlag',
+    afa_saving:'Tax saving yr1', afa_saving_note:'If income negative (Werbungskostenüberschuss)',
+    mk_bodenrichtwert:'Bodenrichtwert', mk_bodenrichtwert_note:'Official land value',
+    mk_rent_index:'Rent Index', mk_rent_note:'Mietspiegel',
+    mk_mortgage:'Mortgage Rate', mk_mortgage_note:'Bundesbank 10yr',
+    mk_location:'Location Score', mk_location_note:'OSM amenity score',
+    mk_population:'Population Trend', mk_population_note:'Annual growth',
+    mk_address:'Address', mk_address_note:'Geocoded',
+    irr_years:'{n} years',
+    ai_placeholder:'Switch to AI Powered mode in ⚙ Settings to get an expert narrative on this property.',
+    steps:['Computing closing costs…','Building AfA schedule…','Running amortisation table…','Calculating taxable income…','Computing IRR…','Calling AI model…'],
+  },
+  de: {
+    s_title:'Immobilienanalyse', s_sub:'Immonator · AfA · IRR · 20-Jahres-Projektion',
+    sec_property:'Objekt', sec_financing:'Finanzierung', sec_income:'Einnahmen & Kosten', sec_assumptions:'Annahmen',
+    f_address:'Adresse', f_area:'Fläche', f_built:'Bj.', f_condition:'Zustand',
+    opt_existing:'Bestandsgebäude', opt_partial:'Teilsaniert', opt_newbuild:'Neubau (5% AfA)',
+    f_energy_class:'Energieklasse', opt_energy_unknown:'Unbekannt',
+    ls_card_title:'Grundstücksanteil (Land Share)',
+    ls_label_value:'Grundstückswert', ls_label_pct:'des Kaufpreises',
+    ls_explanation:'Grundstücke sind steuerlich nicht abschreibungsfähig — nur der Gebäudeanteil qualifiziert für die AfA (§7 EStG). Ein geringerer Grundstücksanteil vergrößert die AfA-Basis und erhöht den jährlichen Steuervorteil. Werte unter 10 % gelten als steuerlich besonders vorteilhaft.',
+    f_price:'Kaufpreis', f_financed:'Bankfinanziert', f_equity:'EK', f_interest:'Zinssatz',
+    f_repayment:'Tilgung', f_notary:'Notar', f_land_value:'Grundstückswert', f_agent:'Makler',
+    ls_of_price:'des Kaufpreises',
+    ls_hint_excellent:'ausgezeichnet für AfA (maximiert Abschreibungsbasis)',
+    ls_hint_good:'guter AfA-Vorteil',
+    ls_hint_typical:'typisch; reduziert AfA-Basis',
+    ls_hint_high:'hoher Anteil — deutlich niedrigere AfA-Basis',
+    f_rent:'Kaltmiete', f_maintenance:'Instandhaltung', f_management:'Verwaltung',
+    f_rentgrowth:'Mietsteigerung', f_appreciation:'Wertsteigerung', f_taxrate:'Steuersatz', f_horizon:'Zeithorizont',
+    f_afa_lbl:'AfA-Satz (§7 EStG)', f_vacancy:'Leerstand', f_safa_years:'Jahre (max. 4)',
+    f_safa_hint:'§7b EStG — pauschaler Jahresbetrag für Jahre 1–N, immer linear unabhängig von der AfA-Methode.',
+    f_safa_err:'Sonder-AfA-Jahre müssen zwischen 1 und 4 liegen.',
+    unit_euro_mo:'€/Mo.', unit_euro_yr:'€/J.', unit_yr:'J.',
+    btn_analyse:'Jetzt analysieren', chip_instant:'Sofort', chip_configure:'KI konfigurieren', chip_ai:'KI-gestützt',
+    es_title:'Bereit zur Analyse',
+    es_desc:'Objektdaten eingeben und auf Analysieren klicken. AfA-Steuervorteile, IRR-Projektionen und optionale KI-Kommentare.',
+    tab_overview:'Übersicht', tab_projections:'Projektionen', tab_ai:'KI-Analyse', tab_market:'Marktdaten',
+    verdict_label:'Anlagebewertung',
+    mc_ny_lbl:'Nettomietrendite', mc_ny_bm:'Benchmark 3,2%',
+    mc_kpf_lbl:'Kaufpreisfaktor', mc_kpf_bm:'Ziel <25×',
+    mc_irr_lbl:'IRR 10 J.', mc_irr_bm:'Ziel >5%',
+    mc_cf_lbl:'Cashflow/Mo. J1', mc_cf_bm:'Nach Steuern & Schulden',
+    mc_ltv_lbl:'Beleihungsquote', mc_ltv_bm:'Banklimit 80%',
+    mc_afa_lbl:'AfA-Steuervorteil/J.', mc_ann_lbl:'Monatliche Annuität', mc_ann_bm:'Kapital+Zinsen', mc_nk_lbl:'Nebenkosten',
+    card_cashflow:'Jährlicher Cashflow', tag_basecase:'Basisszenario', card_flags:'Investitionssignale',
+    card_returns:'Renditen bei Verkaufshorizonten', tag_irr:'IRR & EK-Multiplikator',
+    card_detail:'Jahresübersicht',
+    th_horizon:'Zeithorizont', th_em:'EK-Multiplikator', th_gain:'EK-Gewinn netto',
+    th_year:'Jahr', th_rent:'Bruttomiete', th_interest:'Zinsen', th_afa:'AfA (reg.)',
+    th_tax:'Steuereffekt', th_cf:'Cashflow', th_pv:'Immobilienwert',
+    th_param:'Parameter', th_value:'Wert', th_note:'Hinweis',
+    note_proj:'📌 Positiver Steuereffekt = Erstattung (Werbungskostenüberschuss). AfA-Basis ohne Grundstücksanteil.',
+    card_ai:'Expertenanalyse', card_market:'Marktdaten live', card_afa_summary:'AfA-Abschreibungsübersicht',
+    loading_title:'Analysiere…', loading_start:'Starte…',
+    modal_title:'Immonator — Analysemodus', modal_sec:'Analysemodus wählen',
+    mode_instant:'Sofort', mode_instant_desc:'Reine Berechnungen — AfA, IRR, Cashflow und alle Projektionen werden sofort berechnet.',
+    mode_ai:'KI-gestützt', mode_ai_desc:'Alle Berechnungen plus ein KI-Expertengutachten — Marktkontext, Risikohinweise und ein klares Kauf-/Halten-/Meiden-Urteil.',
+    btn_cancel:'Abbrechen', btn_save:'Speichern',
+    v_strong_buy:'Klarer Kauf', v_buy:'Kaufen', v_hold:'Halten / Prüfen', v_caution:'Vorsicht', v_avoid:'Meiden',
+    vs_net_yield:'Nettomietrendite', vs_kpf:'Kaufpreisfaktor', vs_irr:'IRR', vs_afa_saving:'AfA-Steuervorteil', vs_cf:'CF', vs_ltv:'BLQ',
+    vs_yr:'J.', vs_mo:'/Mo.', vs_years:'Jahre', vs_na:'N/V', vs_cash_purchase:'Barzahlung',
+    vs_no_leverage:'Barzahlung — kein Hebel, volles Eigenkapital',
+    fl_kpf_fair:'faire Bewertung', fl_kpf_high:'über 25× Schwelle',
+    fl_yield_ok:'Nettomietrendite {v} über 3,5%-Ziel', fl_yield_warn:'Nettomietrendite {v} — unter 3,5%-Ziel', fl_yield_bad:'Nettomietrendite {v} — deutlich unter Marktniveau',
+    fl_cf:'J1 Cashflow: {sign}€{v}/Mo. nach Steuern', fl_cf_debt:' & Schuldendienst',
+    fl_ltv_ok:'innerhalb Banklimit', fl_ltv_bad:'übersteigt 80%-Limit',
+    fl_afa:'AfA €{afa}/J. → €{saving} Steuervorteil J.1',
+    fl_rent:'Miete €{r}/m² vs. Markt €{m}/m²',
+    afa_price:'Kaufpreis', afa_closing:'Nebenkosten', afa_land:'Grundstückswert (excl.)', afa_basis:'AfA-Basis',
+    afa_closing_note:'Kaufpreis + NK − Grundstück', afa_rate:'AfA-Satz (reg.)', afa_newbuild:'§7 EStG Neubau',
+    afa_existing:'§7 EStG Bestandsgebäude', afa_annual:'AfA / Jahr (reg.)', afa_annual_note:'Jährlich absetzbar (alle Jahre)',
+    afa_sonder_rate:'Sonder-AfA-Satz', afa_sonder_note:'§7b EStG — pauschaler Jahresbonus', afa_sonder_annual:'Sonder-AfA / Jahr',
+    afa_total:'Gesamt-AfA J. 1–', afa_total_note:'Reg. + Sonder-AfA kombiniert',
+    afa_taxrate:'Steuersatz', afa_taxrate_note:'Grenzsteuersatz inkl. Solidaritätszuschlag',
+    afa_saving:'Steuervorteil J.1', afa_saving_note:'Wenn Einkommen negativ (Werbungskostenüberschuss)',
+    mk_bodenrichtwert:'Bodenrichtwert', mk_bodenrichtwert_note:'Offizieller Bodenwert',
+    mk_rent_index:'Mietindex', mk_rent_note:'Mietspiegel',
+    mk_mortgage:'Hypothekenzins', mk_mortgage_note:'Bundesbank 10 J.',
+    mk_location:'Lage-Score', mk_location_note:'OSM-Ausstattungsscore',
+    mk_population:'Bevölkerungstrend', mk_population_note:'Jährliches Wachstum',
+    mk_address:'Adresse', mk_address_note:'Geokodiert',
+    irr_years:'{n} Jahre',
+    ai_placeholder:'KI-gestützten Modus in ⚙ Einstellungen aktivieren, um ein Expertengutachten zu erhalten.',
+    steps:['Nebenkosten berechnen…','AfA-Plan erstellen…','Tilgungsplan berechnen…','Steuereinkommen berechnen…','IRR berechnen…','KI-Modell aufrufen…'],
+  }
+};
+
+function t(key, vars) {
+  const s = (T[lang] && T[lang][key]) || (T.en && T.en[key]) || key;
+  if (!vars) return s;
+  return s.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? '');
+}
+
+function setLang(l) {
+  lang = l;
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    const val = (T[l] && T[l][key]) || (T.en && T.en[key]);
+    if (val !== undefined && typeof val === 'string') el.textContent = val;
+  });
+  document.getElementById('langEN').classList.toggle('on', l === 'en');
+  document.getElementById('langDE').classList.toggle('on', l === 'de');
+  updateChip();
+  updateLandshareHint();
+  if (lastResult && lastParams && document.getElementById('resultsContent').style.display !== 'none') {
+    render(lastResult, lastParams);
+  }
+}
+
+// ═══════════════════════════ CONFIG ═══════════════════════════════════════
+
+const CFGK = 'immoagent_v3';
+const DEFAULTS = {
+  model: 'claude',
+  backend_url: 'https://web-production-61c120.up.railway.app'
+};
+
+let cfg = (() => {
+  try {
+    return Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem(CFGK)) || {});
+  } catch {
+    return { ...DEFAULTS };
+  }
+})();
+
+cfg.backend_url = (cfg.backend_url || DEFAULTS.backend_url).replace(/\/$/, '');
+
+let selMdl = cfg.model || 'local';
+
+function openSettings() {
+  cfg = (() => { try { return JSON.parse(localStorage.getItem(CFGK))||{}; } catch { return {}; }})();
+  selMdl = cfg.model||'local';
+  refreshMUI();
+  document.getElementById('backdrop').classList.add('on');
+}
+function closeSettings() { document.getElementById('backdrop').classList.remove('on'); }
+function selModel(m) { selMdl = m; refreshMUI(); }
+function refreshMUI() {
+  ['local','claude'].forEach(m => {
+    document.getElementById('opt_'+m)?.classList.toggle('sel', m===selMdl);
+    const r = document.getElementById('r_'+m);
+    if (r) r.classList.toggle('on', m===selMdl);
+  });
+}
+function saveSettings() {
+  const nc = {
+    model:       selMdl,
+    backend_url: DEFAULTS.backend_url,
+  };
+  localStorage.setItem(CFGK, JSON.stringify(nc));
+  cfg = nc;
+  updateChip();
+  closeSettings();
+}
+function updateChip() {
+  const m = cfg.model||'local';
+  const lbl = m==='claude' ? t('chip_ai') : t('chip_instant');
+  const dotCls = m==='claude' ? 'dot' : 'dot gr';
+  document.getElementById('chipLabel').textContent = m==='claude' ? t('chip_ai') : t('chip_configure');
+  document.getElementById('modelDot').className = dotCls;
+  document.getElementById('btnBadge').textContent = lbl;
+  document.getElementById('aiBadge').textContent  = lbl;
+}
+updateChip();
+
+// ═══════════════════════════ CALCULATOR ═══════════════════════════════════
+function calcIRR(f) {
+  let r=0.08;
+  for (let i=0;i<300;i++) {
+    let n=0,d=0;
+    for (let t=0;t<f.length;t++) { const p=Math.pow(1+r,t); n+=f[t]/p; d-=t*f[t]/((1+r)*p); }
+    if (Math.abs(d)<1e-12) break;
+    const rn=r-n/d;
+    if (Math.abs(rn-r)<1e-9) return rn*100;
+    r=rn;
+  }
+  return r*100;
+}
+function localCompute(p) {
+  const grEst=p.purchase_price*p.transfer_tax_pct/100, notary=p.purchase_price*p.notary_pct/100;
+  const agent=p.purchase_price*Math.min(p.agent_pct||0,5)/100;
+  const closing=grEst+notary+agent;
+  const loan=p.financed ? p.purchase_price+closing-p.equity : 0;
+  const ltv=p.financed ? loan/p.purchase_price : 0;
+  const landV=p.purchase_price*p.land_share_pct/100, afaBasis=p.purchase_price+closing-landV;
+  const afaRateRaw=p.afa_rate_input??(p.condition==='newbuild'?0.05:0.02);
+  const afaRate=afaRateRaw>1?afaRateRaw/100:afaRateRaw;
+  const annAfA=afaBasis*afaRate;
+  // Sonder-AfA: §7b EStG — always a flat annual deduction for years 1–N, independent of AfA method
+  const sonderEnabled = !!p.special_afa_enabled;
+  const sonderRateRaw = sonderEnabled ? (p.special_afa_rate_input ?? 0) : 0;
+  const sonderRate    = sonderRateRaw > 1 ? sonderRateRaw / 100 : sonderRateRaw;
+  const sonderYears   = sonderEnabled ? Math.min(Math.max(parseInt(p.special_afa_years) || 4, 1), 4) : 0;
+  const annSonderAfA  = afaBasis * sonderRate;
+  const mRate=p.financed ? p.interest_rate/100/12 : 0;
+  const annMo=p.financed ? loan*(p.repayment_rate/100/12+mRate) : 0;
+  const annAnn=annMo*12;
+  // For cash purchase, initial outflow is full price + closing; for financed, it's equity only
+  const initOutflow=p.financed ? p.equity : p.purchase_price+closing;
+  let rem=loan, cumCF=0;
+  const yrs=[], iF={10:[-initOutflow],15:[-initOutflow],20:[-initOutflow]};
+  for (let yr=1;yr<=30;yr++) {
+    const rg=p.rent_monthly*12*Math.pow(1+p.rent_growth/100,yr-1)*(1-p.vacancy_rate/100);
+    const iy=p.financed ? rem*p.interest_rate/100 : 0, py=p.financed ? Math.min(annAnn-iy,rem) : 0;
+    rem=Math.max(0,rem-py);
+    const sonderThisYr  = (sonderEnabled && yr <= sonderYears) ? annSonderAfA : 0;
+    const afaThisYr     = annAfA + sonderThisYr;
+    const hAnn=p.hausgeld_monthly*12, ti=rg-iy-hAnn-afaThisYr, tax=ti*p.tax_rate/100;
+    const nd=p.maintenance_nd+p.management_nd, aa=rem>0?annAnn:(iy+py);
+    const cf=rg-aa-nd-tax; cumCF+=cf;
+    const pv=p.purchase_price*Math.pow(1+p.appreciation/100,yr), nw=pv-rem;
+    const em=(nw+cumCF)/p.equity;
+    yrs.push({year:yr,rent_gross:rg,interest:iy,afa_regular:annAfA,afa_sonder:sonderThisYr,afa:afaThisYr,taxable_income:ti,tax_impact:tax,cash_flow:cf,property_value:pv,net_worth:nw,equity_multiple:em});
+    const ex=pv-rem;
+    [10,15,20].forEach(h=>{if(yr<h)iF[h].push(cf);else if(yr===h)iF[h].push(cf+ex);});
+  }
+  const ar=p.rent_monthly*12, gy=ar/p.purchase_price*100;
+  const noi=ar*(1-p.vacancy_rate/100)-p.hausgeld_monthly*12-p.maintenance_nd, ny=noi/p.purchase_price*100;
+  const kpf=p.purchase_price/ar, ts=Math.abs(Math.min(0,yrs[0].taxable_income*p.tax_rate/100));
+  const i10=calcIRR(iF[10]),i15=calcIRR(iF[15]),i20=calcIRR(iF[20]);
+  function sc(ny,kpf,irr,cfMo,ltv){let s=0;s+=ny>=4?2.5:ny>=3?1.5:ny>=2?.8:0;s+=kpf<18?2:kpf<22?1.5:kpf<28?1:.3;s+=irr>8?2.5:irr>6?2:irr>4?1.2:.3;s+=cfMo>0?1.5:cfMo>-200?.8:0;s+=ltv<.6?1.5:ltv<.7?1:ltv<.8?.5:0;return Math.round(Math.min(10,Math.max(0,s))*10)/10;}
+  function vl(s){return s>=7.5?t('v_strong_buy'):s>=6.5?t('v_buy'):s>=5?t('v_hold'):s>=3.5?t('v_caution'):t('v_avoid');}
+  const score=sc(ny,kpf,i10,yrs[0].cash_flow/12,ltv);
+  return {score,verdict:vl(score),purchase_price:p.purchase_price,equity:p.equity,loan:Math.round(loan),closing_costs:Math.round(closing),ltv_pct:ltv*100,afa_basis:Math.round(afaBasis),annual_afa:Math.round(annAfA),afa_rate_pct:afaRate*100,sonder_afa_enabled:sonderEnabled,annual_sonder_afa:Math.round(annSonderAfA),sonder_afa_rate_pct:sonderRate*100,sonder_afa_years:sonderYears,afa_tax_saving_yr1:Math.round(ts),annuity_monthly:Math.round(annMo),gross_yield_pct:gy,net_yield_pct:ny,kpf,irr_10:i10,irr_15:i15,irr_20:i20,equity_multiple_10:yrs[9]?.equity_multiple||0,equity_multiple_15:yrs[14]?.equity_multiple||0,equity_multiple_20:yrs[19]?.equity_multiple||0,cash_flow_monthly_yr1:yrs[0].cash_flow/12,year_data:yrs.filter(y=>[1,2,3,5,7,10,15,20].includes(y.year)),market_rent_m2:null,bodenrichtwert_m2:null,current_mortgage_rate:null,location_score:null,population_trend:null,ai_analysis:null,address_resolved:p.address};
+}
+
+// ═══════════════════════════ AI PROVIDERS ═════════════════════════════════
+const SYS=`You are an expert German real estate investment analyst. Given property metrics, provide a concise professional analysis (under 250 words) covering: price fairness vs Bodenrichtwert, rental yield assessment, AfA tax advantage, key risks, and a clear Buy/Hold/Avoid recommendation with specific numbers.`;
+function buildPrompt(m,p) {
+  const finLine=p.financed
+    ?`Equity: €${p.equity.toLocaleString()} | LTV: ${m.ltv_pct.toFixed(1)}% | Annuity: €${m.annuity_monthly}/mo`
+    :`Cash purchase (no mortgage) | Full outlay: €${(p.purchase_price+m.closing_costs).toLocaleString()}`;
+  return `Property: ${p.address} | ${p.sqm}m² built ${p.year_built} | Energy class: ${p.energy_class||'?'}
+Price: €${p.purchase_price.toLocaleString()} (€${Math.round(p.purchase_price/p.sqm).toLocaleString()}/m²) | ${finLine}
+Net yield: ${m.net_yield_pct.toFixed(2)}% | Kaufpreisfaktor: ${m.kpf.toFixed(1)}×
+Cash flow yr1: ${m.cash_flow_monthly_yr1>=0?'+':''}€${Math.round(m.cash_flow_monthly_yr1)}/mo after tax${p.financed?' & debt':''}
+AfA: ${m.afa_rate_pct}% on €${m.afa_basis.toLocaleString()} = €${m.annual_afa.toLocaleString()}/yr → tax saving €${m.afa_tax_saving_yr1.toLocaleString()}/yr
+IRR: ${m.irr_10.toFixed(1)}% (10yr) / ${m.irr_15.toFixed(1)}% (15yr) / ${m.irr_20.toFixed(1)}% (20yr)
+Equity multiple: ${m.equity_multiple_10.toFixed(2)}× (10yr) / ${m.equity_multiple_20.toFixed(2)}× (20yr)
+Market: Bodenrichtwert €${m.bodenrichtwert_m2||'N/A'}/m² | Rent index €${m.market_rent_m2||'N/A'}/m² | Rate ${m.current_mortgage_rate||'N/A'}% | Location ${m.location_score||'N/A'}/10
+Score: ${m.score}/10 → ${m.verdict}
+Provide expert analysis and recommendation.`;
+}
+async function callClaude(m,p) {
+  if (cfg.backend_url) {
+    const res=await fetch(cfg.backend_url+'/analyse',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(collectForm())});
+    if(!res.ok) throw new Error(`Backend ${res.status}`);
+    const data=await res.json();
+    Object.assign(m,{market_rent_m2:data.market_rent_m2,bodenrichtwert_m2:data.bodenrichtwert_m2,current_mortgage_rate:data.current_mortgage_rate,location_score:data.location_score,population_trend:data.population_trend,address_resolved:data.address_resolved});
+    return data.ai_analysis;
+  }
+  const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':cfg.claude_key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-opus-4-6',max_tokens:900,system:SYS,messages:[{role:'user',content:buildPrompt(m,p)}]})});
+  if(!res.ok){const e=await res.json();throw new Error(e.error?.message||`Analysis service ${res.status}`);}
+  return (await res.json()).content[0].text;
+}
+async function callOpenAI(m,p) {
+  const res=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+cfg.openai_key},body:JSON.stringify({model:(cfg.openai_model==='fast'?'gpt-4o-mini':cfg.openai_model==='legacy'?'gpt-4-turbo':cfg.openai_model&&cfg.openai_model!=='standard'?cfg.openai_model:'gpt-4o'),max_tokens:900,messages:[{role:'system',content:SYS},{role:'user',content:buildPrompt(m,p)}]})});
+  if(!res.ok){const e=await res.json();throw new Error(e.error?.message||`Analysis service ${res.status}`);}
+  return (await res.json()).choices[0].message.content;
+}
+async function callOllama(m,p) {
+  const url=(cfg.ollama_url||'http://localhost:11434')+'/api/chat';
+  const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:cfg.ollama_model||'private-analysis',stream:false,messages:[{role:'system',content:SYS},{role:'user',content:buildPrompt(m,p)}]})});
+  if(!res.ok) throw new Error(`Private AI service error ${res.status}. Is your local service running?`);
+  const d=await res.json();
+  return d.message?.content||d.choices?.[0]?.message?.content||'No response from private AI service';
+}
+
+// ═══════════════════════════ RENDER ═══════════════════════════════════════
+const fmt=(v,d=0)=>'€\u202f'+Math.abs(v).toLocaleString('de-DE',{minimumFractionDigits:d,maximumFractionDigits:d});
+const fP=(v,d=1)=>v.toFixed(d).replace('.',',')+'\u202f%';
+const fX=(v,d=1)=>v.toFixed(d).replace('.',',')+'\u202f×';
+const sT=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+function sM(id,val,cls=''){const e=document.getElementById(id);if(e){e.textContent=val;e.className='mv'+(cls?' '+cls:'');}}
+
+function render(d,p) {
+  lastResult=d; lastParams=p;
+  const arc=document.getElementById('scoreArc');
+  const off=220-(d.score/10)*208, col=d.score>=7?'#34c759':d.score>=5?'#ff9500':'#ff3b30';
+  if(arc) setTimeout(()=>{arc.style.strokeDashoffset=off;arc.style.stroke=col;},100);
+  document.getElementById('scoreNum').innerHTML=d.score.toFixed(1).replace('.',',')+'<small>/10</small>';
+
+  const vt=document.getElementById('verdictTitle');
+  vt.textContent=d.verdict.toUpperCase();
+  vt.className='vt '+(d.score>=7?'g':d.score>=5?'o':'r');
+  const cfMo=d.cash_flow_monthly_yr1;
+  sT('verdictSummary',`${t('vs_net_yield')} ${fP(d.net_yield_pct)} · ${t('vs_kpf')} ${fX(d.kpf)} · ${t('vs_irr')} ${fP(d.irr_10)} (10${t('vs_yr')}) · ${t('vs_afa_saving')} €${d.afa_tax_saving_yr1.toLocaleString('de-DE')}${t('vs_mo')} · ${t('vs_cf')} ${cfMo>=0?'+':'−'}€${Math.abs(Math.round(cfMo)).toLocaleString('de-DE')}${t('vs_mo')}`+(p.financed?` · ${t('vs_ltv')} ${fP(d.ltv_pct)}`:''));
+
+  sM('mv_ny',  fP(d.net_yield_pct),  d.net_yield_pct>=3.2?'ok':d.net_yield_pct>=2?'mid':'bad');
+  sM('mv_kpf', fX(d.kpf),            d.kpf<22?'ok':d.kpf<28?'mid':'bad');
+  sM('mv_irr', fP(d.irr_10),         d.irr_10>6?'ok':d.irr_10>4?'mid':'bad');
+  sM('mv_cf',  (cfMo>=0?'+':'−')+'€'+Math.abs(Math.round(cfMo)).toLocaleString('de-DE'), cfMo>0?'ok':cfMo>-200?'mid':'bad');
+  if(p.financed){sM('mv_ltv',fP(d.ltv_pct),d.ltv_pct<80?'ok':d.ltv_pct<90?'mid':'bad');}else{sM('mv_ltv',t('vs_na'));}
+  sM('mv_afa', '€'+d.afa_tax_saving_yr1.toLocaleString('de-DE'));
+  sT('mb_afa', `${fP(d.afa_rate_pct)} on €${d.afa_basis.toLocaleString('de-DE')} basis`);
+  if(p.financed){sM('mv_ann','€'+d.annuity_monthly.toLocaleString('de-DE')+t('vs_mo'));}else{sM('mv_ann',t('vs_cash_purchase'));}
+  sM('mv_nk',  fmt(d.closing_costs));
+  sT('mb_nk',  fP(d.closing_costs/d.purchase_price*100)+' '+t('ls_of_price'));
+
+  const byrs=[1,5,10,15,20], cfs=byrs.map(yr=>d.year_data.find(y=>y.year===yr)?.cash_flow||0);
+  const mx=Math.max(...cfs.map(Math.abs),1);
+  document.getElementById('barChart').innerHTML=cfs.map((v,i)=>{
+    const h=Math.max(Math.round(Math.abs(v)/mx*66),4);
+    const l=(v>=0?'+':'−')+'€'+(Math.abs(v)>=1000?(Math.abs(v)/1000).toFixed(1)+'k':Math.abs(v).toFixed(0));
+    return `<div class="bc"><div class="bv">${l}</div><div class="bb ${v>=0?'p':'n'}" style="height:${h}px"></div><div class="byr">Yr${byrs[i]}</div></div>`;
+  }).join('');
+
+  const fl=[];
+  fl.push([d.kpf<25?'ok':'warn',`Kaufpreisfaktor ${fX(d.kpf)} — ${d.kpf<25?t('fl_kpf_fair'):t('fl_kpf_high')}`]);
+  if(d.net_yield_pct>3.5) fl.push(['ok',t('fl_yield_ok',{v:fP(d.net_yield_pct)})]);
+  else if(d.net_yield_pct>2.5) fl.push(['warn',t('fl_yield_warn',{v:fP(d.net_yield_pct)})]);
+  else fl.push(['bad',t('fl_yield_bad',{v:fP(d.net_yield_pct)})]);
+  fl.push([cfMo>=0?'ok':'warn',t('fl_cf',{sign:cfMo>=0?'+':'−',v:Math.abs(Math.round(cfMo)).toLocaleString('de-DE')})+(p.financed?t('fl_cf_debt'):'')]);
+  if(p.financed) fl.push([d.ltv_pct<=80?'ok':'bad',`LTV ${fP(d.ltv_pct)} — ${d.ltv_pct<=80?t('fl_ltv_ok'):t('fl_ltv_bad')}`]);
+  else fl.push(['ok',t('vs_no_leverage')]);
+  fl.push(['info',t('fl_afa',{afa:d.annual_afa.toLocaleString('de-DE'),saving:d.afa_tax_saving_yr1.toLocaleString('de-DE')})]);
+  if(d.market_rent_m2&&p.sqm>0) fl.push([p.rent_monthly/p.sqm>d.market_rent_m2*1.1?'warn':'ok',t('fl_rent',{r:(p.rent_monthly/p.sqm).toFixed(1),m:d.market_rent_m2})]);
+  document.getElementById('flagsList').innerHTML=fl.map(([c,tx])=>`<div class="fi"><div class="fd ${c==='info'?'info':c}"></div><span>${tx}</span></div>`).join('');
+
+  document.getElementById('irrTable').innerHTML=[[10,d.irr_10,d.equity_multiple_10],[15,d.irr_15,d.equity_multiple_15],[20,d.irr_20,d.equity_multiple_20]].map(([yr,irr,em])=>{
+    const g=((em-1)*100).toFixed(1);
+    return `<tr${yr===parseInt(p.holding_years)?' class="hl"':''}><td>${t('irr_years',{n:yr})}</td><td class="${irr>5?'pos':'neg'}">${fP(irr)}</td><td>${em.toFixed(2).replace('.',',')}×</td><td class="${g>=0?'pos':'neg'}">${g>=0?'+':''}${g}%</td></tr>`;
+  }).join('');
+
+  document.getElementById('detailTable').innerHTML=d.year_data.map(y=>`<tr><td>Yr ${y.year}</td><td>${fmt(y.rent_gross)}</td><td>${fmt(y.interest)}</td><td>${fmt(y.afa_regular)}</td><td class="${y.afa_sonder>0?'pos':''}">${y.afa_sonder>0?fmt(y.afa_sonder):'—'}</td><td class="${y.tax_impact<=0?'pos':'neg'}">${y.tax_impact<=0?'+':'−'}${fmt(Math.abs(y.tax_impact))}</td><td class="${y.cash_flow>=0?'pos':'neg'}">${y.cash_flow>=0?'+':'−'}${fmt(Math.abs(y.cash_flow))}</td><td>${fmt(y.property_value)}</td></tr>`).join('');
+
+  sT('aiText', d.ai_analysis||t('ai_placeholder'));
+  sT('aiBadge', d._aiModel||'Instant');
+
+  const mi=[[t('mk_bodenrichtwert'),d.bodenrichtwert_m2?`€${d.bodenrichtwert_m2}/m²`:t('vs_na'),t('mk_bodenrichtwert_note')],[t('mk_rent_index'),d.market_rent_m2?`€${d.market_rent_m2}/m²`:t('vs_na'),t('mk_rent_note')],[t('mk_mortgage'),d.current_mortgage_rate?`${d.current_mortgage_rate}%`:t('vs_na'),t('mk_mortgage_note')],[t('mk_location'),d.location_score?`${d.location_score}/10`:t('vs_na'),t('mk_location_note')],[t('mk_population'),d.population_trend||t('vs_na'),t('mk_population_note')],[t('mk_address'),d.address_resolved||p.address,t('mk_address_note')]];
+  document.getElementById('mktGrid').innerHTML=mi.map(([k,v,n])=>`<div class="mc2"><div class="mk">${k}</div><div class="mv2">${v}</div><div class="ms">${n}</div></div>`).join('');
+  sT('mktBadge', d._dataSource||'Local');
+
+  const landV=p.purchase_price*p.land_share_pct/100;
+  const closingNote=`GrESt ${p.transfer_tax_pct}% + ${t('f_notary')} ${p.notary_pct}%`+(p.agent_pct>0?` + ${t('f_agent')} ${p.agent_pct}%`:'');
+  const afaRows=[
+    [t('afa_price'),fmt(d.purchase_price),''],
+    [t('afa_closing'),fmt(d.closing_costs),closingNote],
+    [t('afa_land'),fmt(landV),`${p.land_share_pct.toFixed(1)}% ${t('ls_of_price')}`],
+    [t('afa_basis'),fmt(d.afa_basis),t('afa_closing_note')],
+    [t('afa_rate'),fP(d.afa_rate_pct),p.condition==='newbuild'?t('afa_newbuild'):t('afa_existing')],
+    [t('afa_annual'),fmt(d.annual_afa),t('afa_annual_note')],
+  ];
+  if(d.sonder_afa_enabled && d.annual_sonder_afa>0){
+    afaRows.push([t('afa_sonder_rate'),fP(d.sonder_afa_rate_pct),t('afa_sonder_note')]);
+    afaRows.push([t('afa_sonder_annual'),fmt(d.annual_sonder_afa),`Years 1–${d.sonder_afa_years} only (always linear per §7b)`]);
+    afaRows.push([t('afa_total')+d.sonder_afa_years,fmt(d.annual_afa+d.annual_sonder_afa),t('afa_total_note')]);
+  }
+  afaRows.push([t('afa_taxrate'),fP(p.tax_rate),t('afa_taxrate_note')]);
+  afaRows.push([t('afa_saving'),fmt(d.afa_tax_saving_yr1),t('afa_saving_note')]);
+  document.getElementById('afaBody').innerHTML=afaRows.map(([a,b,c])=>`<tr><td>${a}</td><td><strong style="font-family:'DM Mono',monospace">${b}</strong></td><td style="color:var(--t3)">${c}</td></tr>`).join('');
+
+  // Land share overview card
+  const landShareEur = p.purchase_price * p.land_share_pct / 100;
+  const lsBadge = document.getElementById('ls_pct_badge');
+  if (lsBadge) {
+    lsBadge.textContent = `${p.land_share_pct.toFixed(1)}%`;
+    lsBadge.className = 'ctag' + (p.land_share_pct < 10 ? ' g' : p.land_share_pct > 30 ? ' or' : '');
+    const lsEurEl = document.getElementById('ls_eur_value');
+    lsEurEl.textContent = fmt(landShareEur);
+    lsEurEl.className = 'mv' + (p.land_share_pct < 10 ? ' ok' : p.land_share_pct > 30 ? ' bad' : '');
+    document.getElementById('ls_pct_value').textContent = fP(p.land_share_pct);
+    sT('ls_expl', t('ls_explanation'));
+  }
+}
+
+// ═══════════════════════════ TABS ═════════════════════════════════════════
+function sw(btn,id) {
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  document.querySelectorAll('.tpanel').forEach(p=>p.classList.remove('on'));
+  document.getElementById('tp-'+id)?.classList.add('on');
+}
+
+// ═══════════════════════════ FORM ═════════════════════════════════════════
+function syncAfaSliderValues() {
+  document.getElementById('f_afa_rate_value').textContent =
+    `${parseFloat(document.getElementById('f_afa_rate').value).toFixed(1)}%`;
+  document.getElementById('f_special_afa_rate_value').textContent =
+    `${parseFloat(document.getElementById('f_special_afa_rate').value).toFixed(1)}%`;
+}
+
+function syncSpecialAfaUi() {
+  const enabled = document.getElementById('f_special_afa_enabled').checked;
+  // FIX 4: use 'block' not 'flex' so .frow.stack children don't get overridden
+  document.getElementById('specialAfaBlock').style.display = enabled ? 'block' : 'none';
+  document.getElementById('f_special_afa_rate').disabled  = !enabled;
+  document.getElementById('f_special_afa_years').disabled = !enabled;
+  if (!enabled) document.getElementById('f_special_afa_error').style.display = 'none';
+}
+
+function validateAfaInputs() {
+  const enabled   = document.getElementById('f_special_afa_enabled').checked;
+  const yearsRaw  = document.getElementById('f_special_afa_years').value.trim();
+  const years     = yearsRaw === '' ? NaN : parseInt(yearsRaw);
+  const yearsInvalid = enabled && (Number.isNaN(years) || years < 1 || years > 4);
+  document.getElementById('f_special_afa_error').style.display = yearsInvalid ? 'block' : 'none';
+  return !yearsInvalid;
+}
+
+function collectForm() {
+  if (!validateAfaInputs()) {
+    throw new Error('Please correct Sonder-AfA years (must be 1 to 4).');
+  }
+  const v = document.querySelector('input[name="vac"]:checked');
+  const specialEnabled = document.getElementById('f_special_afa_enabled').checked;
+  const purchasePrice  = parseFloat(document.getElementById('f_price').value)||0;
+  const landValueEur   = parseFloat(document.getElementById('f_land_value').value)||0;
+  const landSharePct   = purchasePrice > 0 ? (landValueEur / purchasePrice * 100) : 0;
+  const payload = {
+    address:          document.getElementById('f_address').value,
+    sqm:              parseFloat(document.getElementById('f_sqm').value)||0,
+    year_built:       parseInt(document.getElementById('f_yearbuilt').value)||1990,
+    condition:        document.getElementById('f_condition').value,
+    energy_class:     document.getElementById('f_energy_class').value,
+    purchase_price:   purchasePrice,
+    financed:         document.getElementById('f_financed').checked,
+    equity:           parseFloat(document.getElementById('f_equity').value)||0,
+    interest_rate:    parseFloat(document.getElementById('f_interest').value)||3.8,
+    repayment_rate:   parseFloat(document.getElementById('f_repayment').value)||2.0,
+    transfer_tax_pct: parseFloat(document.getElementById('f_grunderwerb').value)||6.0,
+    notary_pct:       parseFloat(document.getElementById('f_notary').value)||2.0,
+    agent_pct:        Math.min(parseFloat(document.getElementById('f_agent').value)||0, 5),
+    land_value_eur:   landValueEur,
+    land_share_pct:   landSharePct,
+    rent_monthly:     parseFloat(document.getElementById('f_rent').value)||0,
+    hausgeld_monthly: parseFloat(document.getElementById('f_hausgeld').value)||200,
+    maintenance_nd:   parseFloat(document.getElementById('f_maintenance').value)||1200,
+    management_nd:    parseFloat(document.getElementById('f_management').value)||600,
+    rent_growth:      parseFloat(document.getElementById('f_rentgrowth').value)||2.0,
+    appreciation:     parseFloat(document.getElementById('f_appreciation').value)||2.0,
+    tax_rate:         parseFloat(document.getElementById('f_taxrate').value)||44,
+    vacancy_rate:     v ? parseFloat(v.id.replace('v','')) : 1,
+    holding_years:    parseInt(document.getElementById('f_horizon').value)||10,
+    afa_rate_input:   Number(document.getElementById('f_afa_rate').value),
+    afa_method:       specialEnabled ? 'sonder' : 'linear',
+    grundsteuer_annual: 0,
+    special_afa_enabled: specialEnabled,
+  };
+  if (specialEnabled) {
+    payload.special_afa_rate_input = Number(document.getElementById('f_special_afa_rate').value);
+    payload.special_afa_years      = parseInt(document.getElementById('f_special_afa_years').value, 10);
+  }
+  return payload;
+}
+
+// Land share AfA hint — recomputes % live from land value ÷ purchase price
+function updateLandshareHint() {
+  const landVal = parseFloat(document.getElementById('f_land_value').value) || 0;
+  const price   = parseFloat(document.getElementById('f_price').value)      || 1;
+  const pct     = price > 0 ? (landVal / price * 100) : 0;
+  const el = document.getElementById('landshare_hint');
+  if (!el) return;
+  const pctStr = pct.toFixed(1) + '%';
+  const ofPrice = t('ls_of_price');
+  if (pct < 10) {
+    el.style.color = 'var(--green)';
+    el.textContent = `= ${pctStr} ${ofPrice} — ${t('ls_hint_excellent')}`;
+  } else if (pct <= 20) {
+    el.style.color = 'var(--blue)';
+    el.textContent = `= ${pctStr} ${ofPrice} — ${t('ls_hint_good')}`;
+  } else if (pct <= 30) {
+    el.style.color = 'var(--t2)';
+    el.textContent = `= ${pctStr} ${ofPrice} — ${t('ls_hint_typical')}`;
+  } else {
+    el.style.color = 'var(--orange)';
+    el.textContent = `= ${pctStr} ${ofPrice} — ${t('ls_hint_high')}`;
+  }
+}
+document.getElementById('f_land_value').addEventListener('input', updateLandshareHint);
+document.getElementById('f_price').addEventListener('input', updateLandshareHint);
+updateLandshareHint();
+
+// Bind events to the single, canonical controls (no duplicates)
+document.getElementById('f_afa_rate').addEventListener('input', syncAfaSliderValues);
+document.getElementById('f_special_afa_rate').addEventListener('input', syncAfaSliderValues);
+document.getElementById('f_financed').addEventListener('change', function() {
+  document.getElementById('fin_rows').style.display = this.checked ? '' : 'none';
+});
+document.getElementById('f_special_afa_enabled').addEventListener('change', () => {
+  syncSpecialAfaUi();
+  validateAfaInputs();
+});
+document.getElementById('f_special_afa_years').addEventListener('input', validateAfaInputs);
+syncAfaSliderValues();
+syncSpecialAfaUi();
+
+const getSteps=()=>T[lang]?.steps||T.en.steps;
+
+async function runAnalysis() {
+  const ov=document.getElementById('loadingOverlay'), st=document.getElementById('lstep'), fi=document.getElementById('lfill');
+  document.getElementById('emptyState').style.display='none';
+  document.getElementById('resultsContent').style.display='none';
+  ov.classList.add('on');
+  fi.style.width='0';
+  setTimeout(()=>fi.style.width='100%',50);
+  let si=0;
+  const iv=setInterval(()=>{
+    const STEPS=getSteps();if(si<STEPS.length){st.textContent=STEPS[si];const d=document.getElementById('ldots').children[si];if(d)d.classList.add('on');si++;}
+  },500);
+  try {
+    const p=collectForm();
+    cfg=(() => { try { return JSON.parse(localStorage.getItem(CFGK))||{}; } catch { return {}; }})();
+    const m=cfg.model||'local', result=localCompute(p);
+    if(m==='claude') {
+      result._aiModel='AI Powered';
+      result._dataSource='Live API';
+      try {
+        result.ai_analysis=await callClaude(result,p);
+      } catch(e) { result.ai_analysis=`⚠ AI analysis unavailable: ${e.message}\n\nAll calculations above are accurate.`; }
+    } else {
+      result._aiModel='Instant';
+      result._dataSource='Local';
+    }
+    clearInterval(iv); ov.classList.remove('on');
+    Array.from(document.getElementById('ldots').children).forEach(d=>d.classList.remove('on'));
+    render(result,p);
+    document.getElementById('resultsContent').style.display='block';
+    document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('on',i===0));
+    document.querySelectorAll('.tpanel').forEach((p,i)=>p.classList.toggle('on',i===0));
+    document.getElementById('main').scrollTop=0;
+  } catch(e) {
+    clearInterval(iv); ov.classList.remove('on');
+    alert('Error: '+e.message); console.error(e);
+  }
+}
+</script>
+</body>
+</html>
