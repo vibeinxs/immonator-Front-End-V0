@@ -214,7 +214,7 @@ function OnboardingOverlay({ onClose }: { onClose: () => void }) {
                     animationDelay: `${i * 400}ms`,
                   }}
                 >
-                  {"\\u2713"} {line}
+                  {"✓"} {line}
                 </p>
               ))}
             </div>
@@ -326,6 +326,29 @@ const STUTTGART_EXAMPLE = {
   notes: "Altbau, renovated kitchen, balcony south-facing.\nS-Bahn Möhringen 400m. Listed 38 days, one price reduction of €15,000.",
 }
 
+// Synthetic demo property — shown in the empty state so new users can explore
+// the detail page without adding a real listing first.
+const DEMO_PROPERTY: Property = {
+  id: "_demo",
+  title: "3-Zimmer Wohnung · Stuttgart-Möhringen",
+  address: "Möhringer Straße",
+  city: "Stuttgart",
+  zip: "70567",
+  price: 385000,
+  price_per_sqm: 4936,
+  sqm: 78,
+  rooms: 3,
+  year_built: 1968,
+  days_listed: 38,
+  gross_yield: 4.2,
+  compact_analysis: {
+    verdict: "worth_analysing",
+    one_line_summary:
+      "Solid Altbau in a good location — yields are tight but a recent price cut leaves room to negotiate.",
+  },
+  is_watched: false,
+}
+
 function FieldLabel({
   text,
   required,
@@ -362,7 +385,9 @@ function AddPropertyModal({
   const handleLinkSubmit = async () => {
     setLinkError("")
     const isValidUrl =
-      linkUrl.includes("immoscout24.de") || linkUrl.includes("immonet.de")
+      linkUrl.includes("immobilienscout24.de") ||
+      linkUrl.includes("immoscout24.de") ||
+      linkUrl.includes("immonet.de")
     if (!linkUrl || !isValidUrl) {
       setLinkError("Please paste a valid ImmoScout24 or Immonet link")
       return
@@ -887,7 +912,7 @@ function PropertyCard({
           />
         ) : (
           <div className="flex h-full items-center justify-center text-4xl text-text-muted">
-            {"\\uD83C\\uDFE2"}
+            🏢
           </div>
         )}
 
@@ -924,7 +949,7 @@ function PropertyCard({
         </p>
 
         <p className="mt-1 text-xs text-text-secondary">
-          {"\\uD83D\\uDCCD"} {property.city} {"\u00B7"} {property.zip}
+          {"📍"} {property.city} {"\u00B7"} {property.zip}
         </p>
 
         {/* Spec pills */}
@@ -1275,16 +1300,48 @@ export default function PropertiesPage() {
             ))}
           </div>
         ) : filtered.length === 0 && !hasFilters && properties.length === 0 ? (
-          <EmptyState
-            icon={"🔍"}
-            headline={t("properties.empty.noProperties")}
-            body={t("properties.empty.noPropertiesBody")}
-            actionLabel={t("properties.empty.addUrl")}
-            onAction={() => setModalOpen(true)}
-          />
+          <div className="flex flex-col items-center gap-8">
+            {/* Teaser prompt */}
+            <div className="text-center">
+              <p className="font-serif text-xl text-text-primary">
+                See how it works
+              </p>
+              <p className="mt-1 text-sm text-text-secondary">
+                Here&apos;s a sample Stuttgart apartment — click View Details to explore a full analysis.
+              </p>
+            </div>
+
+            {/* Demo card — same PropertyCard but capped to ~360 px wide */}
+            <div className="relative w-full max-w-sm">
+              {/* Demo label */}
+              <div className="absolute -top-3 left-1/2 z-10 -translate-x-1/2 rounded-full border border-brand/30 bg-brand-subtle px-3 py-0.5 text-[11px] font-medium text-brand">
+                Sample · not saved
+              </div>
+              <PropertyCard
+                property={DEMO_PROPERTY}
+                onWatch={() =>
+                  setToast({ message: "Add the property to save it to your watchlist.", variant: "default" })
+                }
+                t={t}
+              />
+            </div>
+
+            {/* CTA row */}
+            <div className="flex flex-col items-center gap-3">
+              <button
+                onClick={() => setModalOpen(true)}
+                className="rounded-lg bg-brand px-5 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-brand-hover"
+              >
+                {t("properties.empty.addUrl")}
+              </button>
+              <p className="text-xs text-text-muted">
+                Paste an ImmoScout24 link or add manually
+              </p>
+            </div>
+          </div>
         ) : filtered.length === 0 && hasFilters ? (
           <EmptyState
-            icon={"\\u2699"}
+            icon={"⚙️"}
             headline={t("properties.empty.noResults")}
             body={t("properties.empty.noResultsBody")}
             actionLabel={t("properties.empty.clearFilters")}
