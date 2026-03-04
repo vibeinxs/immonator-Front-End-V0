@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react"
 import { translations, type Locale } from "./translations"
+import { translateTexts } from "@/lib/immonatorApi"
 
 interface LocaleContextType {
   locale: Locale
@@ -108,22 +109,15 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
     pendingRef.current = true
     setIsTranslating(true)
 
-    fetch("/api/translate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ texts: missing, targetLocale: locale }),
-    })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
+    translateTexts({ texts: missing, targetLocale: locale })
+      .then(({ data, error }) => {
+        if (error) { console.error(error); return }
         if (data?.translations) {
           const newCache = getCache()
           newCache[locale] = { ...newCache[locale], ...data.translations }
           setCache(newCache)
           setAutoTranslations((prev) => ({ ...prev, ...data.translations }))
         }
-      })
-      .catch(() => {
-        /* Silently fail -- manual keys still work */
       })
       .finally(() => {
         setIsTranslating(false)

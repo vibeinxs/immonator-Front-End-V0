@@ -325,6 +325,31 @@ export async function getPortfolioAnalysis(): Promise<ApiResult<PortfolioAnalysi
   return { data: normalizePortfolioAnalysis(res.data), error: null }
 }
 
+// ─── i18n / Auto-translate (internal Next.js route – no auth header needed) ───
+
+export interface TranslateRequest {
+  texts: { key: string; text: string }[]
+  targetLocale: string
+}
+
+export async function translateTexts(
+  body: TranslateRequest
+): Promise<ApiResult<{ translations: Record<string, string> }>> {
+  try {
+    const res = await fetch("/api/translate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    })
+    if (!res.ok) return { data: null, error: `Error ${res.status}` }
+    const data = await res.json()
+    return { data, error: null }
+  } catch (e) {
+    console.error("Translation API network error:", e)
+    return { data: null, error: "Network error. Check your connection." }
+  }
+}
+
 // ─── Backward-compat object export ────────────────────────────────────────────
 
 export const immoApi = {
