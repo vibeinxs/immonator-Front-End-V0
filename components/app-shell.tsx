@@ -10,6 +10,7 @@ import {
   BarChart3,
   MessageSquare,
   LogOut,
+  Calculator,
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -28,6 +29,7 @@ const NAV_KEYS = [
   { key: "nav.portfolio", href: "/portfolio", icon: Briefcase },
   { key: "nav.markets", href: "/market/berlin", icon: MapPin },
   { key: "nav.strategy", href: "/strategy", icon: BarChart3 },
+  { key: "nav.analyse", href: "/analyse", icon: Calculator },
 ]
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -130,9 +132,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Main content */}
       <main className="pt-[58px] pb-[74px] md:pb-0">
-        <div className="mx-auto w-full max-w-[1280px] px-4 py-8 md:px-8">
+        {pathname === "/analyse" ? (
           <div className="animate-fade-in">{children}</div>
-        </div>
+        ) : (
+          <div className="mx-auto w-full max-w-[1280px] px-4 py-8 md:px-8">
+            <div className="animate-fade-in">{children}</div>
+          </div>
+        )}
       </main>
 
       {/* Mobile Bottom Nav */}
