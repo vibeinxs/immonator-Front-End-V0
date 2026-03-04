@@ -301,105 +301,487 @@ function OnboardingOverlay({ onClose }: { onClose: () => void }) {
 }
 
 /* ── AddPropertyModal ────────────────────────────── */
+const CITIES = [
+  "Berlin", "Munich", "Hamburg", "Frankfurt", "Cologne",
+  "Stuttgart", "Düsseldorf", "Leipzig", "Dresden", "Other",
+] as const
+
+const HEATING_TYPES = [
+  "Fernwärme", "Gas", "Öl", "Wärmepumpe", "Elektro", "Pellets", "Unknown",
+] as const
+
+const STUTTGART_EXAMPLE = {
+  title: "3-Zimmer Wohnung · Stuttgart-Möhringen",
+  city: "Stuttgart",
+  zip: "70567",
+  price: "385000",
+  size: "78",
+  rooms: "3",
+  yearBuilt: "1968",
+  rent: "1150",
+  heatingType: "Fernwärme",
+  floor: "3. OG",
+  listingUrl: "",
+  notes: "Altbau, renovated kitchen, balcony south-facing.\nS-Bahn Möhringen 400m. Listed 38 days, one price reduction of €15,000.",
+}
+
+function FieldLabel({
+  text,
+  required,
+}: {
+  text: string
+  required?: boolean
+}) {
+  return (
+    <label className="mb-1 block text-xs font-medium text-text-secondary">
+      {text}
+      {required && <span className="ml-0.5 text-danger">*</span>}
+    </label>
+  )
+}
+
 function AddPropertyModal({
   open,
   onOpenChange,
+  onSuccess,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
+  onSuccess?: () => void
 }) {
-  const { t } = useLocale()
-  const [url, setUrl] = useState("")
-  const [city, setCity] = useState("")
-  const [maxPrice, setMaxPrice] = useState("")
-  const [minRooms, setMinRooms] = useState("")
-  const [submitting, setSubmitting] = useState(false)
-  const [success, setSuccess] = useState(false)
+  const [activeTab, setActiveTab] = useState<"link" | "manual">("link")
 
-  const handleSubmit = async () => {
-    if (!url) return
-    setSubmitting(true)
-      await immoApi.triggerScrape(
-        city || url,
-        maxPrice ? Number(maxPrice) : 0,
-        minRooms ? Number(minRooms) : 0,
-      )
-    setSubmitting(false)
-    setSuccess(true)
+  // ── Tab 1: Paste Link ──────────────────────────────────────────────────────
+  const [linkUrl, setLinkUrl] = useState("")
+  const [linkCity, setLinkCity] = useState("")
+  const [linkError, setLinkError] = useState("")
+  const [linkSubmitting, setLinkSubmitting] = useState(false)
+  const [linkSuccess, setLinkSuccess] = useState(false)
+
+  const handleLinkSubmit = async () => {
+    setLinkError("")
+    const isValidUrl =
+      linkUrl.includes("immoscout24.de") || linkUrl.includes("immonet.de")
+    if (!linkUrl || !isValidUrl) {
+      setLinkError("Please paste a valid ImmoScout24 or Immonet link")
+      return
+    }
+    if (!linkCity) {
+      setLinkError("Please select a city")
+      return
+    }
+    setLinkSubmitting(true)
+    await immoApi.triggerScrape({
+      city: linkCity,
+      url: linkUrl,
+      max_price: 1000000,
+      min_rooms: 1,
+    })
+    setLinkSubmitting(false)
+    setLinkSuccess(true)
     setTimeout(() => {
-      setSuccess(false)
-      setUrl("")
-      setCity("")
-      setMaxPrice("")
-      setMinRooms("")
+      resetAll()
       onOpenChange(false)
+      onSuccess?.()
     }, 3000)
   }
 
+  // ── Tab 2: Add Manually ────────────────────────────────────────────────────
+  const [title, setTitle] = useState("")
+  const [city, setCity] = useState("Stuttgart")
+  const [zip, setZip] = useState("")
+  const [price, setPrice] = useState("")
+  const [size, setSize] = useState("")
+  const [rooms, setRooms] = useState("")
+  const [yearBuilt, setYearBuilt] = useState("")
+  const [rent, setRent] = useState("")
+  const [heatingType, setHeatingType] = useState("")
+  const [floor, setFloor] = useState("")
+  const [listingUrl, setListingUrl] = useState("")
+  const [notes, setNotes] = useState("")
+  const [manualSubmitting, setManualSubmitting] = useState(false)
+  const [manualSuccess, setManualSuccess] = useState(false)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, boolean>>({})
+  const [showExampleHint, setShowExampleHint] = useState(false)
+
+  const clearExampleHint = () => setShowExampleHint(false)
+
+  const loadStuttgartExample = () => {
+    setTitle(STUTTGART_EXAMPLE.title)
+    setCity(STUTTGART_EXAMPLE.city)
+    setZip(STUTTGART_EXAMPLE.zip)
+    setPrice(STUTTGART_EXAMPLE.price)
+    setSize(STUTTGART_EXAMPLE.size)
+    setRooms(STUTTGART_EXAMPLE.rooms)
+    setYearBuilt(STUTTGART_EXAMPLE.yearBuilt)
+    setRent(STUTTGART_EXAMPLE.rent)
+    setHeatingType(STUTTGART_EXAMPLE.heatingType)
+    setFloor(STUTTGART_EXAMPLE.floor)
+    setListingUrl(STUTTGART_EXAMPLE.listingUrl)
+    setNotes(STUTTGART_EXAMPLE.notes)
+    setShowExampleHint(true)
+    setFieldErrors({})
+  }
+
+  const handleManualSubmit = async () => {
+    const errors: Record<string, boolean> = {}
+    if (!title) errors.title = true
+    if (!city) errors.city = true
+    if (!price) errors.price = true
+    if (!size) errors.size = true
+    if (!rooms) errors.rooms = true
+    setFieldErrors(errors)
+    if (Object.keys(errors).length > 0) return
+
+    setManualSubmitting(true)
+    await immoApi.createManualProperty({
+      source: "manual",
+      title,
+      city,
+      zip_code: zip || undefined,
+      price: Number(price),
+      size_sqm: Number(size),
+      rooms: Number(rooms),
+      year_built: yearBuilt ? Number(yearBuilt) : undefined,
+      estimated_rent: rent ? Number(rent) : undefined,
+      heating_type: heatingType || undefined,
+      floor: floor || undefined,
+      listing_url: listingUrl || undefined,
+      notes: notes || undefined,
+    })
+    setManualSubmitting(false)
+    setManualSuccess(true)
+    setTimeout(() => {
+      resetAll()
+      onOpenChange(false)
+      onSuccess?.()
+    }, 3000)
+  }
+
+  const resetAll = () => {
+    setActiveTab("link")
+    setLinkUrl("")
+    setLinkCity("")
+    setLinkError("")
+    setLinkSuccess(false)
+    setTitle("")
+    setCity("Stuttgart")
+    setZip("")
+    setPrice("")
+    setSize("")
+    setRooms("")
+    setYearBuilt("")
+    setRent("")
+    setHeatingType("")
+    setFloor("")
+    setListingUrl("")
+    setNotes("")
+    setManualSuccess(false)
+    setFieldErrors({})
+    setShowExampleHint(false)
+  }
+
+  const inputCls = (hasError?: boolean) =>
+    `w-full rounded-lg border ${hasError ? "border-danger" : "border-border-default"} bg-bg-surface px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:border-brand focus:outline-none focus:ring-[3px] focus:ring-brand/15`
+
+  const selectCls = (hasError?: boolean) =>
+    `w-full rounded-lg border ${hasError ? "border-danger" : "border-border-default"} bg-bg-surface px-3 py-2.5 text-sm text-text-primary focus:border-brand focus:outline-none focus:ring-[3px] focus:ring-brand/15`
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="border-border-default bg-bg-surface sm:max-w-md">
+    <Dialog open={open} onOpenChange={(v) => { if (!v) resetAll(); onOpenChange(v) }}>
+      <DialogContent className="border-border-default bg-bg-surface sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="font-serif text-xl text-text-primary">
-            {t("properties.addModal.title")}
+            Add Property
           </DialogTitle>
         </DialogHeader>
 
-        {success ? (
-          <p className="py-6 text-center text-sm text-success">
-            {t("properties.addModal.success")}
-          </p>
-        ) : (
-          <div className="flex flex-col gap-4">
-            <input
-              type="url"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder={t("properties.addModal.urlPh")}
-              className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:border-brand focus:outline-none focus:ring-[3px] focus:ring-brand/15"
-            />
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <label className="mb-1 block text-xs text-text-secondary">
-                  {t("properties.addModal.city")}
-                </label>
-                <input
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  placeholder={t("properties.addModal.cityPh")}
-                  className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-brand focus:outline-none focus:ring-[3px] focus:ring-brand/15"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs text-text-secondary">
-                  {t("properties.addModal.maxPrice")}
-                </label>
-                <input
-                  value={maxPrice}
-                  onChange={(e) => setMaxPrice(e.target.value)}
-                  placeholder={t("properties.addModal.maxPricePh")}
-                  className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-brand focus:outline-none focus:ring-[3px] focus:ring-brand/15"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-xs text-text-secondary">
-                  {t("properties.addModal.minRooms")}
-                </label>
-                <input
-                  value={minRooms}
-                  onChange={(e) => setMinRooms(e.target.value)}
-                  placeholder={t("properties.addModal.minRoomsPh")}
-                  className="w-full rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:border-brand focus:outline-none focus:ring-[3px] focus:ring-brand/15"
-                />
-              </div>
-            </div>
-            <button
-              onClick={handleSubmit}
-              disabled={!url || submitting}
-              className="rounded-lg bg-brand px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-brand-hover disabled:opacity-50"
-            >
-              {submitting ? "..." : t("properties.addModal.submit")}
-            </button>
+        {/* Tab bar */}
+        <div className="border-b border-border-default">
+          <div className="flex gap-6">
+            {(["link", "manual"] as const).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`pb-2.5 text-sm font-medium transition-colors ${
+                  activeTab === tab
+                    ? "border-b-2 border-brand text-brand"
+                    : "text-text-secondary hover:text-text-primary"
+                }`}
+              >
+                {tab === "link" ? "Paste Link" : "Add Manually"}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Tab 1: Paste Link ─────────────────────────────────────── */}
+        {activeTab === "link" && (
+          <div className="flex flex-col gap-4 pt-2">
+            {linkSuccess ? (
+              <p className="py-6 text-center text-sm text-success">
+                Adding property... analysis starts in ~30 seconds.
+              </p>
+            ) : (
+              <>
+                <div>
+                  <FieldLabel text="ImmoScout24 Link" required />
+                  <input
+                    type="url"
+                    value={linkUrl}
+                    onChange={(e) => { setLinkUrl(e.target.value); setLinkError("") }}
+                    placeholder="https://www.immoscout24.de/expose/..."
+                    className={inputCls(!!linkError && !linkUrl)}
+                  />
+                  <p className="mt-1 text-xs text-text-muted">
+                    Paste the full URL from the listing page
+                  </p>
+                </div>
+                <div>
+                  <FieldLabel text="City" required />
+                  <select
+                    value={linkCity}
+                    onChange={(e) => { setLinkCity(e.target.value); setLinkError("") }}
+                    className={selectCls(!!linkError && !linkCity)}
+                  >
+                    <option value="">Select city...</option>
+                    {CITIES.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+                {linkError && (
+                  <p className="text-xs text-danger">{linkError}</p>
+                )}
+                <button
+                  onClick={handleLinkSubmit}
+                  disabled={linkSubmitting}
+                  className="h-12 w-full rounded-lg bg-brand text-sm font-medium text-primary-foreground transition-colors hover:bg-brand-hover disabled:opacity-50"
+                >
+                  {linkSubmitting ? "Adding..." : "Add Property"}
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* ── Tab 2: Add Manually ───────────────────────────────────── */}
+        {activeTab === "manual" && (
+          <div className="flex flex-col gap-4 pt-2">
+            {manualSuccess ? (
+              <p className="py-6 text-center text-sm text-success">
+                Property added. Immonator is analysing...
+              </p>
+            ) : (
+              <>
+                {/* Stuttgart example button */}
+                <div className="flex justify-end">
+                  <button
+                    onClick={loadStuttgartExample}
+                    className="cursor-pointer text-xs text-brand"
+                  >
+                    Load Stuttgart example →
+                  </button>
+                </div>
+
+                {/* Example hint banner */}
+                {showExampleHint && (
+                  <div className="rounded-lg bg-brand-subtle p-2 text-xs text-brand">
+                    This is example data — edit any field or just click Add
+                  </div>
+                )}
+
+                {/* 2-col grid on desktop, 1-col on mobile */}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {/* Property Title — full width */}
+                  <div className="sm:col-span-2">
+                    <FieldLabel text="Property Title" required />
+                    <input
+                      value={title}
+                      onChange={(e) => {
+                        setTitle(e.target.value)
+                        clearExampleHint()
+                        setFieldErrors((p) => ({ ...p, title: false }))
+                      }}
+                      placeholder="3-Zimmer Wohnung, Möhringen"
+                      className={inputCls(fieldErrors.title)}
+                    />
+                  </div>
+
+                  {/* City */}
+                  <div>
+                    <FieldLabel text="City" required />
+                    <select
+                      value={city}
+                      onChange={(e) => {
+                        setCity(e.target.value)
+                        clearExampleHint()
+                        setFieldErrors((p) => ({ ...p, city: false }))
+                      }}
+                      className={selectCls(fieldErrors.city)}
+                    >
+                      {CITIES.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* ZIP Code */}
+                  <div>
+                    <FieldLabel text="ZIP Code" />
+                    <input
+                      value={zip}
+                      onChange={(e) => {
+                        setZip(e.target.value.slice(0, 5))
+                        clearExampleHint()
+                      }}
+                      placeholder="70567"
+                      maxLength={5}
+                      className={inputCls()}
+                    />
+                  </div>
+
+                  {/* Asking Price */}
+                  <div>
+                    <FieldLabel text="Asking Price (€)" required />
+                    <input
+                      value={price}
+                      onChange={(e) => {
+                        setPrice(e.target.value)
+                        clearExampleHint()
+                        setFieldErrors((p) => ({ ...p, price: false }))
+                      }}
+                      placeholder="385000"
+                      className={`${inputCls(fieldErrors.price)} font-mono`}
+                    />
+                    <p className="mt-1 text-xs text-text-muted">
+                      Enter without dots or commas
+                    </p>
+                  </div>
+
+                  {/* Size */}
+                  <div>
+                    <FieldLabel text="Size (m²)" required />
+                    <input
+                      type="number"
+                      value={size}
+                      onChange={(e) => {
+                        setSize(e.target.value)
+                        clearExampleHint()
+                        setFieldErrors((p) => ({ ...p, size: false }))
+                      }}
+                      placeholder="78"
+                      className={`${inputCls(fieldErrors.size)} font-mono`}
+                    />
+                  </div>
+
+                  {/* Rooms */}
+                  <div>
+                    <FieldLabel text="Number of Rooms" required />
+                    <input
+                      type="number"
+                      step="0.5"
+                      value={rooms}
+                      onChange={(e) => {
+                        setRooms(e.target.value)
+                        clearExampleHint()
+                        setFieldErrors((p) => ({ ...p, rooms: false }))
+                      }}
+                      placeholder="3"
+                      className={`${inputCls(fieldErrors.rooms)} font-mono`}
+                    />
+                  </div>
+
+                  {/* Year Built */}
+                  <div>
+                    <FieldLabel text="Year Built" />
+                    <input
+                      type="number"
+                      value={yearBuilt}
+                      onChange={(e) => { setYearBuilt(e.target.value); clearExampleHint() }}
+                      placeholder="1968"
+                      min={1850}
+                      className={`${inputCls()} font-mono`}
+                    />
+                  </div>
+
+                  {/* Monthly Rent */}
+                  <div>
+                    <FieldLabel text="Monthly Rent (€)" />
+                    <input
+                      value={rent}
+                      onChange={(e) => { setRent(e.target.value); clearExampleHint() }}
+                      placeholder="1150"
+                      className={`${inputCls()} font-mono`}
+                    />
+                    <p className="mt-1 text-xs text-text-muted">
+                      Current or estimated achievable rent
+                    </p>
+                  </div>
+
+                  {/* Heating Type */}
+                  <div>
+                    <FieldLabel text="Heating Type" />
+                    <select
+                      value={heatingType}
+                      onChange={(e) => { setHeatingType(e.target.value); clearExampleHint() }}
+                      className={selectCls()}
+                    >
+                      <option value="">Select...</option>
+                      {HEATING_TYPES.map((h) => (
+                        <option key={h} value={h}>{h}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Floor */}
+                  <div>
+                    <FieldLabel text="Floor" />
+                    <input
+                      value={floor}
+                      onChange={(e) => { setFloor(e.target.value); clearExampleHint() }}
+                      placeholder="3. OG"
+                      className={inputCls()}
+                    />
+                  </div>
+
+                  {/* Listing URL — full width */}
+                  <div className="sm:col-span-2">
+                    <FieldLabel text="Listing URL" />
+                    <input
+                      type="url"
+                      value={listingUrl}
+                      onChange={(e) => { setListingUrl(e.target.value); clearExampleHint() }}
+                      placeholder="https://..."
+                      className={inputCls()}
+                    />
+                  </div>
+
+                  {/* Notes — full width */}
+                  <div className="sm:col-span-2">
+                    <FieldLabel text="Notes" />
+                    <textarea
+                      value={notes}
+                      onChange={(e) => { setNotes(e.target.value); clearExampleHint() }}
+                      rows={3}
+                      className={`${inputCls()} resize-none`}
+                    />
+                  </div>
+                </div>
+
+                {Object.values(fieldErrors).some(Boolean) && (
+                  <p className="text-xs text-danger">Please fill required fields</p>
+                )}
+
+                <button
+                  onClick={handleManualSubmit}
+                  disabled={manualSubmitting}
+                  className="h-12 w-full rounded-lg bg-brand text-sm font-medium text-primary-foreground transition-colors hover:bg-brand-hover disabled:opacity-50"
+                >
+                  {manualSubmitting ? "Adding..." : "Add Property"}
+                </button>
+              </>
+            )}
           </div>
         )}
       </DialogContent>
@@ -650,17 +1032,18 @@ export default function PropertiesPage() {
   const hasFilters = cityFilter || typeFilter || priceFilter || yieldFilter
 
   // Fetch data
+  const fetchData = useCallback(async () => {
+    setLoading(true)
+    const [propsRes, statsRes] = await Promise.all([
+      immoApi.fetchProperties(),
+      immoApi.fetchPropertyStats(),
+    ])
+    if (propsRes.data?.properties) setProperties(propsRes.data.properties as Property[])
+    if (statsRes.data) setStats(statsRes.data as unknown as Stats)
+    setLoading(false)
+  }, [])
+
   useEffect(() => {
-    async function fetchData() {
-      setLoading(true)
-      const [propsRes, statsRes] = await Promise.all([
-        immoApi.fetchProperties(),
-        immoApi.fetchPropertyStats(),
-      ])
-      if (propsRes.data?.properties) setProperties(propsRes.data.properties as Property[])
-      if (statsRes.data) setStats(statsRes.data as unknown as Stats)
-      setLoading(false)
-    }
     fetchData()
 
     // Check onboarding
@@ -669,7 +1052,7 @@ export default function PropertiesPage() {
         setShowOnboarding(true)
       }
     }
-  }, [])
+  }, [fetchData])
 
   // Unique cities for filter
   const cities = [...new Set(properties.map((p) => p.city))].sort()
@@ -866,7 +1249,7 @@ export default function PropertiesPage() {
         )}
       </div>
 
-      <AddPropertyModal open={modalOpen} onOpenChange={setModalOpen} />
+      <AddPropertyModal open={modalOpen} onOpenChange={setModalOpen} onSuccess={fetchData} />
 
       {toast && (
         <Toast
