@@ -29,6 +29,7 @@ import { copy } from "@/lib/copy"
 import { getUserName, isNewUser, setNewUserSeen } from "@/lib/auth"
 import { useLocale } from "@/lib/i18n/locale-context"
 import { EUR } from "@/lib/utils"
+import type { PropertyListItem } from "@/types/api"
 
 /* ── Types ───────────────────────────────────────── */
 interface Property {
@@ -37,14 +38,14 @@ interface Property {
   address: string
   city: string
   zip: string
-  price: number
-  price_per_sqm: number
-  sqm: number
-  rooms: number
-  year_built: number
+  price: number | null
+  price_per_sqm: number | null
+  sqm: number | null
+  rooms: number | null
+  year_built: number | null
   image_url?: string
-  days_listed: number
-  gross_yield: number
+  days_listed: number | null
+  gross_yield: number | null
   compact_analysis?: {
     verdict: "strong_buy" | "worth_analysing" | "proceed_with_caution" | "avoid"
     one_line_summary: string
@@ -55,6 +56,31 @@ interface Property {
 interface Stats {
   total: number
   cities: number
+}
+
+function toUiProperty(item: PropertyListItem): Property {
+  return {
+    id: item.id,
+    title: item.title ?? "Untitled property",
+    address: item.address ?? "—",
+    city: item.city ?? "—",
+    zip: "—",
+    price: item.asking_price,
+    price_per_sqm: item.price_per_sqm,
+    sqm: item.living_area_sqm,
+    rooms: item.rooms,
+    year_built: null,
+    image_url: item.images_urls?.[0],
+    days_listed: item.days_on_market,
+    gross_yield: item.gross_yield,
+    compact_analysis: item.compact_analysis
+      ? {
+          verdict: item.compact_analysis.verdict,
+          one_line_summary: item.compact_analysis.one_line_summary ?? "",
+        }
+      : undefined,
+    is_watched: false,
+  }
 }
 
 /* ── Toast ───────────────────────────────────────── */
@@ -893,9 +919,9 @@ function PropertyCard({
   t: (key: string) => string
 }) {
   const daysClass =
-    property.days_listed > 60
+    (property.days_listed ?? 0) > 60
       ? "text-danger"
-      : property.days_listed > 30
+      : (property.days_listed ?? 0) > 30
         ? "text-warning"
         : "text-primary-foreground"
 
@@ -927,7 +953,7 @@ function PropertyCard({
         <div
           className={`absolute top-2 right-2 rounded-md bg-black/50 px-2 py-1 text-xs backdrop-blur-sm ${daysClass}`}
         >
-          {property.days_listed} {t("properties.card.days")}
+          {property.days_listed !== null ? `${property.days_listed} ${t("properties.card.days")}` : "—"}
         </div>
       </div>
 
@@ -935,12 +961,10 @@ function PropertyCard({
       <div className="flex flex-1 flex-col p-4">
         <div className="flex items-baseline justify-between">
           <span className="font-serif text-2xl text-text-primary">
-            {EUR}
-            {(property.price ?? 0).toLocaleString("de-DE")}
+            {property.price !== null ? `${EUR}${property.price.toLocaleString("de-DE")}` : "—"}
           </span>
           <span className="font-mono text-xs text-text-muted">
-            {EUR}
-            {(property.price_per_sqm ?? 0).toLocaleString("de-DE")}/m{"\u00B2"}
+            {property.price_per_sqm !== null ? `${EUR}${property.price_per_sqm.toLocaleString("de-DE")}/m²` : "—"}
           </span>
         </div>
 
@@ -949,19 +973,19 @@ function PropertyCard({
         </p>
 
         <p className="mt-1 text-xs text-text-secondary">
-          {"📍"} {property.city} {"\u00B7"} {property.zip}
+          📍 {property.city} · {property.zip}
         </p>
 
         {/* Spec pills */}
         <div className="mt-2.5 flex flex-wrap gap-1.5">
           <span className="rounded-md bg-bg-elevated px-2 py-0.5 text-xs text-text-secondary">
-            {property.sqm}m{"\u00B2"}
+            {property.sqm !== null ? `${property.sqm}m²` : "—"}
           </span>
           <span className="rounded-md bg-bg-elevated px-2 py-0.5 text-xs text-text-secondary">
-            {property.rooms} {t("properties.card.rooms")}
+            {property.rooms !== null ? `${property.rooms} ${t("properties.card.rooms")}` : "—"}
           </span>
           <span className="rounded-md bg-bg-elevated px-2 py-0.5 text-xs text-text-secondary">
-            {property.year_built}
+            {property.year_built ?? "—"}
           </span>
         </div>
 
@@ -976,12 +1000,12 @@ function PropertyCard({
             </p>
             <p
               className={`font-mono text-xl ${
-                property.gross_yield >= 5
+                (property.gross_yield ?? 0) >= 5
                   ? "text-success"
                   : "text-text-primary"
               }`}
             >
-              {(property.gross_yield ?? 0).toFixed(1)}%
+              {property.gross_yield !== null ? `${property.gross_yield.toFixed(1)}%` : "—"}
             </p>
           </div>
           <div>
@@ -989,7 +1013,7 @@ function PropertyCard({
               {t("properties.card.eurSqm")}
             </p>
             <p className="font-mono text-xl text-text-primary">
-              {(property.price_per_sqm ?? 0).toLocaleString("de-DE")}
+              {property.price_per_sqm !== null ? property.price_per_sqm.toLocaleString("de-DE") : "—"}
             </p>
           </div>
         </div>
@@ -1057,6 +1081,7 @@ export default function PropertiesPage() {
   const [properties, setProperties] = useState<Property[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [toast, setToast] = useState<{
     message: string
@@ -1077,11 +1102,13 @@ export default function PropertiesPage() {
   // Fetch data
   const fetchData = useCallback(async () => {
     setLoading(true)
+    setLoadError(null)
     const [propsRes, statsRes] = await Promise.all([
       immoApi.fetchProperties(),
       immoApi.fetchPropertyStats(),
     ])
-    if (propsRes.data?.properties) setProperties(propsRes.data.properties as Property[])
+    if (propsRes.error) setLoadError(propsRes.error)
+    if (propsRes.data) setProperties(propsRes.data.items.map(toUiProperty))
     if (statsRes.data) setStats(statsRes.data as unknown as Stats)
     setLoading(false)
   }, [])
@@ -1106,16 +1133,16 @@ export default function PropertiesPage() {
       if (cityFilter && p.city !== cityFilter) return false
       if (priceFilter) {
         const maxP = parseInt(priceFilter.replace(/\D/g, ""), 10)
-        if (maxP && p.price > maxP) return false
+        if (maxP && (p.price ?? 0) > maxP) return false
       }
       if (yieldFilter) {
         const minY = parseFloat(yieldFilter.replace("%", ""))
-        if (minY && p.gross_yield < minY) return false
+        if (minY && (p.gross_yield ?? 0) < minY) return false
       }
       return true
     })
     .sort((a, b) => {
-      if (sortBy === "yield") return b.gross_yield - a.gross_yield
+      if (sortBy === "yield") return (b.gross_yield ?? 0) - (a.gross_yield ?? 0)
       return 0
     })
 
@@ -1299,6 +1326,14 @@ export default function PropertiesPage() {
               <SkeletonCard key={i} />
             ))}
           </div>
+        ) : loadError ? (
+          <EmptyState
+            icon="⚠️"
+            headline="Could not load properties"
+            body={`${loadError}. Please check your API connection and try again.`}
+            actionLabel="Retry"
+            onAction={fetchData}
+          />
         ) : filtered.length === 0 && !hasFilters && properties.length === 0 ? (
           <div className="flex flex-col items-center gap-8">
             {/* Teaser prompt */}

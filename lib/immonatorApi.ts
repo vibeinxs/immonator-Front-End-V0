@@ -11,7 +11,10 @@ import type {
   Property,
   PropertyFilters,
   PropertyListResponse,
+  PropertyListItem,
   PropertyStatsResponse,
+  AnalyseRequest,
+  AnalyseResponse,
   ScenarioParams,
   ScenarioResult,
 } from "@/types/api"
@@ -67,7 +70,43 @@ export function getMe(): Promise<ApiResult<MeResponse>> {
 
 // ─── Properties ───────────────────────────────────────────────────────────────
 
-export function fetchProperties(
+function normalizePropertyListResponse(raw: unknown): PropertyListResponse {
+  const fallback: PropertyListResponse = {
+    items: [],
+    total: 0,
+    page: 1,
+    limit: 20,
+    pages: 1,
+  }
+
+  if (Array.isArray(raw)) {
+    return {
+      ...fallback,
+      items: raw as PropertyListItem[],
+      total: raw.length,
+      pages: raw.length > 0 ? 1 : 0,
+    }
+  }
+
+  if (!raw || typeof raw !== "object") return fallback
+
+  const obj = raw as Record<string, unknown>
+  const items = Array.isArray(obj.items)
+    ? (obj.items as PropertyListItem[])
+    : Array.isArray(obj.properties)
+      ? (obj.properties as PropertyListItem[])
+      : []
+
+  return {
+    items,
+    total: Number(obj.total ?? items.length ?? 0),
+    page: Number(obj.page ?? 1),
+    limit: Number(obj.limit ?? 20),
+    pages: Number(obj.pages ?? (items.length > 0 ? 1 : 0)),
+  }
+}
+
+export async function fetchProperties(
   filters: PropertyFilters = {}
 ): Promise<ApiResult<PropertyListResponse>> {
   const params = new URLSearchParams()
@@ -75,9 +114,12 @@ export function fetchProperties(
     if (v !== undefined) params.set(k, String(v))
   }
   const qs = params.toString()
-  return apiCall<PropertyListResponse>(`/api/properties${qs ? `?${qs}` : ""}`, {
+  const res = await apiCall<PropertyListResponse | PropertyListItem[] | { properties: PropertyListItem[] }>(`/api/properties${qs ? `?${qs}` : ""}`, {
     method: "GET",
   })
+
+  if (!res.data) return { data: null, error: res.error }
+  return { data: normalizePropertyListResponse(res.data), error: null }
 }
 
 export function fetchPropertyById(id: string): Promise<ApiResult<Property>> {
@@ -172,6 +214,28 @@ export function getDeepAnalysis(id: string): Promise<ApiResult<Record<string, un
   return apiCall<Record<string, unknown>>(`/api/analysis/deep/${encodeURIComponent(id)}`, { method: "GET" })
 }
 
+export async function analyseProperty(
+  body: AnalyseRequest
+): Promise<ApiResult<AnalyseResponse>> {
+  const res = await apiCall<AnalyseResponse>("/analyse", {
+    method: "POST",
+    body: JSON.stringify(body),
+  })
+
+  if (!res.data) return { data: null, error: res.error }
+  const metrics = parseFinancialMetrics(res.data as Record<string, unknown>)
+  return {
+    data: {
+      ...res.data,
+      net_yield_pct: metrics.net_yield_pct,
+      irr_10: metrics.irr_10,
+      irr_15: metrics.irr_15,
+      irr_20: metrics.irr_20,
+    },
+    error: null,
+  }
+}
+
 // ─── Financial Metrics (parsed from deep analysis calculated_metrics) ─────────
 
 export interface YearData {
@@ -224,8 +288,8 @@ function parseFinancialMetrics(raw: Record<string, unknown>): FinancialMetrics {
     equity_multiple_15:  Number(m.equity_multiple_15 ?? 0),
     equity_multiple_20:  Number(m.equity_multiple_20 ?? 0),
     cash_flow_monthly_yr1: Number(m.cash_flow_monthly_yr1 ?? 0),
-    ltv:                 m.ltv !== undefined ? Number(m.ltv) : undefined,
-    monthly_annuity:     m.monthly_annuity !== undefined ? Number(m.monthly_annuity) : undefined,
+    ltv:                 m.ltv !== undefined ? Number(m.ltv) : m.ltv_pct !== undefined ? Number(m.ltv_pct) : undefined,
+    monthly_annuity:     m.monthly_annuity !== undefined ? Number(m.monthly_annuity) : m.annuity_monthly !== undefined ? Number(m.annuity_monthly) : undefined,
     closing_costs:       m.closing_costs !== undefined ? Number(m.closing_costs) : undefined,
     afa_saving:          m.afa_saving !== undefined ? Number(m.afa_saving) : undefined,
     year_data:           Array.isArray(m.year_data) ? (m.year_data as YearData[]) : [],
@@ -485,6 +549,7 @@ export const immoApi = {
   getCompactAnalysis,
   triggerDeepAnalysis,
   getDeepAnalysis,
+  analyseProperty,
   getMarketStats,
   runScenario,
   saveScenario,
