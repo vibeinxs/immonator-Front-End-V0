@@ -172,6 +172,99 @@ export function getDeepAnalysis(id: string): Promise<ApiResult<Record<string, un
   return apiCall<Record<string, unknown>>(`/api/analysis/deep/${encodeURIComponent(id)}`, { method: "GET" })
 }
 
+// ─── Financial Metrics (parsed from deep analysis calculated_metrics) ─────────
+
+export interface YearData {
+  year: number
+  cashflow_monthly?: number
+  cashflow_pre_tax?: number
+  cashflow_after_tax?: number
+  equity?: number
+  rent?: number
+  mortgage?: number
+  cumulative_cashflow?: number
+}
+
+export interface FinancialMetrics {
+  gross_yield_pct: number
+  net_yield_pct: number
+  kpf: number
+  irr_10: number
+  irr_15: number
+  irr_20: number
+  equity_multiple_10: number
+  equity_multiple_15: number
+  equity_multiple_20: number
+  cash_flow_monthly_yr1: number
+  ltv?: number
+  monthly_annuity?: number
+  closing_costs?: number
+  afa_saving?: number
+  year_data: YearData[]
+}
+
+/** Normalise a percent that may come as decimal (0.035) or percent (3.5). */
+function normPct(v: unknown): number {
+  const n = Number(v ?? 0)
+  if (isNaN(n)) return 0
+  // If absolute value < 0.5 it's almost certainly a decimal fraction (e.g. 0.035 = 3.5 %)
+  return Math.abs(n) < 0.5 ? n * 100 : n
+}
+
+function parseFinancialMetrics(raw: Record<string, unknown>): FinancialMetrics {
+  const m = (raw.calculated_metrics as Record<string, unknown>) ?? raw
+  return {
+    gross_yield_pct:     normPct(m.gross_yield_pct),
+    net_yield_pct:       normPct(m.net_yield_pct),
+    kpf:                 Number(m.kpf ?? 0),
+    irr_10:              normPct(m.irr_10),
+    irr_15:              normPct(m.irr_15),
+    irr_20:              normPct(m.irr_20),
+    equity_multiple_10:  Number(m.equity_multiple_10 ?? 0),
+    equity_multiple_15:  Number(m.equity_multiple_15 ?? 0),
+    equity_multiple_20:  Number(m.equity_multiple_20 ?? 0),
+    cash_flow_monthly_yr1: Number(m.cash_flow_monthly_yr1 ?? 0),
+    ltv:                 m.ltv !== undefined ? Number(m.ltv) : undefined,
+    monthly_annuity:     m.monthly_annuity !== undefined ? Number(m.monthly_annuity) : undefined,
+    closing_costs:       m.closing_costs !== undefined ? Number(m.closing_costs) : undefined,
+    afa_saving:          m.afa_saving !== undefined ? Number(m.afa_saving) : undefined,
+    year_data:           Array.isArray(m.year_data) ? (m.year_data as YearData[]) : [],
+  }
+}
+
+/** Trigger deep analysis and return parsed financial metrics once ready.
+ *  Returns null if the analysis has not been generated yet — callers should poll. */
+export async function getFinancialMetrics(
+  id: string,
+): Promise<ApiResult<{ metrics: FinancialMetrics; status: "generated" | "pending" }>> {
+  // First try reading a cached result
+  const { data: existing, error: readError } = await getDeepAnalysis(id)
+  if (readError) return { data: null, error: readError }
+
+  if (existing?.calculated_metrics || existing?.analysis) {
+    return {
+      data: {
+        metrics: parseFinancialMetrics(existing),
+        status: "generated",
+      },
+      error: null,
+    }
+  }
+
+  return { data: { metrics: parseFinancialMetrics({}), status: "pending" }, error: null }
+}
+
+/** Trigger generation then poll until done (or maxAttempts exhausted). */
+export async function triggerAndGetFinancialMetrics(
+  id: string,
+): Promise<ApiResult<Record<string, unknown>>> {
+  const res = await triggerDeepAnalysis(id)
+  if (res.error) return { data: null, error: res.error }
+  // If already cached the trigger returns the full result immediately
+  if (res.data?.calculated_metrics || res.data?.analysis) return res
+  return { data: null, error: null } // pending — caller should poll via getFinancialMetrics
+}
+
 export function getMarketStats(city: string): Promise<ApiResult<Record<string, unknown>>> {
   return apiCall<Record<string, unknown>>(
     `/api/analysis/market/${encodeURIComponent(city)}/stats`,
