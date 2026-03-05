@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 import { CompareTable } from "@/features/compare/CompareTable"
+import { formatEUR } from "@/lib/format"
 import { useAnalysisStore } from "@/store/analysisStore"
 
 export default function ComparePage() {
@@ -52,7 +53,7 @@ export default function ComparePage() {
               {inputA.address}
             </p>
             <p className="text-xs text-text-secondary">
-              {inputA.sqm} m² · €{inputA.purchase_price.toLocaleString("de-DE")}
+              {inputA.sqm} m² · {formatEUR(inputA.purchase_price)}
             </p>
           </div>
           <div className="rounded-xl border border-border-default bg-bg-surface px-4 py-3">
@@ -63,7 +64,7 @@ export default function ComparePage() {
               {inputB.address}
             </p>
             <p className="text-xs text-text-secondary">
-              {inputB.sqm} m² · €{inputB.purchase_price.toLocaleString("de-DE")}
+              {inputB.sqm} m² · {formatEUR(inputB.purchase_price)}
             </p>
           </div>
         </div>
