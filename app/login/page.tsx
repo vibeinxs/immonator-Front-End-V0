@@ -38,7 +38,7 @@ export default function BetaLoginPage() {
       return
     }
 
-    const { data, error: apiError } = await immoApi.betaLogin(accessCode, name || undefined)
+    const { data, error: apiError } = await immoApi.betaLogin({ beta_code: accessCode, display_name: name || undefined })
 
     if (apiError || !data) {
       setError(t("login.error"))
@@ -46,7 +46,7 @@ export default function BetaLoginPage() {
       return
     }
 
-    saveSession(data.session_token, data.user_id, name || "Investor", true)
+    saveSession(data.session_token, data.user_id, name || "Investor", data.is_new_user)
     router.push("/properties")
   }
 

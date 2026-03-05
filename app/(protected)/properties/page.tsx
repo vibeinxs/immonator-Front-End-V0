@@ -10,6 +10,7 @@ import {
   LayoutGrid,
   List,
   Search,
+  Columns2,
 } from "lucide-react"
 import {
   Dialog,
@@ -29,6 +30,8 @@ import { copy } from "@/lib/copy"
 import { getUserName, isNewUser, setNewUserSeen } from "@/lib/auth"
 import { useLocale } from "@/lib/i18n/locale-context"
 import { EUR } from "@/lib/utils"
+import { useCompare } from "@/store/compareStore"
+import { useRouter } from "next/navigation"
 import type { PropertyListItem } from "@/types/api"
 
 /* ── Types ───────────────────────────────────────── */
@@ -912,10 +915,16 @@ function FilterDropdown({
 function PropertyCard({
   property,
   onWatch,
+  onCompare,
+  isComparing,
+  compareFull,
   t,
 }: {
   property: Property
   onWatch: (id: string) => void
+  onCompare?: (id: string) => void
+  isComparing?: boolean
+  compareFull?: boolean
   t: (key: string) => string
 }) {
   const daysClass =
@@ -1038,19 +1047,35 @@ function PropertyCard({
         >
           {t("properties.card.viewDetails")}
         </Link>
-        <button
-          onClick={() => onWatch(property.id)}
-          className={`transition-all duration-150 hover:scale-110 ${
-            property.is_watched
-              ? "text-danger"
-              : "text-text-muted hover:text-danger"
-          }`}
-        >
-          <Heart
-            className="h-4 w-4"
-            fill={property.is_watched ? "currentColor" : "none"}
-          />
-        </button>
+        <div className="flex items-center gap-2">
+          {onCompare && (
+            <button
+              onClick={() => onCompare(property.id)}
+              title={isComparing ? "Remove from compare" : compareFull ? "Compare slots full" : "Add to compare"}
+              disabled={!isComparing && compareFull}
+              className={`transition-all duration-150 hover:scale-110 disabled:opacity-30 ${
+                isComparing
+                  ? "text-brand"
+                  : "text-text-muted hover:text-brand"
+              }`}
+            >
+              <Columns2 className="h-4 w-4" />
+            </button>
+          )}
+          <button
+            onClick={() => onWatch(property.id)}
+            className={`transition-all duration-150 hover:scale-110 ${
+              property.is_watched
+                ? "text-danger"
+                : "text-text-muted hover:text-danger"
+            }`}
+          >
+            <Heart
+              className="h-4 w-4"
+              fill={property.is_watched ? "currentColor" : "none"}
+            />
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -1073,9 +1098,46 @@ function SkeletonCard() {
   )
 }
 
+/* ── CompareBar ───────────────────────────────────── */
+function CompareBar({
+  ids,
+  onRemove,
+  onClear,
+  onGoCompare,
+}: {
+  ids: string[]
+  onRemove: (id: string) => void
+  onClear: () => void
+  onGoCompare: () => void
+}) {
+  if (ids.length === 0) return null
+  return (
+    <div className="fixed bottom-[58px] md:bottom-0 left-0 right-0 z-40 border-t border-border-default bg-bg-surface shadow-lg">
+      <div className="mx-auto flex w-full max-w-[1280px] items-center justify-between gap-4 px-4 py-3 md:px-8">
+        <div className="flex items-center gap-2 text-sm text-text-secondary">
+          <Columns2 className="h-4 w-4 text-brand" />
+          <span className="font-medium text-text-primary">{ids.length}/2 selected</span>
+          <button onClick={onClear} className="ml-1 text-xs text-text-muted hover:text-text-secondary">
+            Clear
+          </button>
+        </div>
+        <button
+          onClick={onGoCompare}
+          disabled={ids.length < 2}
+          className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-hover disabled:opacity-40"
+        >
+          Compare →
+        </button>
+      </div>
+    </div>
+  )
+}
+
 /* ── Main Page ───────────────────────────────────── */
 export default function PropertiesPage() {
   const { t } = useLocale()
+  const router = useRouter()
+  const { ids: compareIds, add: addToCompare, remove: removeFromCompare, clear: clearCompare, isFull: compareFull } = useCompare()
 
   // State
   const [properties, setProperties] = useState<Property[]>([])
@@ -1399,6 +1461,15 @@ export default function PropertiesPage() {
                 key={property.id}
                 property={property}
                 onWatch={handleWatch}
+                onCompare={(id) => {
+                  if (compareIds.includes(id)) {
+                    removeFromCompare(id)
+                  } else {
+                    addToCompare(id)
+                  }
+                }}
+                isComparing={compareIds.includes(property.id)}
+                compareFull={compareFull && !compareIds.includes(property.id)}
                 t={t}
               />
             ))}
@@ -1415,6 +1486,13 @@ export default function PropertiesPage() {
           onDismiss={() => setToast(null)}
         />
       )}
+
+      <CompareBar
+        ids={compareIds}
+        onRemove={removeFromCompare}
+        onClear={clearCompare}
+        onGoCompare={() => router.push("/compare")}
+      />
     </>
   )
 }

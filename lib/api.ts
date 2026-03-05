@@ -1,7 +1,7 @@
 "use client"
 
 import { ApiResult } from "@/types/api"
-import { getToken, logout } from "./auth"
+import { getToken, getUserId, logout } from "./auth"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || ""
 
@@ -10,10 +10,12 @@ export async function apiCall<T>(
   options: RequestInit = {}
 ): Promise<ApiResult<T>> {
   const token = getToken()
+  const userId = getUserId()
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(userId ? { "X-User-ID": userId } : {}),
     ...(options.headers ? (options.headers as Record<string, string>) : {}),
   }
 
@@ -28,8 +30,19 @@ export async function apiCall<T>(
       return { data: null, error: "Session expired" }
     }
 
+    if (response.status === 403) {
+      return { data: null, error: "Access denied" }
+    }
+
+    if (response.status === 404) {
+      return { data: null, error: "Not found" }
+    }
+
     if (!response.ok) {
       const errorBody = await response.json().catch(() => ({}))
+      if (response.status >= 500) {
+        return { data: null, error: "Server error — please try again" }
+      }
       return {
         data: null,
         error: errorBody.detail || `Error ${response.status}`,
@@ -51,10 +64,12 @@ export async function apiStream(
   body: object
 ): Promise<Response | null> {
   const token = getToken()
+  const userId = getUserId()
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(userId ? { "X-User-ID": userId } : {}),
   }
 
   try {
@@ -75,7 +90,7 @@ export async function apiStream(
   }
 }
 
-// Backward-compatible wrapper used by immonatorApi.ts
+// HTTP verb wrappers used by immonatorApi.ts
 export const api = {
   get: <T>(endpoint: string) => apiCall<T>(endpoint, { method: "GET" }),
 
@@ -88,6 +103,12 @@ export const api = {
   put: <T>(endpoint: string, body?: unknown) =>
     apiCall<T>(endpoint, {
       method: "PUT",
+      body: body ? JSON.stringify(body) : undefined,
+    }),
+
+  patch: <T>(endpoint: string, body?: unknown) =>
+    apiCall<T>(endpoint, {
+      method: "PATCH",
       body: body ? JSON.stringify(body) : undefined,
     }),
 

@@ -8,10 +8,9 @@ export const translations: Record<Locale, Record<string, string>> = {
   en: {
     // Nav
     "nav.properties": "Properties",
+    "nav.compare": "Compare",
     "nav.portfolio": "Portfolio",
-    "nav.markets": "Markets",
-    "nav.strategy": "Strategy",
-    "nav.analyse": "Analyse",
+    "nav.negotiation": "Negotiation",
     "nav.feedback": "Feedback",
     "nav.signOut": "Sign out",
 
@@ -248,10 +247,9 @@ export const translations: Record<Locale, Record<string, string>> = {
   de: {
     // Nav
     "nav.properties": "Immobilien",
+    "nav.compare": "Vergleichen",
     "nav.portfolio": "Portfolio",
-    "nav.markets": "M\u00E4rkte",
-    "nav.strategy": "Strategie",
-    "nav.analyse": "Analyse",
+    "nav.negotiation": "Verhandlung",
     "nav.feedback": "Feedback",
     "nav.signOut": "Abmelden",
 

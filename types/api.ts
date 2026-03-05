@@ -284,6 +284,25 @@ export type PortfolioItem = Pick<
   compact_analysis?: PortfolioCompactAnalysis | null
 }
 
+// ─── Negotiation ─────────────────────────────────────────────────────────────
+
+export interface NegotiationBrief {
+  recommended_offer: number | null
+  walk_away_price: number | null
+  strategy: string | null
+  leverage_points: string[]
+  talking_points_de: string[]
+  talking_points_en: string[]
+  offer_letter_draft: string | null
+}
+
+export interface NegotiationBriefResponse {
+  id: string
+  property_id: string
+  brief: NegotiationBrief
+  created_at: string
+}
+
 // ─── Generic wrapper ──────────────────────────────────────────────────────────
 
 export interface ApiResult<T> {

@@ -1,3 +1,6 @@
+// OFFLINE PREVIEW ONLY — do not use for displayed KPIs.
+// All authoritative financial calculations live on the Python backend.
+// This file is kept for offline/fallback use only.
 // Exact port of localCompute() from index.html — all math is identical
 
 export interface FormParams {

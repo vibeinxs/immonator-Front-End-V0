@@ -6,6 +6,7 @@ import type {
   BetaLoginRequest,
   BetaLoginResponse,
   CompactAnalysis,
+  NegotiationBriefResponse,
   PortfolioItem,
   PortfolioStatus,
   Property,
@@ -395,12 +396,12 @@ export function getStrategyMatches(): Promise<ApiResult<{ items: unknown[]; tota
 
 export function generateNegotiationBrief(
   id: string
-): Promise<ApiResult<Record<string, unknown>>> {
-  return apiCall<Record<string, unknown>>(`/api/negotiate/${encodeURIComponent(id)}`, { method: "POST" })
+): Promise<ApiResult<NegotiationBriefResponse>> {
+  return apiCall<NegotiationBriefResponse>(`/api/negotiate/${encodeURIComponent(id)}`, { method: "POST" })
 }
 
-export function getNegotiationBrief(id: string): Promise<ApiResult<Record<string, unknown>>> {
-  return apiCall<Record<string, unknown>>(`/api/negotiate/${encodeURIComponent(id)}`, { method: "GET" })
+export function getNegotiationBrief(id: string): Promise<ApiResult<NegotiationBriefResponse>> {
+  return apiCall<NegotiationBriefResponse>(`/api/negotiate/${encodeURIComponent(id)}`, { method: "GET" })
 }
 
 // ─── Profile ──────────────────────────────────────────────────────────────────

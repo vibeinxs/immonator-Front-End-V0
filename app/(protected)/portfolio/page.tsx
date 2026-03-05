@@ -109,8 +109,32 @@ export default function PortfolioPage() {
   useEffect(() => {
     Promise.all([immoApi.getPortfolio(), immoApi.getPortfolioAnalysis()]).then(([portfolioRes, analysisRes]) => {
       if (portfolioRes.data) {
-        const next = portfolioRes.data as unknown as PortfolioData
-        if (analysisRes.data) next.analysis = analysisRes.data as unknown as PortfolioAnalysis
+        // Backend returns {items: PortfolioItem[], total: number}
+        // Map to the local PortfolioData shape
+        const items = portfolioRes.data.items ?? []
+        const properties: PortfolioProperty[] = items.map((item) => ({
+          id: item.property_id ?? item.id ?? "",
+          title: item.title ?? "Untitled",
+          city: item.city ?? "",
+          price: item.purchase_price ?? item.asking_price ?? 0,
+          verdict: (item.compact_analysis as any)?.verdict ?? "worth_analysing",
+          gross_yield: item.gross_yield ?? 0,
+          days_listed: item.days_on_market ?? 0,
+          gap_percent: 0,
+          status: item.status ?? "watching",
+        }))
+
+        const prices = properties.map((p) => p.price).filter(Boolean)
+        const yields = properties.map((p) => p.gross_yield).filter(Boolean)
+
+        const next: PortfolioData = {
+          properties,
+          analysis: analysisRes.data ? analysisRes.data as unknown as PortfolioAnalysis : null,
+          total_value: prices.reduce((a, b) => a + b, 0),
+          monthly_cashflow: 0,  // Backend doesn't aggregate this — show 0 until deep analysis runs
+          avg_yield: yields.length > 0 ? yields.reduce((a, b) => a + b, 0) / yields.length : 0,
+          equity_estimate: prices.reduce((a, b) => a + b, 0) * 0.2,  // Rough estimate
+        }
         setData(next)
       }
       setLoading(false)
