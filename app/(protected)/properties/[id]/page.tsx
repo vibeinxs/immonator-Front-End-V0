@@ -17,10 +17,10 @@ import { MarketAnalysisCard } from "@/components/analysis/MarketAnalysisCard"
 import { AnalysisChat } from "@/components/chat/AnalysisChat"
 import {
   immoApi,
-  analyseProperty,
   type YearData,
   type FinancialMetrics,
 } from "@/lib/immonatorApi"
+import { analyseProperty } from "@/lib/analyseApi"
 import { EUR } from "@/lib/utils"
 import type { Property, NegotiationBrief } from "@/types/api"
 
