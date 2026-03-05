@@ -48,7 +48,8 @@ export async function analyseProperty(
 
     const data = (await response.json()) as AnalyseResponse
     return { data, error: null }
-  } catch {
+  } catch (e) {
+    console.error("Analyse API call failed:", e)
     return {
       data: null,
       error: "Network error. Check your connection.",
