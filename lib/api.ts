@@ -3,7 +3,7 @@
 import { ApiResult } from "@/types/api"
 import { getToken, getUserId, logout } from "./auth"
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || ""
+const API_URL = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "")
 
 export async function apiCall<T>(
   endpoint: string,
