@@ -5,6 +5,27 @@ import { getToken, getUserId, logout } from "./auth"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || ""
 
+function buildApiUrl(endpoint: string): string {
+  const base = API_URL.trim().replace(/\/+$/, "")
+  const normalizedEndpoint = endpoint.trim().replace(/^\/+/, "")
+  const path = `/${normalizedEndpoint}`
+
+  if (!base) return path
+
+  try {
+    const url = new URL(base)
+    const basePath = url.pathname.replace(/\/+$/, "")
+    const [pathOnly, search = ""] = path.split("?")
+
+    url.pathname = `${basePath}${pathOnly}`.replace(/\/{2,}/g, "/")
+    url.search = search ? `?${search}` : ""
+
+    return url.toString()
+  } catch {
+    return `${base}${path}`
+  }
+}
+
 export async function apiCall<T>(
   endpoint: string,
   options: RequestInit = {}
@@ -20,7 +41,7 @@ export async function apiCall<T>(
   }
 
   try {
-    const response = await fetch(`${API_URL}${endpoint}`, {
+    const response = await fetch(buildApiUrl(endpoint), {
       ...options,
       headers,
     })
@@ -73,7 +94,7 @@ export async function apiStream(
   }
 
   try {
-    const response = await fetch(`${API_URL}${endpoint}`, {
+    const response = await fetch(buildApiUrl(endpoint), {
       method: "POST",
       headers,
       body: JSON.stringify(body),
