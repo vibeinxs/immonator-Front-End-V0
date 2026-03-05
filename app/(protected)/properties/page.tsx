@@ -1109,7 +1109,11 @@ export default function PropertiesPage() {
     ])
     if (propsRes.error) setLoadError(propsRes.error)
     if (propsRes.data) setProperties(propsRes.data.items.map(toUiProperty))
-    if (statsRes.data) setStats(statsRes.data as unknown as Stats)
+    // PropertyStatsResponse uses total_count / count_by_city — map to local Stats shape
+    if (statsRes.data) setStats({
+      total: statsRes.data.total_count ?? 0,
+      cities: Object.keys(statsRes.data.count_by_city ?? {}).length,
+    })
     setLoading(false)
   }, [])
 
