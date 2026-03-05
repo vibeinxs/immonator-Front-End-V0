@@ -5,6 +5,11 @@ import { getToken, getUserId, logout } from "./auth"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || ""
 
+/** Collapse any double-slashes in a URL's path (preserves the `://` scheme). */
+function normalizeSlashes(url: string): string {
+  return url.replace(/(https?:\/\/)|(\/\/+)/g, (m, scheme) => scheme ?? "/")
+}
+
 function buildApiUrl(endpoint: string): string {
   const base = API_URL.trim().replace(/\/+$/, "")
   const normalizedEndpoint = endpoint.trim().replace(/^\/+/, "")
@@ -22,7 +27,7 @@ function buildApiUrl(endpoint: string): string {
 
     return url.toString()
   } catch {
-    return `${base}${path}`
+    return normalizeSlashes(`${base}${path}`)
   }
 }
 
