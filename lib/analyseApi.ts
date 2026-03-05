@@ -2,10 +2,22 @@ import { getToken, getUserId } from "@/lib/auth"
 import type { AnalyseRequest, AnalyseResponse, ApiResult } from "@/types/api"
 
 function buildAnalyseUrl(): string {
-  const rawBase = process.env.NEXT_PUBLIC_API_URL || ""
-  const baseWithoutTrailing = rawBase.replace(/\/+$/, "")
-  const baseWithoutApiSuffix = baseWithoutTrailing.replace(/\/api$/i, "")
-  return `${baseWithoutApiSuffix}/analyse`
+  const rawBase = (process.env.NEXT_PUBLIC_API_URL || "")
+    .trim()
+    .replace(/\/+$/, "")        // strip trailing slashes
+    .replace(/\/api\/?$/i, "")  // strip trailing /api segment if present
+
+  if (!rawBase) return "/analyse"
+
+  try {
+    // Use the URL API to guarantee a clean, well-formed URL
+    const url = new URL(rawBase)
+    url.pathname = "/analyse"
+    return url.toString()
+  } catch {
+    // Fallback: simple concatenation with double-slash normalisation
+    return `${rawBase}/analyse`.replace(/(https?:\/\/)|(\/\/+)/g, (m, scheme) => scheme ?? "/")
+  }
 }
 
 /**
