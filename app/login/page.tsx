@@ -21,22 +21,10 @@ export default function BetaLoginPage() {
     }
   }, [router])
 
-  const DEMO_CODE = "DEMO2025"
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
     setLoading(true)
-
-    // Demo mode: bypass API for local testing
-    if (accessCode.toUpperCase() === DEMO_CODE) {
-      const demoToken = "demo_token_" + Date.now()
-      const demoUserId = "demo_user_001"
-      const demoName = name || "Demo User"
-      saveSession(demoToken, demoUserId, demoName, true)
-      router.push("/properties")
-      return
-    }
 
     const { data, error: apiError } = await immoApi.betaLogin({ beta_code: accessCode, display_name: name || undefined })
 
