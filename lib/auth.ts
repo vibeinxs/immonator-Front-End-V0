@@ -55,7 +55,7 @@ export function logout(): void {
   localStorage.removeItem(USER_NAME_KEY)
   localStorage.removeItem(NEW_USER_KEY)
   document.cookie = `${TOKEN_KEY}=; path=/; max-age=0; SameSite=Strict`
-  window.location.href = "/beta-login"
+  window.location.href = "/login"
 }
 
 export function getInitials(name: string | null): string {

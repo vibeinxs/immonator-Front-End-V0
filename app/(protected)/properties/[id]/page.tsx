@@ -22,7 +22,7 @@ import {
   type FinancialMetrics,
 } from "@/lib/immonatorApi"
 import { EUR } from "@/lib/utils"
-import type { Property } from "@/types/api"
+import type { Property, NegotiationBrief } from "@/types/api"
 
 /* ─── Types ─────────────────────────────────────────────── */
 
@@ -334,6 +334,201 @@ function ChartSkeleton() {
   )
 }
 
+/* ─── Negotiation tab ────────────────────────────────────── */
+
+function NegotiationTab({ propertyId, isDemo }: { propertyId: string; isDemo: boolean }) {
+  const [brief, setBrief] = useState<NegotiationBrief | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [generating, setGenerating] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchBrief = useCallback(async () => {
+    const { data, error: err } = await immoApi.getNegotiationBrief(propertyId)
+    if (data?.brief) {
+      setBrief(data.brief)
+      setLoading(false)
+      return true
+    }
+    if (err && err !== "Not found") {
+      setError(err)
+      setLoading(false)
+    }
+    return false
+  }, [propertyId])
+
+  const generateBrief = useCallback(async () => {
+    setGenerating(true)
+    setError(null)
+    const { data, error: err } = await immoApi.generateNegotiationBrief(propertyId)
+    if (data?.brief) {
+      setBrief(data.brief)
+      setGenerating(false)
+      setLoading(false)
+      return
+    }
+    if (err) {
+      setError(err)
+      setGenerating(false)
+      setLoading(false)
+      return
+    }
+    // Poll until ready
+    let attempts = 0
+    const poll = async () => {
+      if (attempts++ > 20) {
+        setError("Timed out — please try again")
+        setGenerating(false)
+        setLoading(false)
+        return
+      }
+      const done = await fetchBrief()
+      if (!done) setTimeout(poll, 3000)
+      else setGenerating(false)
+    }
+    poll()
+  }, [propertyId, fetchBrief])
+
+  useEffect(() => {
+    if (isDemo) { setLoading(false); return }
+    fetchBrief().then((found) => {
+      if (!found && !error) generateBrief()
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [propertyId, isDemo])
+
+  if (isDemo) {
+    return (
+      <SectionCard title="Negotiation Brief">
+        <p className="text-sm text-text-secondary">
+          Negotiation briefs are generated for real properties. Add a property via ImmoScout24 to get
+          AI-powered talking points, a recommended offer price, and a draft offer letter.
+        </p>
+        <Link
+          href="/properties"
+          className="mt-4 inline-block rounded-lg bg-brand px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-brand-hover"
+        >
+          Add a property →
+        </Link>
+      </SectionCard>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center gap-3 rounded-xl border border-danger/30 bg-danger-bg px-4 py-3">
+        <AlertCircle className="h-4 w-4 text-danger" />
+        <p className="text-sm text-danger">{error}</p>
+        <button onClick={generateBrief} className="ml-auto text-xs font-medium text-brand hover:underline">
+          Retry
+        </button>
+      </div>
+    )
+  }
+
+  if (generating || (loading && !brief)) {
+    return (
+      <div className="flex flex-col items-center gap-3 rounded-[14px] border border-dashed border-border-default bg-bg-elevated py-14 text-center">
+        <div className="h-5 w-5 animate-spin rounded-full border-2 border-brand border-t-transparent" />
+        <p className="text-sm text-text-secondary">
+          {generating ? "Generating negotiation brief — takes 10–30 seconds…" : "Loading brief…"}
+        </p>
+      </div>
+    )
+  }
+
+  if (!brief) return null
+
+  return (
+    <div className="flex flex-col gap-5">
+      {/* Price targets */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="rounded-[14px] border border-success/30 bg-success-bg/30 p-5">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-text-muted">
+            Recommended Offer
+          </p>
+          <p className="mt-1 font-mono text-2xl font-bold text-success">
+            {brief.recommended_offer != null ? `${EUR}${brief.recommended_offer.toLocaleString("de-DE")}` : "—"}
+          </p>
+        </div>
+        <div className="rounded-[14px] border border-danger/30 bg-danger-bg/30 p-5">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-text-muted">
+            Walk-Away Price
+          </p>
+          <p className="mt-1 font-mono text-2xl font-bold text-danger">
+            {brief.walk_away_price != null ? `${EUR}${brief.walk_away_price.toLocaleString("de-DE")}` : "—"}
+          </p>
+        </div>
+      </div>
+
+      {brief.strategy && (
+        <SectionCard title="Strategy">
+          <p className="text-sm leading-relaxed text-text-secondary">{brief.strategy}</p>
+        </SectionCard>
+      )}
+
+      {brief.leverage_points?.length > 0 && (
+        <SectionCard title="Leverage Points">
+          <ul className="space-y-2">
+            {brief.leverage_points.map((p, i) => (
+              <li key={i} className="flex items-start gap-2 text-sm text-text-secondary">
+                <span className="mt-0.5 text-brand">•</span>{p}
+              </li>
+            ))}
+          </ul>
+        </SectionCard>
+      )}
+
+      {(brief.talking_points_de?.length > 0 || brief.talking_points_en?.length > 0) && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {brief.talking_points_de?.length > 0 && (
+            <SectionCard title="Talking Points (DE)">
+              <ul className="space-y-2">
+                {brief.talking_points_de.map((p, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm text-text-secondary">
+                    <span className="mt-0.5 text-brand">•</span>{p}
+                  </li>
+                ))}
+              </ul>
+            </SectionCard>
+          )}
+          {brief.talking_points_en?.length > 0 && (
+            <SectionCard title="Talking Points (EN)">
+              <ul className="space-y-2">
+                {brief.talking_points_en.map((p, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm text-text-secondary">
+                    <span className="mt-0.5 text-brand">•</span>{p}
+                  </li>
+                ))}
+              </ul>
+            </SectionCard>
+          )}
+        </div>
+      )}
+
+      {brief.offer_letter_draft && (
+        <SectionCard title="Offer Letter Draft">
+          <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-text-secondary">
+            {brief.offer_letter_draft}
+          </pre>
+        </SectionCard>
+      )}
+
+      <SectionCard title="Ask the AI">
+        <AnalysisChat contextType="property" contextId={propertyId} title="negotiation" />
+      </SectionCard>
+
+      <div className="flex justify-end">
+        <Link
+          href={`/negotiation/${propertyId}`}
+          className="text-sm text-brand hover:text-brand-hover hover:underline"
+        >
+          Open full negotiation page →
+        </Link>
+      </div>
+    </div>
+  )
+}
+
 /* ─── Main page ──────────────────────────────────────────── */
 
 export default function PropertyDetailPage({
@@ -577,10 +772,11 @@ export default function PropertyDetailPage({
       <Tabs defaultValue="overview" className="gap-0">
         <TabsList className="mb-6 h-auto w-full justify-start gap-0 rounded-none border-b border-border-default bg-transparent p-0">
           {[
-            { value: "overview",    label: "Overview" },
-            { value: "projections", label: "Projections" },
-            { value: "ai",          label: "AI Analysis" },
-            { value: "market",      label: "Market Data" },
+            { value: "overview",      label: "Overview" },
+            { value: "projections",   label: "Projections" },
+            { value: "ai",            label: "AI Analysis" },
+            { value: "negotiation",   label: "Negotiation" },
+            { value: "market",        label: "Market Data" },
           ].map((tab) => (
             <TabsTrigger
               key={tab.value}
@@ -711,6 +907,11 @@ export default function PropertyDetailPage({
               </div>
             </>
           )}
+        </TabsContent>
+
+        {/* ── NEGOTIATION ── */}
+        <TabsContent value="negotiation" className="mt-0 flex flex-col gap-5">
+          <NegotiationTab propertyId={id} isDemo={isDemo} />
         </TabsContent>
 
         {/* ── MARKET DATA ── */}

@@ -79,7 +79,7 @@ export default function LandingPage() {
         <div className="flex items-center gap-4">
           <LocaleSwitcher />
           <Link
-            href="/beta-login"
+            href="/login"
             className="rounded-lg bg-brand px-5 py-2.5 text-sm font-semibold text-white transition-colors duration-150 hover:bg-brand-hover"
           >
             {t("landing.nav.beta")}
@@ -112,7 +112,7 @@ export default function LandingPage() {
         </div>
         <div style={{ opacity: 0, animation: "fade-up 500ms ease 350ms forwards" }}>
           <Link
-            href="/beta-login"
+            href="/login"
             className="mt-8 inline-block rounded-xl bg-brand px-8 text-base font-semibold leading-[52px] text-white transition-colors duration-150 hover:bg-brand-hover"
           >
             {t("landing.cta.primary")}
@@ -267,7 +267,7 @@ export default function LandingPage() {
       <section className="border-t border-border-default bg-bg-surface px-6 py-20 text-center">
         <h2 className="font-serif text-4xl text-text-primary">{t("landing.final.title")}</h2>
         <Link
-          href="/beta-login"
+          href="/login"
           className="mt-6 inline-block rounded-xl bg-brand px-8 text-base font-semibold leading-[52px] text-white transition-colors duration-150 hover:bg-brand-hover"
         >
           {t("landing.final.cta")}

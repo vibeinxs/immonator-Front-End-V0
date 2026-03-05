@@ -6,11 +6,10 @@ import { usePathname } from "next/navigation"
 import {
   Home,
   Briefcase,
-  MapPin,
-  BarChart3,
+  Columns2,
+  Handshake,
   MessageSquare,
   LogOut,
-  Calculator,
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -27,10 +26,9 @@ import { useLocale } from "@/lib/i18n/locale-context"
 
 const NAV_KEYS = [
   { key: "nav.properties", href: "/properties", icon: Home },
+  { key: "nav.compare", href: "/compare", icon: Columns2 },
   { key: "nav.portfolio", href: "/portfolio", icon: Briefcase },
-  { key: "nav.markets", href: "/market/berlin", icon: MapPin },
-  { key: "nav.strategy", href: "/strategy", icon: BarChart3 },
-  { key: "nav.analyse", href: "/analyse", icon: Calculator },
+  { key: "nav.negotiation", href: "/negotiation", icon: Handshake },
 ]
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -42,10 +40,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const displayName = getUserName() || "User"
   const initials = getInitials(displayName)
 
-  const isActive = (href: string) => {
-    if (href.startsWith("/market")) return pathname.startsWith("/market")
-    return pathname.startsWith(href)
-  }
+  const isActive = (href: string) => pathname.startsWith(href)
 
   return (
     <div className="min-h-screen bg-bg-base">
@@ -135,13 +130,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Main content */}
       <main className="pt-[58px] pb-[74px] md:pb-0">
-        {pathname === "/analyse" ? (
+        <div className="mx-auto w-full max-w-[1280px] px-4 py-8 md:px-8">
           <div className="animate-fade-in">{children}</div>
-        ) : (
-          <div className="mx-auto w-full max-w-[1280px] px-4 py-8 md:px-8">
-            <div className="animate-fade-in">{children}</div>
-          </div>
-        )}
+        </div>
       </main>
 
       {/* Mobile Bottom Nav */}
