@@ -5,7 +5,9 @@ import { EUR } from "@/lib/utils"
  * Uses narrow no-break space (U+202F) as thousands separator.
  */
 export function formatEUR(value: number, decimals = 0): string {
+  const sign = value < 0 ? "-" : ""
   return (
+    sign +
     EUR +
     "\u202f" +
     Math.abs(value).toLocaleString("de-DE", {

@@ -112,8 +112,14 @@ export function PropertyPanel({
       const field = FIELDS.find((f) => f.key === key)
       let value: string | number = rawValue
       if (field && field.type === "number") {
-        const parsed = parseFloat(rawValue)
-        value = isNaN(parsed) ? 0 : parsed
+        // Allow empty input — don't replace with 0 so users can clear and retype
+        if (rawValue === "" || rawValue === "-") {
+          value = rawValue
+        } else {
+          const parsed = Number(rawValue)
+          // Revert to previous valid value if the result is not a finite number
+          value = Number.isFinite(parsed) ? parsed : (input[key] as number)
+        }
       }
       onInputChange({ ...input, [key]: value })
       // Clear stale result when inputs change

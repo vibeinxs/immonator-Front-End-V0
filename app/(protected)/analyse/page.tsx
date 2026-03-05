@@ -63,9 +63,9 @@ export default function AnalysePage() {
           />
         </div>
 
-        {/* Compare CTA (bottom, visible on mobile) */}
+        {/* Compare CTA (bottom, mobile only) */}
         {bothReady && (
-          <div className="mt-8 flex justify-center">
+          <div className="mt-8 flex justify-center md:hidden">
             <Link
               href="/analyse/compare"
               className="flex items-center gap-2 rounded-lg bg-brand px-6 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
