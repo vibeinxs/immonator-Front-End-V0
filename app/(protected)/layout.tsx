@@ -3,6 +3,7 @@
 import { ProtectedRoute } from "@/components/protected-route"
 import { AppShell } from "@/components/app-shell"
 import { CompareProvider } from "@/store/compareStore"
+import { AnalysisStoreProvider } from "@/store/analysisStore"
 
 export default function ProtectedLayout({
   children,
@@ -12,7 +13,9 @@ export default function ProtectedLayout({
   return (
     <ProtectedRoute>
       <CompareProvider>
-        <AppShell>{children}</AppShell>
+        <AnalysisStoreProvider>
+          <AppShell>{children}</AppShell>
+        </AnalysisStoreProvider>
       </CompareProvider>
     </ProtectedRoute>
   )

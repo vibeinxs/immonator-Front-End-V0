@@ -145,25 +145,56 @@ export interface AnalyseRequest {
 
 export interface AnalyseYearData {
   year: number
-  cash_flow?: number
-  cash_flow_monthly?: number
+  cash_flow?: number          // annual after-tax cashflow
+  cash_flow_monthly?: number  // monthly after-tax cashflow
   equity_multiple?: number
   net_worth?: number
+  rent_gross?: number
+  interest?: number
+  afa?: number
+  taxable_income?: number
+  tax_impact?: number
+  property_value?: number
 }
 
 export interface AnalyseResponse {
   score: number
   verdict: string
+  // Financing summary
+  purchase_price?: number
+  equity?: number
+  loan?: number
+  closing_costs?: number
+  ltv_pct?: number
+  // AfA (depreciation)
+  afa_basis?: number
+  annual_afa?: number
+  afa_rate_pct?: number
+  afa_method?: string
+  afa_tax_saving_yr1?: number
+  // Yield & cashflow
+  gross_yield_pct?: number
   net_yield_pct: number
   kpf: number
+  annuity_monthly?: number
+  cash_flow_monthly_yr1: number
+  // IRR & multiples
   irr_10: number
   irr_15: number
   irr_20: number
-  cash_flow_monthly_yr1: number
   equity_multiple_10: number
   equity_multiple_15: number
   equity_multiple_20: number
+  // Year-by-year
   year_data: AnalyseYearData[]
+  // Optional market/enrichment data
+  ai_analysis?: string
+  address_resolved?: string
+  market_rent_m2?: number | null
+  bodenrichtwert_m2?: number | null
+  current_mortgage_rate?: number | null
+  location_score?: number | null
+  population_trend?: string | null
   [key: string]: unknown
 }
 

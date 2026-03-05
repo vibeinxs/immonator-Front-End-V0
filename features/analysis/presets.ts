@@ -1,0 +1,53 @@
+import type { AnalyseRequest } from "@/types/api"
+
+/** Property A: Berlin Prenzlauer Berg apartment */
+export const PRESET_A: AnalyseRequest = {
+  address: "Schönhauser Allee 36, 10435 Berlin",
+  sqm: 78,
+  year_built: 1992,
+  condition: "existing",
+  purchase_price: 420000,
+  equity: 100000,
+  rent_monthly: 1420,
+  interest_rate: 3.8,
+  repayment_rate: 2.0,
+  transfer_tax_pct: 6.0,
+  notary_pct: 2.0,
+  agent_pct: 0.0,
+  land_share_pct: 20.0,
+  hausgeld_monthly: 200,
+  maintenance_nd: 1200,
+  management_nd: 600,
+  tax_rate: 44.0,
+  rent_growth: 2.0,
+  appreciation: 2.0,
+  vacancy_rate: 1.0,
+  holding_years: 10,
+  afa_rate_input: 2.0,
+}
+
+/** Property B: Hamburg Schanzenviertel apartment */
+export const PRESET_B: AnalyseRequest = {
+  address: "Schanzenstraße 12, 20357 Hamburg",
+  sqm: 65,
+  year_built: 1975,
+  condition: "existing",
+  purchase_price: 310000,
+  equity: 80000,
+  rent_monthly: 1150,
+  interest_rate: 3.8,
+  repayment_rate: 2.0,
+  transfer_tax_pct: 5.5,
+  notary_pct: 2.0,
+  agent_pct: 3.57,
+  land_share_pct: 25.0,
+  hausgeld_monthly: 180,
+  maintenance_nd: 1000,
+  management_nd: 500,
+  tax_rate: 44.0,
+  rent_growth: 2.0,
+  appreciation: 2.0,
+  vacancy_rate: 1.0,
+  holding_years: 10,
+  afa_rate_input: 2.0,
+}

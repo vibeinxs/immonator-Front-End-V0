@@ -8,6 +8,7 @@ import {
   Briefcase,
   Columns2,
   Handshake,
+  Calculator,
   MessageSquare,
   LogOut,
 } from "lucide-react"
@@ -29,6 +30,7 @@ const NAV_KEYS = [
   { key: "nav.compare", href: "/compare", icon: Columns2 },
   { key: "nav.portfolio", href: "/portfolio", icon: Briefcase },
   { key: "nav.negotiation", href: "/negotiation", icon: Handshake },
+  { key: "nav.analyse", href: "/analyse", icon: Calculator },
 ]
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -130,9 +132,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Main content */}
       <main className="pt-[58px] pb-[74px] md:pb-0">
-        <div className="mx-auto w-full max-w-[1280px] px-4 py-8 md:px-8">
+        {pathname.startsWith("/analyse") ? (
           <div className="animate-fade-in">{children}</div>
-        </div>
+        ) : (
+          <div className="mx-auto w-full max-w-[1280px] px-4 py-8 md:px-8">
+            <div className="animate-fade-in">{children}</div>
+          </div>
+        )}
       </main>
 
       {/* Mobile Bottom Nav */}
