@@ -4,8 +4,20 @@
 
 ```bash
 npm install
+# create env file (or copy `.env.example` to `.env.local`)
+# set NEXT_PUBLIC_API_URL to your backend URL
 npm run dev
 ```
+
+### Environment setup
+
+Create a `.env.local` file in the project root with:
+
+```bash
+NEXT_PUBLIC_API_URL=https://web-production-61c120.up.railway.app
+```
+
+If your backend runs elsewhere, change the URL accordingly (for example `http://localhost:8080`).
 
 ## Production build
 
