@@ -6,10 +6,24 @@ import { getToken, getUserId, logout } from "./auth"
 const API_URL = process.env.NEXT_PUBLIC_API_URL || ""
 
 function buildApiUrl(endpoint: string): string {
-  const base = API_URL.replace(/\/+$/, "")
-  const normalizedEndpoint = endpoint.replace(/^\/+/, "")
+  const base = API_URL.trim().replace(/\/+$/, "")
+  const normalizedEndpoint = endpoint.trim().replace(/^\/+/, "")
   const path = `/${normalizedEndpoint}`
-  return `${base}${path}`
+
+  if (!base) return path
+
+  try {
+    const url = new URL(base)
+    const basePath = url.pathname.replace(/\/+$/, "")
+    const [pathOnly, search = ""] = path.split("?")
+
+    url.pathname = `${basePath}${pathOnly}`.replace(/\/{2,}/g, "/")
+    url.search = search ? `?${search}` : ""
+
+    return url.toString()
+  } catch {
+    return `${base}${path}`
+  }
 }
 
 export async function apiCall<T>(
