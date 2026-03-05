@@ -227,10 +227,17 @@ export async function analyseProperty(
   return {
     data: {
       ...res.data,
-      net_yield_pct: metrics.net_yield_pct,
-      irr_10: metrics.irr_10,
-      irr_15: metrics.irr_15,
-      irr_20: metrics.irr_20,
+      // Normalise all percent values in one place (backend may send 0.035 or 3.5)
+      gross_yield_pct:       metrics.gross_yield_pct,
+      net_yield_pct:         metrics.net_yield_pct,
+      kpf:                   metrics.kpf,
+      irr_10:                metrics.irr_10,
+      irr_15:                metrics.irr_15,
+      irr_20:                metrics.irr_20,
+      cash_flow_monthly_yr1: metrics.cash_flow_monthly_yr1,
+      equity_multiple_10:    metrics.equity_multiple_10,
+      equity_multiple_15:    metrics.equity_multiple_15,
+      equity_multiple_20:    metrics.equity_multiple_20,
     },
     error: null,
   }

@@ -353,7 +353,7 @@ export default function PropertyDetailPage({
   const [compactLoading, setCompactLoading]   = useState(true)
 
   const [metrics, setMetrics]                 = useState<FinancialMetrics | null>(null)
-  const [metricsLoading, setMetricsLoading]   = useState(true)
+  const [metricsLoading, setMetricsLoading]   = useState(false)
   const [metricsError, setMetricsError]       = useState<string | null>(null)
   const [triggering, setTriggering]           = useState(false)
 
@@ -441,32 +441,43 @@ export default function PropertyDetailPage({
       return
     }
 
+    // data has [key: string]: unknown so these accesses are safe
+    const d = data as Record<string, unknown>
     setMetrics({
-      gross_yield_pct: Number(data.gross_yield_pct ?? 0),
-      net_yield_pct: Number(data.net_yield_pct ?? 0),
-      kpf: Number(data.kpf ?? 0),
-      irr_10: Number(data.irr_10 ?? 0),
-      irr_15: Number(data.irr_15 ?? 0),
-      irr_20: Number(data.irr_20 ?? 0),
-      equity_multiple_10: Number(data.equity_multiple_10 ?? 0),
-      equity_multiple_15: Number(data.equity_multiple_15 ?? 0),
-      equity_multiple_20: Number(data.equity_multiple_20 ?? 0),
+      gross_yield_pct:       Number(data.gross_yield_pct ?? 0),
+      net_yield_pct:         Number(data.net_yield_pct ?? 0),
+      kpf:                   Number(data.kpf ?? 0),
+      irr_10:                Number(data.irr_10 ?? 0),
+      irr_15:                Number(data.irr_15 ?? 0),
+      irr_20:                Number(data.irr_20 ?? 0),
+      equity_multiple_10:    Number(data.equity_multiple_10 ?? 0),
+      equity_multiple_15:    Number(data.equity_multiple_15 ?? 0),
+      equity_multiple_20:    Number(data.equity_multiple_20 ?? 0),
       cash_flow_monthly_yr1: Number(data.cash_flow_monthly_yr1 ?? 0),
-      ltv: Number(data.ltv_pct ?? 0),
-      monthly_annuity: Number(data.annuity_monthly ?? 0),
-      closing_costs: Number(data.closing_costs ?? 0),
-      afa_saving: Number(data.afa_tax_saving_yr1 ?? 0),
+      // Only set optional KPI tiles when backend actually sends the field
+      ltv:            d.ltv_pct != null ? Number(d.ltv_pct) : d.ltv != null ? Number(d.ltv) : undefined,
+      monthly_annuity: d.annuity_monthly != null ? Number(d.annuity_monthly) : d.monthly_annuity != null ? Number(d.monthly_annuity) : undefined,
+      closing_costs:  d.closing_costs != null ? Number(d.closing_costs) : undefined,
+      afa_saving:     d.afa_tax_saving_yr1 != null ? Number(d.afa_tax_saving_yr1) : d.afa_saving != null ? Number(d.afa_saving) : undefined,
       year_data: (data.year_data ?? []).map((row) => {
         const r = row as Record<string, unknown>
         return {
           year: Number(r.year ?? 0),
+          // Backend sends cash_flow_monthly (snake); UI types expect cashflow_monthly
           cashflow_monthly:
             r.cash_flow_monthly !== undefined
               ? Number(r.cash_flow_monthly)
               : r.cash_flow !== undefined
                 ? Number(r.cash_flow) / 12
                 : 0,
-          cumulative_cashflow: Number(r.net_worth ?? 0),
+          equity: r.equity !== undefined ? Number(r.equity) : undefined,
+          // Prefer explicit cumulative_cashflow; fall back to net_worth if absent
+          cumulative_cashflow:
+            r.cumulative_cashflow !== undefined
+              ? Number(r.cumulative_cashflow)
+              : r.net_worth !== undefined
+                ? Number(r.net_worth)
+                : undefined,
         }
       }) as YearData[],
     })
