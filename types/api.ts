@@ -130,11 +130,13 @@ export interface AnalyseRequest {
   repayment_rate?: number
   transfer_tax_pct?: number
   notary_pct?: number
+  agent_pct?: number
   land_share_pct?: number
   rent_monthly: number
   hausgeld_monthly?: number
   maintenance_nd?: number
   management_nd?: number
+  grundsteuer_annual?: number
   rent_growth?: number
   appreciation?: number
   tax_rate?: number
