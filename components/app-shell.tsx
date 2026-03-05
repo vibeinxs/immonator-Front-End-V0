@@ -20,7 +20,6 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { FeedbackModal } from "@/components/feedback-modal"
 import { useSessionHeartbeat } from "@/hooks/useSessionHeartbeat"
-import { LocaleSwitcher } from "@/components/locale-switcher"
 import { getUserName, getInitials, logout } from "@/lib/auth"
 import { useLocale } from "@/lib/i18n/locale-context"
 
@@ -77,54 +76,41 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             ))}
           </nav>
 
-          {/* Right: Locale + Feedback + Avatar */}
-          <div className="flex items-center gap-3">
-            <LocaleSwitcher />
-
-            <button
-              onClick={() => setFeedbackOpen(true)}
-              className="hidden items-center gap-1.5 text-sm font-medium text-brand transition-colors duration-150 hover:text-brand-hover md:flex"
-            >
-              <MessageSquare className="h-4 w-4" />
-              <span>{t("nav.feedback")}</span>
-            </button>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  className="flex h-8 w-8 items-center justify-center rounded-full bg-brand text-xs font-semibold text-primary-foreground outline-none transition-opacity hover:opacity-90"
-                  aria-label="User menu"
-                >
-                  {initials}
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="end"
-                className="w-48 border-border-default bg-bg-elevated"
+          {/* Right: Avatar only */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-brand text-xs font-semibold text-primary-foreground outline-none transition-opacity hover:opacity-90"
+                aria-label="User menu"
               >
-                <div className="px-3 py-2">
-                  <p className="text-sm font-medium text-text-primary">
-                    {displayName}
-                  </p>
-                </div>
-                <DropdownMenuSeparator className="bg-border-default" />
-                <DropdownMenuItem
-                  onClick={() => setFeedbackOpen(true)}
-                  className="text-text-secondary hover:text-text-primary md:hidden"
-                >
-                  <MessageSquare className="mr-2 h-4 w-4" />
-                  {t("nav.feedback")}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={logout}
-                  className="text-text-secondary hover:text-text-primary"
-                >
-                  <LogOut className="mr-2 h-4 w-4" />
-                  {t("nav.signOut")}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+                {initials}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="w-52 border-border-default bg-bg-elevated"
+            >
+              <div className="px-3 py-2">
+                <p className="text-sm font-medium text-text-primary">{displayName}</p>
+              </div>
+              <DropdownMenuSeparator className="bg-border-default" />
+              <DropdownMenuItem
+                onClick={() => setFeedbackOpen(true)}
+                className="text-text-secondary hover:text-text-primary"
+              >
+                <MessageSquare className="mr-2 h-4 w-4" />
+                {t("nav.feedback")}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator className="bg-border-default" />
+              <DropdownMenuItem
+                onClick={logout}
+                className="text-text-secondary hover:text-text-primary"
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                {t("nav.signOut")}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </header>
 
