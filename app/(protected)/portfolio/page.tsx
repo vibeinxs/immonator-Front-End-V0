@@ -324,7 +324,7 @@ export default function PortfolioPage() {
 
   return (
     <div className="flex flex-col gap-6 animate-fade-in">
-      {/* Header */
+      {/* Header */}
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
           <h1 className="font-display text-3xl text-text-primary">{t("portfolio.title")}</h1>
