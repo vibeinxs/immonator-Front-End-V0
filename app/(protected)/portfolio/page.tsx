@@ -104,10 +104,12 @@ function EmptyState({ icon, headline, body, actionLabel, onAction, disabled }: {
 const STATUS_BADGE: Record<ManualPortfolioStatus, string> = {
   watching: "bg-brand/10 text-brand",
   analysing: "bg-warning/10 text-warning",
+  negotiating: "bg-warning/15 text-warning",
   purchased: "bg-success/10 text-success",
+  rejected: "bg-danger/10 text-danger",
 }
 
-function ManualPortfolioSection() {
+function ManualPortfolioSection({ activeTab }: { activeTab: string }) {
   const router = useRouter()
   const { setInputA } = useAnalysisStore()
   const [entries, setEntries] = useState<ManualPortfolioEntry[]>([])
@@ -131,6 +133,8 @@ function ManualPortfolioSection() {
     router.push("/analyse")
   }
 
+  const filteredEntries = entries.filter((entry) => activeTab === "all" || entry.status === activeTab)
+
   if (entries.length === 0) return null
 
   return (
@@ -151,7 +155,11 @@ function ManualPortfolioSection() {
       </div>
 
       <div className="rounded-[14px] border border-border-default bg-bg-surface overflow-hidden">
-        {entries.map((entry, i) => (
+        {filteredEntries.length === 0 ? (
+          <div className="px-5 py-8 text-sm text-text-secondary">
+            No manual entries in this status yet.
+          </div>
+        ) : filteredEntries.map((entry, i) => (
           <div
             key={entry.id}
             className={cn(
@@ -177,7 +185,9 @@ function ManualPortfolioSection() {
                 >
                   <option value="watching">Watching</option>
                   <option value="analysing">Analysing</option>
+                  <option value="negotiating">Negotiating</option>
                   <option value="purchased">Purchased</option>
+                  <option value="rejected">Rejected</option>
                 </select>
               </div>
             </div>
@@ -235,8 +245,10 @@ export default function PortfolioPage() {
   const [tab, setTab] = useState<string>("all")
   const [analysisOpen, setAnalysisOpen] = useState(false)
   const [analysing, setAnalysing] = useState(false)
+  const [manualCount, setManualCount] = useState(0)
 
   useEffect(() => {
+    setManualCount(listEntries().length)
     Promise.all([immoApi.getPortfolio(), immoApi.getPortfolioAnalysis()]).then(([portfolioRes, analysisRes]) => {
       if (portfolioRes.data) {
         // Backend returns {items: PortfolioItem[], total: number}
@@ -299,7 +311,7 @@ export default function PortfolioPage() {
   }
 
   /* ── Empty portfolio ──────────────────────────── */
-  if (!data || data.properties.length === 0) {
+  if ((!data || data.properties.length === 0) && manualCount === 0) {
     return (
       <div className="flex flex-col gap-8 animate-fade-in">
         <div>
@@ -318,6 +330,44 @@ export default function PortfolioPage() {
           actionLabel={copy.portfolio.browseCta}
           onAction={() => router.push("/properties")}
         />
+      </div>
+    )
+  }
+
+
+  if (!data) {
+    return (
+      <div className="flex flex-col gap-6 animate-fade-in">
+        <div>
+          <h1 className="font-display text-3xl text-text-primary">{t("portfolio.title")}</h1>
+          <p className="mt-1 text-sm text-text-secondary">Manual portfolio entries</p>
+        </div>
+
+        <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
+          <MetricCard label={t("portfolio.metric.totalValue")} value={0} prefix={EUR} sentiment="neutral" />
+          <MetricCard label={t("portfolio.metric.cashFlow")} value={0} prefix={EUR} sentiment="neutral" />
+          <MetricCard label={t("portfolio.metric.avgYield")} value={0} suffix="%" sentiment="neutral" />
+          <MetricCard label={t("portfolio.metric.properties")} value={manualCount} sentiment="neutral" />
+        </div>
+
+        <Tabs value={tab} onValueChange={setTab} className="w-full">
+          <TabsList className="h-auto bg-transparent p-0 gap-0 border-b border-border-default rounded-none w-full justify-start">
+            {TABS.map((t) => (
+              <TabsTrigger
+                key={t}
+                value={t}
+                className={cn(
+                  "rounded-none border-b-2 border-transparent px-4 py-2.5 text-sm text-text-secondary capitalize transition-colors",
+                  "data-[state=active]:border-brand data-[state=active]:text-brand data-[state=active]:shadow-none"
+                )}
+              >
+                {t === "all" ? `All (${manualCount})` : t}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+
+        <ManualPortfolioSection activeTab={tab} />
       </div>
     )
   }
@@ -350,7 +400,7 @@ export default function PortfolioPage() {
       </div>
 
       {/* Manual Portfolio */}
-      <ManualPortfolioSection />
+      <ManualPortfolioSection activeTab={tab} />
 
       {/* Portfolio Analysis */}
       <Collapsible open={analysisOpen} onOpenChange={setAnalysisOpen}>

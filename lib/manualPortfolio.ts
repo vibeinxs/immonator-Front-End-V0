@@ -1,6 +1,6 @@
 import type { AnalyseRequest, AnalyseResponse } from "@/types/api"
 
-export type ManualPortfolioStatus = "watching" | "analysing" | "purchased"
+export type ManualPortfolioStatus = "watching" | "analysing" | "negotiating" | "purchased" | "rejected"
 
 export interface ManualPortfolioEntry {
   id: string

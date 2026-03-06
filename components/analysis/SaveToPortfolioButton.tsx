@@ -69,7 +69,9 @@ export function SaveToPortfolioButton({ input, result }: SaveToPortfolioButtonPr
                 >
                   <option value="watching">Watching</option>
                   <option value="analysing">Analysing</option>
+                  <option value="negotiating">Negotiating</option>
                   <option value="purchased">Purchased</option>
+                  <option value="rejected">Rejected</option>
                 </select>
               </div>
             </div>
