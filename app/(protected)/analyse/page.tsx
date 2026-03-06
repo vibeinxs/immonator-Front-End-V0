@@ -28,10 +28,12 @@ function toChartData(yearData: AnalyseResponse["year_data"]): YearData[] {
 }
 
 export default function AnalysePage() {
-  const { inputB, resultB, setInputB, setResultB } = useAnalysisStore()
+  const { inputA, setInputA, resultA, setResultA, inputB, resultB, setInputB, setResultB } = useAnalysisStore()
 
-  const [input, setInput] = useState<AnalyseRequest>(PRESET_A)
-  const [result, setResult] = useState<AnalyseResponse | null>(null)
+  const input = inputA
+  const setInput = setInputA
+  const result = resultA
+  const setResult = setResultA
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [compareOpen, setCompareOpen] = useState(false)

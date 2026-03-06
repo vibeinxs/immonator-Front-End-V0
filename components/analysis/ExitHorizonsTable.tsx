@@ -1,7 +1,5 @@
 "use client"
 
-const EUR = "€"
-
 function fmtIrr(v: number) {
   const cls =
     v >= 5 ? "text-success" : v >= 3 ? "text-warning" : "text-danger"
@@ -35,8 +33,6 @@ interface ExitHorizonsTableProps {
   equity_multiple_20: number
   holding_years?: number
 }
-
-const HORIZONS = [10, 15, 20] as const
 
 export function ExitHorizonsTable({
   irr_10,

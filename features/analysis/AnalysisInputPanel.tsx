@@ -54,6 +54,7 @@ export function AnalysisInputPanel({
     onChange({ ...input, [k]: v })
 
   const sonderEnabled = input.special_afa_enabled ?? false
+  const [bankFinanced, setBankFinanced] = useState(true)
 
   return (
     <div className="flex flex-col h-full">
@@ -131,11 +132,11 @@ export function AnalysisInputPanel({
           <button
             type="button"
             role="switch"
-            aria-checked={true}
-            onClick={() => {}}
-            className="relative inline-flex h-5 w-9 items-center rounded-full bg-brand transition-colors focus:outline-none"
+            aria-checked={bankFinanced}
+            onClick={() => setBankFinanced((v) => !v)}
+            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${bankFinanced ? "bg-brand" : "bg-border-default"}`}
           >
-            <span className="inline-block h-4 w-4 translate-x-4 transform rounded-full bg-white shadow transition-transform" />
+            <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${bankFinanced ? "translate-x-4" : "translate-x-0.5"}`} />
           </button>
         </div>
 
@@ -179,7 +180,7 @@ export function AnalysisInputPanel({
           <div className="flex items-center gap-1">
             <Num
               value={Math.round((input.purchase_price * (input.land_share_pct ?? 20)) / 100)}
-              onChange={(v) => set("land_share_pct", (v / input.purchase_price) * 100)}
+              onChange={(v) => set("land_share_pct", input.purchase_price > 0 ? (v / input.purchase_price) * 100 : 0)}
             />
             <span className={UNIT}>€</span>
           </div>
@@ -194,8 +195,9 @@ export function AnalysisInputPanel({
         </div>
 
         <div className="mt-1">
-          <p className="text-[11px] text-brand font-medium">
-            = {(input.land_share_pct ?? 20).toFixed(1)}% of purchase price — good AfA advantage
+          <p className={`text-[11px] font-medium ${(input.land_share_pct ?? 20) >= 20 ? "text-brand" : "text-text-muted"}`}>
+            = {(input.land_share_pct ?? 20).toFixed(1)}% of purchase price —{" "}
+            {(input.land_share_pct ?? 20) >= 20 ? "good AfA advantage" : "low AfA advantage"}
           </p>
         </div>
 

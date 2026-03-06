@@ -5,15 +5,6 @@ import type { AnalyseYearData } from "@/types/api"
 const EUR = "€"
 const TARGET_YEARS = [1, 2, 3, 5, 7, 10, 15, 20]
 
-function fmt(n: number | undefined | null, prefix = EUR): string {
-  if (n === undefined || n === null) return "—"
-  const abs = Math.abs(n)
-  const sign = n < 0 ? "-" : ""
-  if (abs >= 1_000_000) return `${sign}${prefix}${(abs / 1_000_000).toFixed(2)}M`
-  if (abs >= 1_000) return `${sign}${prefix}${Math.round(abs / 100) / 10}k`
-  return `${sign}${prefix}${Math.round(abs).toLocaleString("de-DE")}`
-}
-
 function fmtLarge(n: number | undefined | null): string {
   if (n === undefined || n === null) return "—"
   return `${EUR} ${Math.round(n).toLocaleString("de-DE")}`
@@ -75,8 +66,6 @@ export function YearByYearTable({ yearData }: YearByYearTableProps) {
                 cf == null ? "text-text-muted"
                 : cf >= 0 ? "text-success"
                 : "text-danger"
-              const taxSign = taxImpact != null && taxImpact > 0 ? "-" : taxImpact != null && taxImpact < 0 ? "+" : ""
-
               return (
                 <tr
                   key={row.year}
