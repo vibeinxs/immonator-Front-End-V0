@@ -143,6 +143,9 @@ export interface AnalyseRequest {
   vacancy_rate?: number
   holding_years?: number
   special_afa_enabled?: boolean
+  special_afa_rate_input?: number
+  special_afa_years?: number
+  energy_class?: string
 }
 
 export interface AnalyseYearData {
@@ -154,6 +157,7 @@ export interface AnalyseYearData {
   rent_gross?: number
   interest?: number
   afa?: number
+  afa_sonder?: number
   taxable_income?: number
   tax_impact?: number
   property_value?: number

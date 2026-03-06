@@ -15,6 +15,9 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { listEntries, deleteEntry, updateStatus, type ManualPortfolioEntry, type ManualPortfolioStatus } from "@/lib/manualPortfolio"
+import { useAnalysisStore } from "@/store/analysisStore"
+
 
 /* ── types ───────────────────────────────────────── */
 interface PortfolioProperty {
@@ -92,6 +95,133 @@ function EmptyState({ icon, headline, body, actionLabel, onAction, disabled }: {
           {actionLabel}
         </button>
       )}
+    </div>
+  )
+}
+
+
+/* ── ManualPortfolioSection ──────────────────────── */
+const STATUS_BADGE: Record<ManualPortfolioStatus, string> = {
+  watching: "bg-brand/10 text-brand",
+  analysing: "bg-warning/10 text-warning",
+  purchased: "bg-success/10 text-success",
+}
+
+function ManualPortfolioSection() {
+  const router = useRouter()
+  const { setInputA } = useAnalysisStore()
+  const [entries, setEntries] = useState<ManualPortfolioEntry[]>([])
+
+  useEffect(() => {
+    setEntries(listEntries())
+  }, [])
+
+  const handleDelete = (id: string) => {
+    deleteEntry(id)
+    setEntries(listEntries())
+  }
+
+  const handleStatusChange = (id: string, status: ManualPortfolioStatus) => {
+    updateStatus(id, status)
+    setEntries(listEntries())
+  }
+
+  const handleOpen = (entry: ManualPortfolioEntry) => {
+    setInputA(entry.input)
+    router.push("/analyse")
+  }
+
+  if (entries.length === 0) return null
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <h2 className="font-display text-lg font-semibold text-text-primary">
+          Manual Portfolio
+          <span className="ml-2 rounded-full bg-bg-elevated px-2 py-0.5 text-xs font-normal text-text-muted">
+            {entries.length}
+          </span>
+        </h2>
+        <button
+          onClick={() => router.push("/analyse")}
+          className="text-xs text-brand hover:underline"
+        >
+          + Add from Analysis
+        </button>
+      </div>
+
+      <div className="rounded-[14px] border border-border-default bg-bg-surface overflow-hidden">
+        {entries.map((entry, i) => (
+          <div
+            key={entry.id}
+            className={cn(
+              "flex flex-col gap-1.5 px-5 py-4 transition-colors hover:bg-bg-elevated/40",
+              i > 0 && "border-t border-border-default"
+            )}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-text-primary truncate">{entry.name}</p>
+                <p className="text-xs text-text-muted">
+                  Saved {new Date(entry.savedAt).toLocaleDateString("de-DE")}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <select
+                  value={entry.status}
+                  onChange={(e) => handleStatusChange(entry.id, e.target.value as ManualPortfolioStatus)}
+                  className={cn(
+                    "rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase cursor-pointer border-0 outline-none",
+                    STATUS_BADGE[entry.status]
+                  )}
+                >
+                  <option value="watching">Watching</option>
+                  <option value="analysing">Analysing</option>
+                  <option value="purchased">Purchased</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-3 text-sm">
+              <span className="font-mono">
+                <span className="text-[10px] uppercase tracking-wide text-text-muted mr-1">IRR 10yr</span>
+                <span className={entry.result.irr_10 >= 5 ? "text-success" : "text-warning"}>
+                  {entry.result.irr_10.toFixed(1)}%
+                </span>
+              </span>
+              <span className="font-mono">
+                <span className="text-[10px] uppercase tracking-wide text-text-muted mr-1">CF/mo</span>
+                <span className={entry.result.cash_flow_monthly_yr1 >= 0 ? "text-success" : "text-danger"}>
+                  {entry.result.cash_flow_monthly_yr1 >= 0 ? "+" : ""}{EUR}{Math.abs(Math.round(entry.result.cash_flow_monthly_yr1)).toLocaleString("de-DE")}
+                </span>
+              </span>
+              <span className="font-mono">
+                <span className="text-[10px] uppercase tracking-wide text-text-muted mr-1">Net Yield</span>
+                <span className="text-text-primary">{entry.result.net_yield_pct.toFixed(1)}%</span>
+              </span>
+              <span className="font-mono">
+                <span className="text-[10px] uppercase tracking-wide text-text-muted mr-1">Equity ×</span>
+                <span className="text-text-primary">{entry.result.equity_multiple_10.toFixed(2)}×</span>
+              </span>
+            </div>
+
+            <div className="flex gap-2 mt-0.5">
+              <button
+                onClick={() => handleOpen(entry)}
+                className="text-xs text-brand hover:underline"
+              >
+                Open Analysis →
+              </button>
+              <button
+                onClick={() => handleDelete(entry.id)}
+                className="text-xs text-text-muted hover:text-danger transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -194,6 +324,9 @@ export default function PortfolioPage() {
 
   return (
     <div className="flex flex-col gap-6 animate-fade-in">
+      {/* Manual Portfolio (even when backend is empty) */}
+      <ManualPortfolioSection />
+
       {/* Header */}
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
@@ -218,6 +351,9 @@ export default function PortfolioPage() {
         <MetricCard label={t("portfolio.metric.avgYield")} value={data.avg_yield} suffix="%" sentiment={data.avg_yield >= 5 ? "positive" : "neutral"} />
         <MetricCard label={t("portfolio.metric.properties")} value={data.properties.length} sentiment="neutral" />
       </div>
+
+      {/* Manual Portfolio */}
+      <ManualPortfolioSection />
 
       {/* Portfolio Analysis */}
       <Collapsible open={analysisOpen} onOpenChange={setAnalysisOpen}>

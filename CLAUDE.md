@@ -182,5 +182,16 @@ pnpm dev
 - [x] Set `NEXT_PUBLIC_API_URL=https://web-production-61c120.up.railway.app` in `.env.local`
 - [x] Created `CLAUDE.md` with full project context and change tracking
 
-#### Planned / In Progress
-<!-- Add planned changes here as work is assigned -->
+### Session: 2026-03-06
+
+#### Completed
+- [x] Extended `types/api.ts`: added `special_afa_rate_input`, `special_afa_years`, `energy_class` to `AnalyseRequest`; `afa_sonder` to `AnalyseYearData`
+- [x] Created `lib/localComputeBridge.ts`: bridge between `AnalyseRequest`↔`FormParams` and `ComputeResult`→`AnalyseResponse`
+- [x] Created `lib/manualPortfolio.ts`: localStorage CRUD for manually saved analysis entries
+- [x] Created `components/analysis/ExitHorizonsTable.tsx`: flat table for 10/15/20yr IRR + equity multiple + net gain
+- [x] Created `components/analysis/YearByYearTable.tsx`: full 8-column year-by-year table matching reference
+- [x] Created `components/analysis/LandShareBlock.tsx`: land share % hint with AfA advantage label
+- [x] Created `components/analysis/SaveToPortfolioButton.tsx`: save-to-portfolio dialog with name + status
+- [x] Created `features/analysis/AnalysisInputPanel.tsx`: 7-section sidebar input form matching reference layout
+- [x] Rewrote `app/(protected)/analyse/page.tsx`: two-pane layout (sidebar + main), two tabs (Analysis / AI Analysis), live localCompute preview, backend API call, collapsible Property B comparison, save-to-portfolio
+- [x] Updated `app/(protected)/portfolio/page.tsx`: added `ManualPortfolioSection` showing localStorage-saved analyses with KPIs, status, Open Analysis, and Delete actions
