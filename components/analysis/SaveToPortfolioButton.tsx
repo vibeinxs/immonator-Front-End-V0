@@ -5,7 +5,7 @@ import { BookmarkPlus, Check, Loader2 } from "lucide-react"
 import { immoApi } from "@/lib/immonatorApi"
 import { useLocale } from "@/lib/i18n/locale-context"
 import { encodePortfolioSnapshot } from "@/lib/portfolioNotes"
-import { UI_STATUS_ORDER, apiToUiStatus, type UiPortfolioStatus, uiToApiStatus } from "@/lib/portfolioStatus"
+import { UI_STATUS_ORDER, type UiPortfolioStatus, uiToApiStatus } from "@/lib/portfolioStatus"
 import type { AnalyseRequest, AnalyseResponse } from "@/types/api"
 
 interface SaveToPortfolioButtonProps {
@@ -84,11 +84,14 @@ export function SaveToPortfolioButton({
         const watchRes = await immoApi.saveToPortfolio(manualRes.data.id)
         if (!watchRes.data?.success) throw new Error(watchRes.error ?? "Failed to save portfolio")
 
-        const resolved = await resolvePortfolioIdByProperty(manualRes.data.id)
-        if (!resolved?.portfolioId) throw new Error("Portfolio item not found after save")
-
-        targetPortfolioId = resolved.portfolioId
-        createdAt = resolved.addedAt
+        if (watchRes.data.portfolio_id) {
+          targetPortfolioId = watchRes.data.portfolio_id
+        } else {
+          const resolved = await resolvePortfolioIdByProperty(manualRes.data.id)
+          if (!resolved?.portfolioId) throw new Error("Portfolio item not found after save")
+          targetPortfolioId = resolved.portfolioId
+          createdAt = resolved.addedAt
+        }
       }
 
       const snapshot = encodePortfolioSnapshot({ input, result, label: titleHint })

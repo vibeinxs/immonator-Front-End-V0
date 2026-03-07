@@ -19,7 +19,7 @@ import { useLocale } from "@/lib/i18n/locale-context"
 import { immoApi } from "@/lib/immonatorApi"
 import { decodePortfolioSnapshot } from "@/lib/portfolioNotes"
 import { apiToUiStatus, type UiPortfolioStatus } from "@/lib/portfolioStatus"
-import type { AnalyseRequest, AnalyseResponse, PortfolioItem } from "@/types/api"
+import type { AnalyseRequest, AnalyseResponse, PortfolioItem, Property } from "@/types/api"
 
 function toChartData(yearData: AnalyseResponse["year_data"]): YearData[] {
   return yearData.map((y) => ({
@@ -45,14 +45,45 @@ interface SavedMeta {
   savedAt?: string | null
 }
 
-function mapItemToInput(item: PortfolioItem): AnalyseRequest {
+function mapPropertyToInput(property: Property, item: PortfolioItem): AnalyseRequest {
+  const basePrice = item.purchase_price ?? item.asking_price ?? property.asking_price ?? 0
+  const baseRent = property.monthly_rent ?? 0
+  return {
+    address: property.address || item.address || `${item.title}, ${item.city}`,
+    sqm: property.living_area_sqm ?? item.living_area_sqm ?? 70,
+    year_built: property.year_built ?? 1990,
+    condition: "existing",
+    purchase_price: basePrice,
+    equity: Math.round(basePrice * 0.2),
+    rent_monthly: baseRent,
+    interest_rate: 3.8,
+    repayment_rate: 2,
+    transfer_tax_pct: 6,
+    notary_pct: 2,
+    agent_pct: 0,
+    land_share_pct: 20,
+    hausgeld_monthly: 200,
+    maintenance_nd: 1200,
+    management_nd: 600,
+    tax_rate: 42,
+    rent_growth: 2,
+    appreciation: 2,
+    vacancy_rate: 1,
+    holding_years: 10,
+    afa_rate_input: 2,
+    energy_class: "A+",
+  }
+}
+
+function mapItemFallbackToInput(item: PortfolioItem): AnalyseRequest {
+  const basePrice = item.purchase_price ?? item.asking_price ?? 0
   return {
     address: item.address ?? `${item.title}, ${item.city}`,
     sqm: item.living_area_sqm ?? 70,
     year_built: 1990,
     condition: "existing",
-    purchase_price: item.purchase_price ?? item.asking_price ?? 0,
-    equity: Math.round((item.purchase_price ?? item.asking_price ?? 0) * 0.2),
+    purchase_price: basePrice,
+    equity: Math.round(basePrice * 0.2),
     rent_monthly: 0,
     interest_rate: 3.8,
     repayment_rate: 2,
@@ -179,13 +210,27 @@ export default function AnalysePage() {
     const portfolioId = searchParams.get("portfolioId")
     if (!portfolioId) return
 
+    const controller = new AbortController()
+    let mounted = true
+
     ;(async () => {
-      const res = await immoApi.getPortfolio()
+      const res = await immoApi.getPortfolio(undefined, { signal: controller.signal })
+      if (!mounted || controller.signal.aborted) return
+
       const item = res.data?.items.find((entry) => entry.portfolio_id === portfolioId)
       if (!item) return
 
       const snapshot = decodePortfolioSnapshot(item.notes)
-      setInputA(snapshot?.input ?? mapItemToInput(item))
+
+      if (snapshot?.input) {
+        setInputA(snapshot.input)
+      } else {
+        const propertyRes = await immoApi.fetchPropertyById(item.property_id)
+        if (!mounted || controller.signal.aborted) return
+        if (propertyRes.data) setInputA(mapPropertyToInput(propertyRes.data, item))
+        else setInputA(mapItemFallbackToInput(item))
+      }
+
       if (snapshot?.result) setResultA(snapshot.result)
       setSavedMetaA({
         portfolioId: item.portfolio_id,
@@ -195,6 +240,11 @@ export default function AnalysePage() {
       setMode("single")
       setSelectedProperty("A")
     })()
+
+    return () => {
+      mounted = false
+      controller.abort()
+    }
   }, [searchParams, setInputA, setResultA])
 
   const activeInput = selectedProperty === "A" ? inputA : inputB
