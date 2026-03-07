@@ -202,6 +202,7 @@ export default function AnalysePage() {
   const [selectedProperty, setSelectedProperty] = useState<"A" | "B">("A")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [hydrateWarning, setHydrateWarning] = useState<string | null>(null)
   const [savedMetaA, setSavedMetaA] = useState<SavedMeta | null>(null)
   const [savedMetaB, setSavedMetaB] = useState<SavedMeta | null>(null)
   const resultTopRef = useRef<HTMLDivElement | null>(null)
@@ -214,6 +215,7 @@ export default function AnalysePage() {
     let mounted = true
 
     ;(async () => {
+      setHydrateWarning(null)
       const res = await immoApi.getPortfolio(undefined, { signal: controller.signal })
       if (!mounted || controller.signal.aborted) return
 
@@ -227,8 +229,12 @@ export default function AnalysePage() {
       } else {
         const propertyRes = await immoApi.fetchPropertyById(item.property_id)
         if (!mounted || controller.signal.aborted) return
-        if (propertyRes.data) setInputA(mapPropertyToInput(propertyRes.data, item))
-        else setInputA(mapItemFallbackToInput(item))
+        if (propertyRes.data) {
+          setInputA(mapPropertyToInput(propertyRes.data, item))
+        } else {
+          setInputA(mapItemFallbackToInput(item))
+          setHydrateWarning(t("analyse.hydrateWarning"))
+        }
       }
 
       if (snapshot?.result) setResultA(snapshot.result)
@@ -302,6 +308,12 @@ export default function AnalysePage() {
           {loading ? t("analyse.action.analysing") : t("analyse.action.analyse")}
         </button>
       </div>
+
+      {hydrateWarning && (
+        <div className="mb-4 rounded-xl border border-warning/30 bg-warning/10 px-4 py-2 text-sm text-warning">
+          {hydrateWarning}
+        </div>
+      )}
 
       <Tabs value={mode} onValueChange={(v) => setMode(v as "single" | "compare")} className="mb-4">
         <TabsList className="h-auto rounded-xl border border-border-default bg-bg-surface p-1">
