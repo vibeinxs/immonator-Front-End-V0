@@ -209,7 +209,10 @@ export default function AnalysePage() {
 
   useEffect(() => {
     const portfolioId = searchParams.get("portfolioId")
-    if (!portfolioId) return
+    if (!portfolioId) {
+      setHydrateWarning(null)
+      return
+    }
 
     const controller = new AbortController()
     let mounted = true
@@ -251,7 +254,7 @@ export default function AnalysePage() {
       mounted = false
       controller.abort()
     }
-  }, [searchParams, setInputA, setResultA])
+  }, [searchParams, setInputA, setResultA, t])
 
   const activeInput = selectedProperty === "A" ? inputA : inputB
   const activeResult = selectedProperty === "A" ? resultA : resultB

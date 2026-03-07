@@ -91,8 +91,8 @@ export function FlagsSection({ result }: FlagsSectionProps) {
 
   return (
     <div className="space-y-2">
-      {flags.map((flag) => (
-        <div key={flag.text} className="flex items-start gap-2 text-sm">
+      {flags.map((flag, index) => (
+        <div key={`${flag.level}-${index}-${flag.text}`} className="flex items-start gap-2 text-sm">
           <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${LEVEL_DOT[flag.level]}`} />
           <span className="text-text-secondary">{flag.text}</span>
         </div>

@@ -40,7 +40,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const displayName = getUserName() || "User"
   const initials = getInitials(displayName)
 
-  const isActive = (href: string) => pathname.startsWith(href)
+  const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`)
 
   return (
     <div className="min-h-screen bg-bg-base">

@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { BookmarkPlus, Check, Loader2 } from "lucide-react"
 import { immoApi } from "@/lib/immonatorApi"
 import { useLocale } from "@/lib/i18n/locale-context"
@@ -45,6 +45,12 @@ export function SaveToPortfolioButton({
   const [error, setError] = useState<string | null>(null)
 
   const isSaved = !!portfolioId
+
+  useEffect(() => {
+    setStatus(existingStatus ?? "watching")
+    setPortfolioId(existingPortfolioId ?? null)
+    setSavedAt(existingSavedAt ?? null)
+  }, [existingPortfolioId, existingSavedAt, existingStatus])
 
   const statusOptions = useMemo(
     () => UI_STATUS_ORDER.map((value) => ({ value, label: t(`portfolio.status.${value}`) })),

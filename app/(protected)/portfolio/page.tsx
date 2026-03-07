@@ -205,7 +205,7 @@ export default function PortfolioPage() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => router.push(`/analyse?portfolioId=${item.id}`)}
+                    onClick={() => router.push(`/analyse?portfolioId=${encodeURIComponent(item.id)}`)}
                     className="rounded-lg bg-brand px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-brand-hover"
                   >
                     {t("portfolio.openInAnalyse")}
