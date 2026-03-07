@@ -1,212 +1,259 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
-import Link from "next/link"
-import { ArrowRight } from "lucide-react"
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { useCallback, useMemo, useRef, useState } from "react"
+import { Loader2 } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AnalysisInputPanel } from "@/features/analysis/AnalysisInputPanel"
 import { KpiGrid } from "@/features/analysis/KpiGrid"
 import { CashflowChart, type YearData } from "@/components/analysis/CashflowChart"
 import { ExitHorizonsTable } from "@/components/analysis/ExitHorizonsTable"
 import { YearByYearTable } from "@/components/analysis/YearByYearTable"
 import { LandShareBlock } from "@/components/analysis/LandShareBlock"
-import { PropertyPanel } from "@/features/analysis/PropertyPanel"
-import { SaveToPortfolioButton } from "@/components/analysis/SaveToPortfolioButton"
-import { CompareTable } from "@/features/compare/CompareTable"
+import { FlagsSection } from "@/features/analysis/FlagsSection"
 import { analyseProperty } from "@/lib/analyseApi"
 import { runLocalCompute } from "@/lib/localComputeBridge"
 import { useAnalysisStore } from "@/store/analysisStore"
-import type { AnalyseResponse } from "@/types/api"
+import { useLocale } from "@/lib/i18n/locale-context"
+import type { AnalyseRequest, AnalyseResponse } from "@/types/api"
 
 function toChartData(yearData: AnalyseResponse["year_data"]): YearData[] {
   return yearData.map((y) => ({
     year: y.year,
-    cashflow_monthly:
-      y.cash_flow_monthly ?? (y.cash_flow != null ? y.cash_flow / 12 : undefined),
+    cashflow_monthly: y.cash_flow_monthly ?? (y.cash_flow != null ? y.cash_flow / 12 : undefined),
     equity: y.net_worth,
   }))
 }
 
-export default function AnalysePage() {
-  const { inputA, setInputA, resultA, setResultA, inputB, resultB, setInputB, setResultB } = useAnalysisStore()
+function verdictClass(score: number) {
+  if (score >= 7) return "text-success"
+  if (score >= 5) return "text-warning"
+  return "text-danger"
+}
 
-  const input = inputA
-  const setInput = setInputA
-  const result = resultA
-  const setResult = setResultA
+function formatVerdict(verdict: string, t: (k: string) => string) {
+  return t(`verdict.${verdict}`)
+}
+
+function ResultOverview({ input, result }: { input: AnalyseRequest; result: AnalyseResponse }) {
+  const { t } = useLocale()
+
+  return (
+    <div className="space-y-4">
+      <section className="rounded-2xl border border-border-default bg-bg-surface p-4 md:p-5">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center">
+          <div className="flex h-20 w-20 items-center justify-center rounded-full border-4 border-border-default text-center">
+            <div>
+              <div className="font-mono text-2xl font-bold text-text-primary">{result.score.toFixed(1)}</div>
+              <div className="text-[10px] text-text-muted">/10</div>
+            </div>
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-text-muted">{t("analyse.results.verdictTitle")}</p>
+            <p className={`mt-1 text-3xl font-semibold ${verdictClass(result.score)}`}>{formatVerdict(result.verdict, t)}</p>
+            <p className="mt-2 text-sm text-text-secondary">
+              {t("analyse.kpi.netYield")}: {result.net_yield_pct.toFixed(1)}% · {t("analyse.kpi.purchaseFactor")}: {result.kpf.toFixed(1)}× · IRR 10y: {result.irr_10.toFixed(1)}% · {t("analyse.kpi.cashFlowYr1")}: {result.cash_flow_monthly_yr1.toFixed(0)}€/mo
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <KpiGrid result={result} />
+      </section>
+
+      <section className="rounded-[14px] border border-border-default bg-bg-surface p-4">
+        <p className="mb-1 text-sm font-semibold text-text-primary">{t("analyse.results.landShareTitle")}</p>
+        <LandShareBlock landSharePct={input.land_share_pct ?? 20} purchasePrice={input.purchase_price} />
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-2">
+        <div className="rounded-[14px] border border-border-default bg-bg-surface p-4">
+          <h3 className="mb-2 text-sm font-semibold text-text-primary">{t("analyse.results.annualCashflow")}</h3>
+          <p className="mb-3 text-[11px] text-text-muted">{t("analyse.results.cashflowSubtitle")}</p>
+          <CashflowChart yearData={toChartData(result.year_data)} />
+        </div>
+        <div className="rounded-[14px] border border-border-default bg-bg-surface p-4">
+          <h3 className="mb-3 text-sm font-semibold text-text-primary">{t("analyse.results.flags")}</h3>
+          <FlagsSection result={result} />
+        </div>
+      </section>
+    </div>
+  )
+}
+
+function MarketDataPanel({ input, result }: { input: AnalyseRequest; result: AnalyseResponse }) {
+  const { t } = useLocale()
+  const rows = [
+    { label: t("analyse.market.bodenrichtwert"), value: result.bodenrichtwert_m2 ? `€${result.bodenrichtwert_m2}/m²` : "N/A", note: t("analyse.market.landValue") },
+    { label: t("analyse.market.rentIndex"), value: result.market_rent_m2 ? `€${result.market_rent_m2}/m²` : "N/A", note: t("analyse.market.mietspiegel") },
+    { label: t("analyse.market.mortgageRate"), value: result.current_mortgage_rate ? `${result.current_mortgage_rate}%` : "N/A", note: t("analyse.market.bundesbank") },
+    { label: t("analyse.market.locationScore"), value: result.location_score ? `${result.location_score}/10` : "N/A", note: t("analyse.market.amenity") },
+    { label: t("analyse.market.populationTrend"), value: result.population_trend || "N/A", note: t("analyse.market.populationNote") },
+    { label: t("analyse.market.address"), value: result.address_resolved || input.address, note: t("analyse.market.geocoded") },
+  ]
+
+  return (
+    <div className="rounded-2xl border border-border-default bg-bg-surface overflow-hidden">
+      <div className="flex items-center justify-between border-b border-border-default px-4 py-3">
+        <p className="text-sm font-semibold text-text-primary">{t("analyse.market.title")}</p>
+        <span className="rounded-md bg-bg-elevated px-2 py-0.5 text-[11px] text-text-muted">
+          {result.market_rent_m2 ? t("analyse.market.live") : t("analyse.market.offline")}
+        </span>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2">
+        {rows.map((row, idx) => (
+          <div key={row.label} className={`p-4 ${idx % 2 === 0 ? "md:border-r" : ""} ${idx < rows.length - 2 ? "border-b" : ""} border-border-default`}>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{row.label}</p>
+            <p className="mt-1 break-words font-mono text-2xl font-bold text-text-primary">{row.value}</p>
+            <p className="mt-1 text-xs text-text-muted">{row.note}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+export default function AnalysePage() {
+  const { t } = useLocale()
+  const { inputA, setInputA, resultA, setResultA, inputB, setInputB, resultB, setResultB } = useAnalysisStore()
+
+  const [mode, setMode] = useState<"single" | "compare">("single")
+  const [resultTab, setResultTab] = useState<"overview" | "projections" | "ai" | "market">("overview")
+  const [selectedProperty, setSelectedProperty] = useState<"A" | "B">("A")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const resultTopRef = useRef<HTMLDivElement | null>(null)
 
-  useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => {
-      try {
-        setResult(runLocalCompute(input))
-      } catch {
-        // ignore errors during editing
-      }
-    }, 150)
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current)
+  const activeInput = selectedProperty === "A" ? inputA : inputB
+  const activeResult = selectedProperty === "A" ? resultA : resultB
+  const hasResults = mode === "single" ? !!resultA : !!resultA || !!resultB
+
+  const analyseOne = useCallback(async (input: AnalyseRequest, setResult: (r: AnalyseResponse) => void) => {
+    const { data } = await analyseProperty(input)
+    if (data) {
+      setResult(data)
+      return
     }
-  }, [input, setResult])
+    setResult(runLocalCompute(input))
+  }, [])
 
   const handleAnalyse = useCallback(async () => {
-    setError(null)
     setLoading(true)
+    setError(null)
     try {
-      const { data, error: apiError } = await analyseProperty(input)
-      if (data) {
-        setResult(data)
+      if (mode === "single") {
+        await analyseOne(inputA, setResultA)
+        setSelectedProperty("A")
       } else {
-        setError(apiError ?? "Backend unavailable — showing local estimate")
+        await Promise.all([
+          analyseOne(inputA, setResultA),
+          analyseOne(inputB, setResultB),
+        ])
       }
+      setTimeout(() => resultTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 20)
+    } catch {
+      setError(t("analyse.error"))
     } finally {
       setLoading(false)
     }
-  }, [input, setResult])
+  }, [analyseOne, inputA, inputB, mode, setResultA, setResultB, t])
 
-  const bothReady = result !== null && resultB !== null
+  const compareSelector = useMemo(() => (
+    <div className="inline-flex rounded-lg border border-border-default bg-bg-surface p-1 text-xs font-semibold">
+      <button className={`rounded px-3 py-1 ${selectedProperty === "A" ? "bg-brand text-white" : "text-text-secondary"}`} onClick={() => setSelectedProperty("A")}>{t("analyse.propertyA")}</button>
+      <button className={`rounded px-3 py-1 ${selectedProperty === "B" ? "bg-brand text-white" : "text-text-secondary"}`} onClick={() => setSelectedProperty("B")}>{t("analyse.propertyB")}</button>
+    </div>
+  ), [selectedProperty, t])
 
   return (
-    <div className="flex h-full overflow-hidden">
-      <aside className="w-72 shrink-0 overflow-hidden border-r border-border-default bg-bg-surface flex flex-col">
-        <div className="border-b border-border-default px-4 py-3">
-          <h1 className="font-serif text-base font-semibold text-text-primary">Analyze</h1>
-          <p className="text-[11px] text-text-muted">Single property + compare mode with full KPIs</p>
+    <div className="h-full overflow-y-auto bg-bg-base p-4 md:p-6">
+      <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h1 className="font-serif text-2xl font-semibold text-text-primary">{t("analyse.title")}</h1>
+          <p className="text-sm text-text-secondary">{t("analyse.subtitle")}</p>
         </div>
-        <div className="flex-1 overflow-hidden">
-          <AnalysisInputPanel
-            input={input}
-            onChange={setInput}
-            onAnalyse={handleAnalyse}
-            loading={loading}
-          />
-        </div>
-      </aside>
+        <button onClick={handleAnalyse} disabled={loading} className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-60">
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          {loading ? t("analyse.action.analysing") : t("analyse.action.analyse")}
+        </button>
+      </div>
 
-      <main className="flex-1 overflow-y-auto bg-bg-base">
-        <Tabs defaultValue="single" className="h-full flex flex-col">
-          <div className="sticky top-0 z-10 border-b border-border-default bg-bg-surface px-6 py-0">
-            <TabsList className="h-auto bg-transparent p-0 gap-0 rounded-none">
-              <TabsTrigger
-                value="single"
-                className="rounded-none border-b-2 border-transparent px-4 py-3 text-sm text-text-secondary transition-colors data-[state=active]:border-brand data-[state=active]:text-brand data-[state=active]:shadow-none"
-              >
-                Single Property
-              </TabsTrigger>
-              <TabsTrigger
-                value="compare"
-                className="rounded-none border-b-2 border-transparent px-4 py-3 text-sm text-text-secondary transition-colors data-[state=active]:border-brand data-[state=active]:text-brand data-[state=active]:shadow-none"
-              >
-                Compare 2 Properties
-              </TabsTrigger>
-            </TabsList>
-          </div>
+      <Tabs value={mode} onValueChange={(v) => setMode(v as "single" | "compare")} className="mb-4">
+        <TabsList className="h-auto rounded-xl border border-border-default bg-bg-surface p-1">
+          <TabsTrigger value="single" className="rounded-lg px-4 py-2 text-sm">{t("analyse.mode.single")}</TabsTrigger>
+          <TabsTrigger value="compare" className="rounded-lg px-4 py-2 text-sm">{t("analyse.mode.compare")}</TabsTrigger>
+        </TabsList>
+      </Tabs>
 
-          <TabsContent value="single" className="flex-1 p-6 space-y-6 mt-0">
-            {error && (
-              <div className="rounded-xl border border-warning/30 bg-warning/5 px-4 py-2.5 text-sm text-warning">
-                {error}
+      <div className="grid gap-4 lg:grid-cols-[minmax(360px,42%)_1fr]">
+        <section className="rounded-2xl border border-border-default bg-bg-surface">
+          {mode === "single" ? (
+            <AnalysisInputPanel input={inputA} onChange={setInputA} showAnalyseButton={false} />
+          ) : (
+            <div className="grid gap-4 p-4 xl:grid-cols-2">
+              <div className="rounded-xl border border-border-default">
+                <div className="border-b border-border-default px-3 py-2 text-sm font-semibold text-text-primary">{t("analyse.propertyA")}</div>
+                <AnalysisInputPanel input={inputA} onChange={setInputA} showAnalyseButton={false} />
               </div>
-            )}
+              <div className="rounded-xl border border-border-default">
+                <div className="border-b border-border-default px-3 py-2 text-sm font-semibold text-text-primary">{t("analyse.propertyB")}</div>
+                <AnalysisInputPanel input={inputB} onChange={setInputB} showAnalyseButton={false} />
+              </div>
+            </div>
+          )}
+        </section>
 
-            {result ? (
-              <>
-                <section>
-                  <KpiGrid result={result} />
-                </section>
+        <section ref={resultTopRef} className="space-y-4">
+          {error && <div className="rounded-xl border border-warning/30 bg-warning/10 px-4 py-2 text-sm text-warning">{error}</div>}
+          {!hasResults ? (
+            <div className="rounded-2xl border border-dashed border-border-default bg-bg-surface p-8 text-center text-sm text-text-secondary">
+              {t("analyse.empty")}
+            </div>
+          ) : (
+            <Tabs value={resultTab} onValueChange={(v) => setResultTab(v as typeof resultTab)}>
+              <div className="flex items-center justify-between gap-3 border-b border-border-default pb-2">
+                <TabsList className="h-auto bg-transparent p-0 gap-0 rounded-none">
+                  <TabsTrigger value="overview" className="rounded-none border-b-2 border-transparent px-3 py-2 text-sm data-[state=active]:border-brand data-[state=active]:text-brand">{t("analyse.tab.overview")}</TabsTrigger>
+                  <TabsTrigger value="projections" className="rounded-none border-b-2 border-transparent px-3 py-2 text-sm data-[state=active]:border-brand data-[state=active]:text-brand">{t("analyse.tab.projections")}</TabsTrigger>
+                  <TabsTrigger value="ai" className="rounded-none border-b-2 border-transparent px-3 py-2 text-sm data-[state=active]:border-brand data-[state=active]:text-brand">{t("analyse.tab.ai")}</TabsTrigger>
+                  <TabsTrigger value="market" className="rounded-none border-b-2 border-transparent px-3 py-2 text-sm data-[state=active]:border-brand data-[state=active]:text-brand">{t("analyse.tab.market")}</TabsTrigger>
+                </TabsList>
+                {mode === "compare" && compareSelector}
+              </div>
 
-                <section>
-                  <LandShareBlock
-                    landSharePct={input.land_share_pct ?? 20}
-                    purchasePrice={input.purchase_price}
-                  />
-                </section>
-
-                <section className="rounded-[14px] border border-border-default bg-bg-surface p-5">
-                  <h3 className="mb-3 text-sm font-semibold text-text-primary">Annual Cash Flow</h3>
-                  <p className="mb-3 text-[11px] text-text-muted">Monthly cash flow by year (€/mo)</p>
-                  <CashflowChart yearData={toChartData(result.year_data)} />
-                </section>
-
-                <section>
-                  <ExitHorizonsTable
-                    irr_10={result.irr_10}
-                    irr_15={result.irr_15}
-                    irr_20={result.irr_20}
-                    equity_multiple_10={result.equity_multiple_10}
-                    equity_multiple_15={result.equity_multiple_15}
-                    equity_multiple_20={result.equity_multiple_20}
-                    holding_years={input.holding_years ?? 10}
-                  />
-                </section>
-
-                <section>
-                  <YearByYearTable yearData={result.year_data} />
-                </section>
-
-                <section className="flex items-center justify-between gap-3">
-                  <SaveToPortfolioButton input={input} result={result} />
-                  <Link
-                    href="/analyse/compare"
-                    className="flex items-center gap-1 rounded-lg border border-border-default px-3 py-2 text-xs font-semibold text-text-secondary transition-colors hover:text-text-primary"
-                  >
-                    Open full compare page
-                    <ArrowRight className="h-3 w-3" />
-                  </Link>
-                </section>
-              </>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-24 text-center">
-                <div className="h-12 w-12 rounded-full bg-brand/10 flex items-center justify-center mb-4">
-                  <span className="text-2xl">🏠</span>
+              {activeResult ? (
+                <>
+                  <TabsContent value="overview" className="mt-4"><ResultOverview input={activeInput} result={activeResult} /></TabsContent>
+                  <TabsContent value="projections" className="mt-4 space-y-4">
+                    <ExitHorizonsTable
+                      irr_10={activeResult.irr_10}
+                      irr_15={activeResult.irr_15}
+                      irr_20={activeResult.irr_20}
+                      equity_multiple_10={activeResult.equity_multiple_10}
+                      equity_multiple_15={activeResult.equity_multiple_15}
+                      equity_multiple_20={activeResult.equity_multiple_20}
+                      holding_years={activeInput.holding_years ?? 10}
+                    />
+                    <YearByYearTable yearData={activeResult.year_data} />
+                  </TabsContent>
+                  <TabsContent value="ai" className="mt-4">
+                    <div className="rounded-2xl border border-border-default bg-bg-surface p-5 text-sm leading-relaxed text-text-secondary whitespace-pre-wrap">
+                      {activeResult.ai_analysis || t("analyse.ai.empty")}
+                    </div>
+                  </TabsContent>
+                  <TabsContent value="market" className="mt-4">
+                    <MarketDataPanel input={activeInput} result={activeResult} />
+                  </TabsContent>
+                </>
+              ) : (
+                <div className="mt-4 rounded-xl border border-dashed border-border-default bg-bg-surface p-6 text-sm text-text-secondary">
+                  {t("analyse.compare.pickProperty")}
                 </div>
-                <h3 className="font-serif text-lg text-text-primary">Fill in property details</h3>
-                <p className="mt-2 text-sm text-text-secondary max-w-xs">
-                  Enter details in the sidebar. Core KPIs appear instantly while all KPIs are one click away.
-                </p>
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="compare" className="flex-1 p-6 space-y-6 mt-0">
-            <section className="rounded-[14px] border border-border-default bg-bg-surface p-5">
-              <div className="mb-4">
-                <p className="text-sm font-semibold text-text-primary">Property B</p>
-                <p className="text-[11px] text-text-muted">Add and analyse your second property for side-by-side KPI comparison.</p>
-              </div>
-              <PropertyPanel
-                label="Property B"
-                input={inputB}
-                result={resultB}
-                onInputChange={setInputB}
-                onResult={setResultB}
-              />
-            </section>
-
-            {bothReady ? (
-              <section className="space-y-4">
-                <div className="rounded-[14px] border border-border-default bg-bg-surface p-4">
-                  <p className="text-sm font-semibold text-text-primary">Full KPI Comparison</p>
-                  <p className="text-[11px] text-text-muted">Property A vs Property B across core and extended KPIs.</p>
-                </div>
-                <CompareTable
-                  resultA={result}
-                  resultB={resultB}
-                  labelA="Property A"
-                  labelB="Property B"
-                />
-              </section>
-            ) : (
-              <div className="rounded-[14px] border border-dashed border-border-default bg-bg-surface p-6 text-sm text-text-secondary">
-                Analyse Property A (left panel) and Property B to unlock the side-by-side comparison table.
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
-      </main>
+              )}
+            </Tabs>
+          )}
+        </section>
+      </div>
     </div>
   )
 }

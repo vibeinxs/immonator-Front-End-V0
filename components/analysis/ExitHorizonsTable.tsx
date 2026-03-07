@@ -1,15 +1,14 @@
 "use client"
 
+import { useLocale } from "@/lib/i18n/locale-context"
+
 function fmtIrr(v: number) {
-  const cls =
-    v >= 5 ? "text-success" : v >= 3 ? "text-warning" : "text-danger"
+  const cls = v >= 5 ? "text-success" : v >= 3 ? "text-warning" : "text-danger"
   return <span className={`font-mono font-semibold ${cls}`}>{v.toFixed(1)} %</span>
 }
 
 function fmtMultiple(v: number) {
-  const cls =
-    v >= 2 ? "text-text-primary" : v >= 1.5 ? "text-text-primary" : "text-warning"
-  return <span className={`font-mono ${cls}`}>{v.toFixed(2)}×</span>
+  return <span className="font-mono text-text-primary">{v.toFixed(2)}×</span>
 }
 
 function fmtGain(multiple: number) {
@@ -43,6 +42,7 @@ export function ExitHorizonsTable({
   equity_multiple_20,
   holding_years,
 }: ExitHorizonsTableProps) {
+  const { t } = useLocale()
   const rows = [
     { years: 10, irr: irr_10, multiple: equity_multiple_10 },
     { years: 15, irr: irr_15, multiple: equity_multiple_15 },
@@ -52,43 +52,30 @@ export function ExitHorizonsTable({
   return (
     <div className="overflow-hidden rounded-[14px] border border-border-default bg-bg-surface">
       <div className="flex items-center justify-between border-b border-border-default px-5 py-3">
-        <h3 className="text-sm font-semibold text-text-primary">Returns at Exit Horizons</h3>
+        <h3 className="text-sm font-semibold text-text-primary">{t("analyse.results.exitHorizons")}</h3>
         <span className="rounded-md bg-bg-elevated px-2 py-0.5 text-[10px] font-medium text-text-muted">
-          IRR &amp; Equity Multiple
+          {t("analyse.results.irrAndMultiple")}
         </span>
       </div>
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-border-default bg-bg-elevated">
-            <th className="px-5 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest text-text-muted">
-              Horizon
-            </th>
-            <th className="px-5 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest text-text-muted">
-              IRR
-            </th>
-            <th className="px-5 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest text-text-muted">
-              Equity Multiple
-            </th>
-            <th className="px-5 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest text-text-muted">
-              Net Gain on Equity
-            </th>
+            <th className="px-5 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest text-text-muted">{t("analyse.results.horizon")}</th>
+            <th className="px-5 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest text-text-muted">IRR</th>
+            <th className="px-5 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest text-text-muted">{t("analyse.results.equityMultiple")}</th>
+            <th className="px-5 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest text-text-muted">{t("analyse.results.netGain")}</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((r) => {
             const highlight = r.years === holding_years
             return (
-              <tr
-                key={r.years}
-                className={`border-b border-border-default last:border-0 ${
-                  highlight ? "bg-brand/5" : "hover:bg-bg-elevated/50"
-                }`}
-              >
+              <tr key={r.years} className={`border-b border-border-default last:border-0 ${highlight ? "bg-brand/5" : "hover:bg-bg-elevated/50"}`}>
                 <td className="px-5 py-3 font-medium text-text-primary">
-                  {r.years} years
+                  {r.years} {t("analyse.unit.years")}
                   {highlight && (
                     <span className="ml-2 rounded-sm bg-brand/10 px-1.5 py-0.5 text-[9px] font-bold uppercase text-brand">
-                      target
+                      {t("analyse.results.target")}
                     </span>
                   )}
                 </td>

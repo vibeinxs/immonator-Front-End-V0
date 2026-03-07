@@ -1,5 +1,6 @@
 "use client"
 
+import { useLocale } from "@/lib/i18n/locale-context"
 import {
   BarChart,
   Bar,
@@ -123,10 +124,11 @@ interface CashflowChartProps {
 }
 
 export function CashflowChart({ yearData }: CashflowChartProps) {
+  const { t } = useLocale()
   if (!yearData || yearData.length === 0) {
     return (
       <div className="flex h-44 items-center justify-center text-sm text-text-muted">
-        No year data available
+        {t("analyse.results.noYearData")}
       </div>
     )
   }
@@ -137,7 +139,7 @@ export function CashflowChart({ yearData }: CashflowChartProps) {
   if (allZero) {
     return (
       <div className="flex h-44 items-center justify-center text-sm text-text-muted">
-        Cashflow data not yet available
+        {t("analyse.results.noCashflowData")}
       </div>
     )
   }

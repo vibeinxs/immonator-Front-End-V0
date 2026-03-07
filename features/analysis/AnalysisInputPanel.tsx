@@ -1,7 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import type { AnalyseRequest } from "@/types/api"
+import { useLocale } from "@/lib/i18n/locale-context"
+import type { PropertyAnalysisInput } from "@/features/analysis/schema"
 
 const SECTION = "text-[10px] font-bold uppercase tracking-widest text-text-muted mt-5 mb-2 first:mt-0"
 const ROW = "flex items-center justify-between gap-2 py-1.5"
@@ -13,10 +14,11 @@ const INPUT_WIDE =
 const UNIT = "text-xs text-text-muted w-8 text-right shrink-0"
 
 interface AnalysisInputPanelProps {
-  input: AnalyseRequest
-  onChange: (input: AnalyseRequest) => void
-  onAnalyse: () => void
+  input: PropertyAnalysisInput
+  onChange: (input: PropertyAnalysisInput) => void
+  onAnalyse?: () => void
   loading?: boolean
+  showAnalyseButton?: boolean
 }
 
 function Num({
@@ -49,8 +51,10 @@ export function AnalysisInputPanel({
   onChange,
   onAnalyse,
   loading,
+  showAnalyseButton = true,
 }: AnalysisInputPanelProps) {
-  const set = <K extends keyof AnalyseRequest>(k: K, v: AnalyseRequest[K]) =>
+  const { t } = useLocale()
+  const set = <K extends keyof PropertyAnalysisInput>(k: K, v: AnalyseRequest[K]) =>
     onChange({ ...input, [k]: v })
 
   const sonderEnabled = input.special_afa_enabled ?? false
@@ -59,22 +63,21 @@ export function AnalysisInputPanel({
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 overflow-y-auto px-4 py-4">
-        {/* PROPERTY */}
-        <p className={SECTION}>Property</p>
+        <p className={SECTION}>{t("analyse.section.property")}</p>
 
         <div className="py-1.5">
-          <p className={`${LABEL} mb-1`}>Address</p>
+          <p className={`${LABEL} mb-1`}>{t("analyse.field.address")}</p>
           <input
             type="text"
             value={input.address}
             onChange={(e) => set("address", e.target.value)}
             className={`${INPUT_WIDE} w-full`}
-            placeholder="Street, City"
+            placeholder={t("analyse.field.addressPlaceholder")}
           />
         </div>
 
         <div className={ROW}>
-          <span className={LABEL}>Area</span>
+          <span className={LABEL}>{t("analyse.field.area")}</span>
           <div className="flex items-center gap-1">
             <Num value={input.sqm} onChange={(v) => set("sqm", v)} />
             <span className={UNIT}>m²</span>
@@ -82,7 +85,7 @@ export function AnalysisInputPanel({
         </div>
 
         <div className={ROW}>
-          <span className={LABEL}>Built</span>
+          <span className={LABEL}>{t("analyse.field.built")}</span>
           <Num
             value={input.year_built}
             onChange={(v) => set("year_built", Math.round(v))}
@@ -92,21 +95,21 @@ export function AnalysisInputPanel({
         </div>
 
         <div className={ROW}>
-          <span className={LABEL}>Condition</span>
+          <span className={LABEL}>{t("analyse.field.condition")}</span>
           <select
             value={input.condition}
             onChange={(e) => set("condition", e.target.value as "existing" | "newbuild")}
             className={`${INPUT_BASE} cursor-pointer`}
           >
-            <option value="existing">Existing building</option>
-            <option value="newbuild">New build</option>
+            <option value="existing">{t("analyse.condition.existing")}</option>
+            <option value="newbuild">{t("analyse.condition.newbuild")}</option>
           </select>
         </div>
 
         <div className={ROW}>
-          <span className={LABEL}>Energy class</span>
+          <span className={LABEL}>{t("analyse.field.energyClass")}</span>
           <select
-            value={input.energy_class ?? ""}
+            value={input.energy_class ?? "A+"}
             onChange={(e) => set("energy_class", e.target.value)}
             className={`${INPUT_BASE} cursor-pointer`}
           >
@@ -116,11 +119,10 @@ export function AnalysisInputPanel({
           </select>
         </div>
 
-        {/* FINANCING */}
-        <p className={SECTION}>Financing</p>
+        <p className={SECTION}>{t("analyse.section.financing")}</p>
 
         <div className={ROW}>
-          <span className={LABEL}>Purchase price</span>
+          <span className={LABEL}>{t("analyse.field.purchasePrice")}</span>
           <div className="flex items-center gap-1">
             <Num value={input.purchase_price} onChange={(v) => set("purchase_price", v)} />
             <span className={UNIT}>€</span>
@@ -128,7 +130,7 @@ export function AnalysisInputPanel({
         </div>
 
         <div className={ROW}>
-          <span className={LABEL}>Bank financed</span>
+          <span className={LABEL}>{t("analyse.field.bankFinanced")}</span>
           <button
             type="button"
             role="switch"
@@ -141,7 +143,7 @@ export function AnalysisInputPanel({
         </div>
 
         <div className={ROW}>
-          <span className={LABEL}>Equity</span>
+          <span className={LABEL}>{t("analyse.field.equity")}</span>
           <div className="flex items-center gap-2">
             <Num value={input.equity} onChange={(v) => set("equity", v)} />
             <span className="text-xs text-text-muted">€</span>
@@ -149,7 +151,7 @@ export function AnalysisInputPanel({
         </div>
 
         <div className={ROW}>
-          <span className={LABEL}>Interest</span>
+          <span className={LABEL}>{t("analyse.field.interest")}</span>
           <div className="flex items-center gap-1">
             <Num value={input.interest_rate ?? 3.8} onChange={(v) => set("interest_rate", v)} step="0.1" />
             <span className={UNIT}>%</span>
@@ -157,7 +159,7 @@ export function AnalysisInputPanel({
         </div>
 
         <div className={ROW}>
-          <span className={LABEL}>Repayment</span>
+          <span className={LABEL}>{t("analyse.field.repayment")}</span>
           <div className="flex items-center gap-1">
             <Num value={input.repayment_rate ?? 2.0} onChange={(v) => set("repayment_rate", v)} step="0.1" />
             <span className={UNIT}>%</span>
@@ -165,98 +167,91 @@ export function AnalysisInputPanel({
         </div>
 
         <div className={ROW}>
-          <span className={LABEL}>GrESt</span>
+          <span className={LABEL}>{t("analyse.field.transferTax")}</span>
           <div className="flex items-center gap-2">
             <Num value={input.transfer_tax_pct ?? 6.0} onChange={(v) => set("transfer_tax_pct", v)} step="0.5" />
-            <span className="text-xs text-text-muted">%</span>
-            <span className={LABEL}>Notary</span>
+            <span className={UNIT}>%</span>
+          </div>
+        </div>
+
+        <div className={ROW}>
+          <span className={LABEL}>{t("analyse.field.notary")}</span>
+          <div className="flex items-center gap-2">
             <Num value={input.notary_pct ?? 2.0} onChange={(v) => set("notary_pct", v)} step="0.1" />
             <span className={UNIT}>%</span>
           </div>
         </div>
 
         <div className={ROW}>
-          <span className={LABEL}>Land value</span>
-          <div className="flex items-center gap-1">
-            <Num
-              value={Math.round((input.purchase_price * (input.land_share_pct ?? 20)) / 100)}
-              onChange={(v) => set("land_share_pct", input.purchase_price > 0 ? (v / input.purchase_price) * 100 : 0)}
-            />
-            <span className={UNIT}>€</span>
-          </div>
-        </div>
-
-        <div className={ROW}>
-          <span className={LABEL}>Makler</span>
-          <div className="flex items-center gap-1">
-            <Num value={input.agent_pct ?? 0} onChange={(v) => set("agent_pct", v)} step="0.1" />
+          <span className={LABEL}>{t("analyse.field.agent")}</span>
+          <div className="flex items-center gap-2">
+            <Num value={input.agent_pct ?? 0.0} onChange={(v) => set("agent_pct", v)} step="0.1" />
             <span className={UNIT}>%</span>
           </div>
         </div>
 
-        <div className="mt-1">
-          <p className={`text-[11px] font-medium ${(input.land_share_pct ?? 20) >= 20 ? "text-brand" : "text-text-muted"}`}>
-            = {(input.land_share_pct ?? 20).toFixed(1)}% of purchase price —{" "}
-            {(input.land_share_pct ?? 20) >= 20 ? "good AfA advantage" : "low AfA advantage"}
-          </p>
+        <div className={ROW}>
+          <span className={LABEL}>{t("analyse.field.landShare")}</span>
+          <div className="flex items-center gap-2">
+            <Num value={input.land_share_pct ?? 20.0} onChange={(v) => set("land_share_pct", v)} step="1" min={0} />
+            <span className={UNIT}>%</span>
+          </div>
         </div>
 
-        {/* INCOME & COSTS */}
-        <p className={SECTION}>Income &amp; Costs</p>
+        <p className={SECTION}>{t("analyse.section.incomeCosts")}</p>
 
         <div className={ROW}>
-          <span className={LABEL}>Cold rent</span>
+          <span className={LABEL}>{t("analyse.field.rent")}</span>
           <div className="flex items-center gap-1">
             <Num value={input.rent_monthly} onChange={(v) => set("rent_monthly", v)} />
-            <span className={UNIT}>€/mo</span>
+            <span className="text-xs text-text-muted">€/mo</span>
           </div>
         </div>
 
         <div className={ROW}>
-          <span className={LABEL}>Hausgeld</span>
+          <span className={LABEL}>{t("analyse.field.hausgeld")}</span>
           <div className="flex items-center gap-1">
-            <Num value={input.hausgeld_monthly ?? 0} onChange={(v) => set("hausgeld_monthly", v)} />
-            <span className={UNIT}>€/mo</span>
+            <Num value={input.hausgeld_monthly ?? 200} onChange={(v) => set("hausgeld_monthly", v)} />
+            <span className="text-xs text-text-muted">€/mo</span>
           </div>
         </div>
 
         <div className={ROW}>
-          <span className={LABEL}>Maintenance</span>
+          <span className={LABEL}>{t("analyse.field.maintenance")}</span>
           <div className="flex items-center gap-1">
-            <Num value={input.maintenance_nd ?? 0} onChange={(v) => set("maintenance_nd", v)} />
-            <span className={UNIT}>€/yr</span>
+            <Num value={input.maintenance_nd ?? 1200} onChange={(v) => set("maintenance_nd", v)} />
+            <span className="text-xs text-text-muted">€/yr</span>
           </div>
         </div>
 
         <div className={ROW}>
-          <span className={LABEL}>Management</span>
+          <span className={LABEL}>{t("analyse.field.management")}</span>
           <div className="flex items-center gap-1">
-            <Num value={input.management_nd ?? 0} onChange={(v) => set("management_nd", v)} />
-            <span className={UNIT}>€/yr</span>
+            <Num value={input.management_nd ?? 600} onChange={(v) => set("management_nd", v)} />
+            <span className="text-xs text-text-muted">€/yr</span>
           </div>
         </div>
 
-        {/* ASSUMPTIONS */}
-        <p className={SECTION}>Assumptions</p>
+        <p className={SECTION}>{t("analyse.section.assumptions")}</p>
 
         <div className={ROW}>
-          <span className={LABEL}>Rent growth</span>
+          <span className={LABEL}>{t("analyse.field.rentGrowth")}</span>
           <div className="flex items-center gap-1">
-            <Num value={input.rent_growth ?? 2.0} onChange={(v) => set("rent_growth", v)} step="0.5" />
+            <Num value={input.rent_growth ?? 2} onChange={(v) => set("rent_growth", v)} step="0.1" />
             <span className={UNIT}>%</span>
           </div>
         </div>
 
         <div className={ROW}>
-          <span className={LABEL}>Appreciation</span>
+          <span className={LABEL}>{t("analyse.field.appreciation")}</span>
           <div className="flex items-center gap-1">
-            <Num value={input.appreciation ?? 2.0} onChange={(v) => set("appreciation", v)} step="0.5" />
+            <Num value={input.appreciation ?? 2} onChange={(v) => set("appreciation", v)} step="0.1" />
             <span className={UNIT}>%</span>
           </div>
         </div>
 
         <div className={ROW}>
-          <span className={LABEL}>Tax rate</span>
+          <span className={LABEL}>{t("analyse.field.taxRate")}</span>
           <div className="flex items-center gap-1">
             <Num value={input.tax_rate ?? 42} onChange={(v) => set("tax_rate", v)} step="1" />
             <span className={UNIT}>%</span>
@@ -264,18 +259,17 @@ export function AnalysisInputPanel({
         </div>
 
         <div className={ROW}>
-          <span className={LABEL}>Horizon</span>
+          <span className={LABEL}>{t("analyse.field.horizon")}</span>
           <div className="flex items-center gap-1">
             <Num value={input.holding_years ?? 10} onChange={(v) => set("holding_years", Math.round(v))} step="1" min={1} />
-            <span className={UNIT}>yr</span>
+            <span className={UNIT}>{t("analyse.unit.yearShort")}</span>
           </div>
         </div>
 
-        {/* AfA */}
         <p className={SECTION}>AfA</p>
 
         <div className={ROW}>
-          <span className={LABEL}>AfA rate</span>
+          <span className={LABEL}>{t("analyse.field.afaRate")}</span>
           <div className="flex items-center gap-2">
             <input
               type="range"
@@ -292,8 +286,7 @@ export function AnalysisInputPanel({
           </div>
         </div>
 
-        {/* VACANCY */}
-        <p className={SECTION}>Vacancy</p>
+        <p className={SECTION}>{t("analyse.section.vacancy")}</p>
 
         <div className="flex gap-2 flex-wrap">
           {[1, 3, 5, 8].map((v) => (
@@ -312,11 +305,10 @@ export function AnalysisInputPanel({
           ))}
         </div>
 
-        {/* SONDER AfA */}
-        <p className={SECTION}>Sonder AfA</p>
+        <p className={SECTION}>{t("analyse.section.sonderAfa")}</p>
 
         <div className={ROW}>
-          <span className={LABEL}>Enable Sonder AfA</span>
+          <span className={LABEL}>{t("analyse.field.enableSonder")}</span>
           <button
             type="button"
             role="switch"
@@ -337,7 +329,7 @@ export function AnalysisInputPanel({
         {sonderEnabled && (
           <>
             <div className={ROW}>
-              <span className={LABEL}>Sonder rate</span>
+              <span className={LABEL}>{t("analyse.field.sonderRate")}</span>
               <div className="flex items-center gap-1">
                 <Num
                   value={input.special_afa_rate_input ?? 5}
@@ -349,7 +341,7 @@ export function AnalysisInputPanel({
               </div>
             </div>
             <div className={ROW}>
-              <span className={LABEL}>Years</span>
+              <span className={LABEL}>{t("analyse.field.years")}</span>
               <Num
                 value={input.special_afa_years ?? 4}
                 onChange={(v) => set("special_afa_years", Math.round(v))}
@@ -361,17 +353,18 @@ export function AnalysisInputPanel({
         )}
       </div>
 
-      {/* Analyse button */}
-      <div className="shrink-0 border-t border-border-default p-4">
-        <button
-          type="button"
-          onClick={onAnalyse}
-          disabled={loading}
-          className="w-full rounded-xl bg-brand py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-hover disabled:opacity-60"
-        >
-          {loading ? "Analysing…" : "Analyse"}
-        </button>
-      </div>
+      {showAnalyseButton && onAnalyse && (
+        <div className="shrink-0 border-t border-border-default p-4">
+          <button
+            type="button"
+            onClick={onAnalyse}
+            disabled={loading}
+            className="w-full rounded-xl bg-brand py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-hover disabled:opacity-60"
+          >
+            {loading ? t("analyse.action.analysing") : t("analyse.action.analyse")}
+          </button>
+        </div>
+      )}
     </div>
   )
 }
