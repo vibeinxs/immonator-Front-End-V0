@@ -169,19 +169,21 @@ export function createManualProperty(
 
 export function saveToPortfolio(
   propertyId: string
-): Promise<ApiResult<{ success: boolean; message: string }>> {
-  return apiCall<{ success: boolean; message: string }>(
+): Promise<ApiResult<{ success: boolean; message: string; portfolio_id?: string }>> {
+  return apiCall<{ success: boolean; message: string; portfolio_id?: string }>(
     `/api/portfolio/watch/${encodeURIComponent(propertyId)}`,
     { method: "POST" }
   )
 }
 
 export function getPortfolio(
-  status?: PortfolioStatus
+  status?: PortfolioStatus,
+  options?: RequestInit
 ): Promise<ApiResult<{ items: PortfolioItem[]; total: number }>> {
   const qs = status ? `?status=${status}` : ""
   return apiCall<{ items: PortfolioItem[]; total: number }>(`/api/portfolio${qs}`, {
     method: "GET",
+    ...options,
   })
 }
 

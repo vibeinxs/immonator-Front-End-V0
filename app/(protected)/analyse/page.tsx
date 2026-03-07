@@ -1,6 +1,7 @@
 "use client"
 
-import { useCallback, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { Loader2 } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AnalysisInputPanel } from "@/features/analysis/AnalysisInputPanel"
@@ -10,11 +11,15 @@ import { ExitHorizonsTable } from "@/components/analysis/ExitHorizonsTable"
 import { YearByYearTable } from "@/components/analysis/YearByYearTable"
 import { LandShareBlock } from "@/components/analysis/LandShareBlock"
 import { FlagsSection } from "@/features/analysis/FlagsSection"
+import { SaveToPortfolioButton } from "@/components/analysis/SaveToPortfolioButton"
 import { analyseProperty } from "@/lib/analyseApi"
 import { runLocalCompute } from "@/lib/localComputeBridge"
 import { useAnalysisStore } from "@/store/analysisStore"
 import { useLocale } from "@/lib/i18n/locale-context"
-import type { AnalyseRequest, AnalyseResponse } from "@/types/api"
+import { immoApi } from "@/lib/immonatorApi"
+import { decodePortfolioSnapshot } from "@/lib/portfolioNotes"
+import { apiToUiStatus, type UiPortfolioStatus } from "@/lib/portfolioStatus"
+import type { AnalyseRequest, AnalyseResponse, PortfolioItem, Property } from "@/types/api"
 
 function toChartData(yearData: AnalyseResponse["year_data"]): YearData[] {
   return yearData.map((y) => ({
@@ -34,12 +39,86 @@ function formatVerdict(verdict: string, t: (k: string) => string) {
   return t(`verdict.${verdict}`)
 }
 
-function ResultOverview({ input, result }: { input: AnalyseRequest; result: AnalyseResponse }) {
+interface SavedMeta {
+  portfolioId: string
+  status: UiPortfolioStatus
+  savedAt?: string | null
+}
+
+function mapPropertyToInput(property: Property, item: PortfolioItem): AnalyseRequest {
+  const basePrice = item.purchase_price ?? item.asking_price ?? property.asking_price ?? 0
+  const baseRent = property.monthly_rent ?? 0
+  return {
+    address: property.address || item.address || `${item.title}, ${item.city}`,
+    sqm: property.living_area_sqm ?? item.living_area_sqm ?? 70,
+    year_built: property.year_built ?? 1990,
+    condition: "existing",
+    purchase_price: basePrice,
+    equity: Math.round(basePrice * 0.2),
+    rent_monthly: baseRent,
+    interest_rate: 3.8,
+    repayment_rate: 2,
+    transfer_tax_pct: 6,
+    notary_pct: 2,
+    agent_pct: 0,
+    land_share_pct: 20,
+    hausgeld_monthly: 200,
+    maintenance_nd: 1200,
+    management_nd: 600,
+    tax_rate: 42,
+    rent_growth: 2,
+    appreciation: 2,
+    vacancy_rate: 1,
+    holding_years: 10,
+    afa_rate_input: 2,
+    energy_class: "A+",
+  }
+}
+
+function mapItemFallbackToInput(item: PortfolioItem): AnalyseRequest {
+  const basePrice = item.purchase_price ?? item.asking_price ?? 0
+  return {
+    address: item.address ?? `${item.title}, ${item.city}`,
+    sqm: item.living_area_sqm ?? 70,
+    year_built: 1990,
+    condition: "existing",
+    purchase_price: basePrice,
+    equity: Math.round(basePrice * 0.2),
+    rent_monthly: 0,
+    interest_rate: 3.8,
+    repayment_rate: 2,
+    transfer_tax_pct: 6,
+    notary_pct: 2,
+    agent_pct: 0,
+    land_share_pct: 20,
+    hausgeld_monthly: 200,
+    maintenance_nd: 1200,
+    management_nd: 600,
+    tax_rate: 42,
+    rent_growth: 2,
+    appreciation: 2,
+    vacancy_rate: 1,
+    holding_years: 10,
+    afa_rate_input: 2,
+    energy_class: "A+",
+  }
+}
+
+function ResultOverview({
+  input,
+  result,
+  saveControl,
+}: {
+  input: AnalyseRequest
+  result: AnalyseResponse
+  saveControl: React.ReactNode
+}) {
   const { t } = useLocale()
 
   return (
     <div className="space-y-4">
       <section className="rounded-2xl border border-border-default bg-bg-surface p-4 md:p-5">
+        <div className="mb-4 flex items-start justify-between gap-4">{saveControl}</div>
         <div className="flex flex-col gap-4 md:flex-row md:items-center">
           <div className="flex h-20 w-20 items-center justify-center rounded-full border-4 border-border-default text-center">
             <div>
@@ -115,6 +194,7 @@ function MarketDataPanel({ input, result }: { input: AnalyseRequest; result: Ana
 
 export default function AnalysePage() {
   const { t } = useLocale()
+  const searchParams = useSearchParams()
   const { inputA, setInputA, resultA, setResultA, inputB, setInputB, resultB, setResultB } = useAnalysisStore()
 
   const [mode, setMode] = useState<"single" | "compare">("single")
@@ -122,10 +202,64 @@ export default function AnalysePage() {
   const [selectedProperty, setSelectedProperty] = useState<"A" | "B">("A")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [hydrateWarning, setHydrateWarning] = useState<string | null>(null)
+  const [savedMetaA, setSavedMetaA] = useState<SavedMeta | null>(null)
+  const [savedMetaB, setSavedMetaB] = useState<SavedMeta | null>(null)
   const resultTopRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    const portfolioId = searchParams.get("portfolioId")
+    if (!portfolioId) {
+      setHydrateWarning(null)
+      return
+    }
+
+    const controller = new AbortController()
+    let mounted = true
+
+    ;(async () => {
+      setHydrateWarning(null)
+      const res = await immoApi.getPortfolio(undefined, { signal: controller.signal })
+      if (!mounted || controller.signal.aborted) return
+
+      const item = res.data?.items.find((entry) => entry.portfolio_id === portfolioId)
+      if (!item) return
+
+      const snapshot = decodePortfolioSnapshot(item.notes)
+
+      if (snapshot?.input) {
+        setInputA(snapshot.input)
+      } else {
+        const propertyRes = await immoApi.fetchPropertyById(item.property_id)
+        if (!mounted || controller.signal.aborted) return
+        if (propertyRes.data) {
+          setInputA(mapPropertyToInput(propertyRes.data, item))
+        } else {
+          setInputA(mapItemFallbackToInput(item))
+          setHydrateWarning(t("analyse.hydrateWarning"))
+        }
+      }
+
+      if (snapshot?.result) setResultA(snapshot.result)
+      setSavedMetaA({
+        portfolioId: item.portfolio_id,
+        status: apiToUiStatus(item.status),
+        savedAt: item.added_at,
+      })
+      setMode("single")
+      setSelectedProperty("A")
+    })()
+
+    return () => {
+      mounted = false
+      controller.abort()
+    }
+  }, [searchParams, setInputA, setResultA, t])
 
   const activeInput = selectedProperty === "A" ? inputA : inputB
   const activeResult = selectedProperty === "A" ? resultA : resultB
+  const activeSavedMeta = selectedProperty === "A" ? savedMetaA : savedMetaB
+
   const hasResults = mode === "single" ? !!resultA : !!resultA || !!resultB
 
   const analyseOne = useCallback(async (input: AnalyseRequest, setResult: (r: AnalyseResponse) => void) => {
@@ -145,10 +279,7 @@ export default function AnalysePage() {
         await analyseOne(inputA, setResultA)
         setSelectedProperty("A")
       } else {
-        await Promise.all([
-          analyseOne(inputA, setResultA),
-          analyseOne(inputB, setResultB),
-        ])
+        await Promise.all([analyseOne(inputA, setResultA), analyseOne(inputB, setResultB)])
       }
       setTimeout(() => resultTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 20)
     } catch {
@@ -158,12 +289,15 @@ export default function AnalysePage() {
     }
   }, [analyseOne, inputA, inputB, mode, setResultA, setResultB, t])
 
-  const compareSelector = useMemo(() => (
-    <div className="inline-flex rounded-lg border border-border-default bg-bg-surface p-1 text-xs font-semibold">
-      <button className={`rounded px-3 py-1 ${selectedProperty === "A" ? "bg-brand text-white" : "text-text-secondary"}`} onClick={() => setSelectedProperty("A")}>{t("analyse.propertyA")}</button>
-      <button className={`rounded px-3 py-1 ${selectedProperty === "B" ? "bg-brand text-white" : "text-text-secondary"}`} onClick={() => setSelectedProperty("B")}>{t("analyse.propertyB")}</button>
-    </div>
-  ), [selectedProperty, t])
+  const compareSelector = useMemo(
+    () => (
+      <div className="inline-flex rounded-lg border border-border-default bg-bg-surface p-1 text-xs font-semibold">
+        <button className={`rounded px-3 py-1 ${selectedProperty === "A" ? "bg-brand text-white" : "text-text-secondary"}`} onClick={() => setSelectedProperty("A")}>{t("analyse.propertyA")}</button>
+        <button className={`rounded px-3 py-1 ${selectedProperty === "B" ? "bg-brand text-white" : "text-text-secondary"}`} onClick={() => setSelectedProperty("B")}>{t("analyse.propertyB")}</button>
+      </div>
+    ),
+    [selectedProperty, t]
+  )
 
   return (
     <div className="h-full overflow-y-auto bg-bg-base p-4 md:p-6">
@@ -177,6 +311,12 @@ export default function AnalysePage() {
           {loading ? t("analyse.action.analysing") : t("analyse.action.analyse")}
         </button>
       </div>
+
+      {hydrateWarning && (
+        <div className="mb-4 rounded-xl border border-warning/30 bg-warning/10 px-4 py-2 text-sm text-warning">
+          {hydrateWarning}
+        </div>
+      )}
 
       <Tabs value={mode} onValueChange={(v) => setMode(v as "single" | "compare")} className="mb-4">
         <TabsList className="h-auto rounded-xl border border-border-default bg-bg-surface p-1">
@@ -206,9 +346,7 @@ export default function AnalysePage() {
         <section ref={resultTopRef} className="space-y-4">
           {error && <div className="rounded-xl border border-warning/30 bg-warning/10 px-4 py-2 text-sm text-warning">{error}</div>}
           {!hasResults ? (
-            <div className="rounded-2xl border border-dashed border-border-default bg-bg-surface p-8 text-center text-sm text-text-secondary">
-              {t("analyse.empty")}
-            </div>
+            <div className="rounded-2xl border border-dashed border-border-default bg-bg-surface p-8 text-center text-sm text-text-secondary">{t("analyse.empty")}</div>
           ) : (
             <Tabs value={resultTab} onValueChange={(v) => setResultTab(v as typeof resultTab)}>
               <div className="flex items-center justify-between gap-3 border-b border-border-default pb-2">
@@ -223,7 +361,26 @@ export default function AnalysePage() {
 
               {activeResult ? (
                 <>
-                  <TabsContent value="overview" className="mt-4"><ResultOverview input={activeInput} result={activeResult} /></TabsContent>
+                  <TabsContent value="overview" className="mt-4">
+                    <ResultOverview
+                      input={activeInput}
+                      result={activeResult}
+                      saveControl={
+                        <SaveToPortfolioButton
+                          input={activeInput}
+                          result={activeResult}
+                          titleHint={selectedProperty === "A" ? t("analyse.propertyA") : t("analyse.propertyB")}
+                          existingPortfolioId={activeSavedMeta?.portfolioId}
+                          existingStatus={activeSavedMeta?.status}
+                          existingSavedAt={activeSavedMeta?.savedAt}
+                          onSaved={(meta) => {
+                            if (selectedProperty === "A") setSavedMetaA(meta)
+                            else setSavedMetaB(meta)
+                          }}
+                        />
+                      }
+                    />
+                  </TabsContent>
                   <TabsContent value="projections" className="mt-4 space-y-4">
                     <ExitHorizonsTable
                       irr_10={activeResult.irr_10}
@@ -246,9 +403,7 @@ export default function AnalysePage() {
                   </TabsContent>
                 </>
               ) : (
-                <div className="mt-4 rounded-xl border border-dashed border-border-default bg-bg-surface p-6 text-sm text-text-secondary">
-                  {t("analyse.compare.pickProperty")}
-                </div>
+                <div className="mt-4 rounded-xl border border-dashed border-border-default bg-bg-surface p-6 text-sm text-text-secondary">{t("analyse.compare.pickProperty")}</div>
               )}
             </Tabs>
           )}

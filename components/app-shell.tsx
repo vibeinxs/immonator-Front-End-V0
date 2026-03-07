@@ -25,10 +25,10 @@ import { getUserName, getInitials, logout } from "@/lib/auth"
 import { useLocale } from "@/lib/i18n/locale-context"
 
 const NAV_ITEMS = [
-  { label: "Analyze", href: "/analyse", icon: BarChart3 },
-  { label: "Portfolio", href: "/portfolio", icon: Briefcase },
-  { label: "AI Insights", href: "/ai-insights", icon: Sparkles },
-  { label: "Import", href: "/import", icon: Link2 },
+  { labelKey: "nav.analyse", href: "/analyse", icon: BarChart3 },
+  { labelKey: "nav.portfolio", href: "/portfolio", icon: Briefcase },
+  { labelKey: "nav.aiInsights", href: "/ai-insights", icon: Sparkles },
+  { labelKey: "nav.import", href: "/import", icon: Link2 },
 ]
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -40,7 +40,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const displayName = getUserName() || "User"
   const initials = getInitials(displayName)
 
-  const isActive = (href: string) => pathname.startsWith(href)
+  const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`)
 
   return (
     <div className="min-h-screen bg-bg-base">
@@ -69,7 +69,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     : "text-text-secondary hover:text-text-primary"
                 }`}
               >
-                {item.label}
+                {t(item.labelKey)}
                 {isActive(item.href) && (
                   <span className="absolute bottom-0 left-4 right-4 h-0.5 rounded-full bg-brand" />
                 )}
@@ -157,7 +157,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               aria-current={active ? "page" : undefined}
             >
               <Icon className="h-5 w-5" />
-              <span>{item.label}</span>
+              <span>{t(item.labelKey)}</span>
             </Link>
           )
         })}
