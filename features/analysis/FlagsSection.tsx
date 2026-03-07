@@ -72,14 +72,17 @@ function buildFlags(r: AnalyseResponse, t: (key: string) => string): Flag[] {
     } else {
       flags.push({ level: "bad", text: tf("analyse.flags.ltv.bad", { value: r.ltv_pct.toFixed(0) }) })
     }
+
+    if (r.afa_tax_saving_yr1 != null && r.afa_tax_saving_yr1 > 0) flags.push({ level: "info", text: `AfA Steuerersparnis: ${formatEUR(r.afa_tax_saving_yr1)}/Jahr` })
+
+    return flags
   }
 
   if (r.afa_tax_saving_yr1 != null && r.afa_tax_saving_yr1 > 0) {
     flags.push({ level: "info", text: tf("analyse.flags.afa.info", { value: formatEUR(r.afa_tax_saving_yr1) }) })
   }
 
-  return flags
-}
+  if (r.afa_tax_saving_yr1 != null && r.afa_tax_saving_yr1 > 0) flags.push({ level: "info", text: `AfA tax saving: ${formatEUR(r.afa_tax_saving_yr1)}/yr` })
 
 interface FlagsSectionProps {
   result: AnalyseResponse

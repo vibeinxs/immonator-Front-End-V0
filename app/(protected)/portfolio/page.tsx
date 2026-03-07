@@ -118,6 +118,44 @@ export default function PortfolioPage() {
     return <div className="py-10 text-sm text-text-secondary">{t("portfolio.loading")}</div>
   }
 
+
+  if (!data) {
+    return (
+      <div className="flex flex-col gap-6 animate-fade-in">
+        <div>
+          <h1 className="font-display text-3xl text-text-primary">{t("portfolio.title")}</h1>
+          <p className="mt-1 text-sm text-text-secondary">Manual portfolio entries</p>
+        </div>
+
+        <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
+          <MetricCard label={t("portfolio.metric.totalValue")} value={0} prefix={EUR} sentiment="neutral" />
+          <MetricCard label={t("portfolio.metric.cashFlow")} value={0} prefix={EUR} sentiment="neutral" />
+          <MetricCard label={t("portfolio.metric.avgYield")} value={0} suffix="%" sentiment="neutral" />
+          <MetricCard label={t("portfolio.metric.properties")} value={manualCount} sentiment="neutral" />
+        </div>
+
+        <Tabs value={tab} onValueChange={setTab} className="w-full">
+          <TabsList className="h-auto bg-transparent p-0 gap-0 border-b border-border-default rounded-none w-full justify-start">
+            {TABS.map((t) => (
+              <TabsTrigger
+                key={t}
+                value={t}
+                className={cn(
+                  "rounded-none border-b-2 border-transparent px-4 py-2.5 text-sm text-text-secondary capitalize transition-colors",
+                  "data-[state=active]:border-brand data-[state=active]:text-brand data-[state=active]:shadow-none"
+                )}
+              >
+                {t === "all" ? `All (${manualCount})` : t}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+
+        <ManualPortfolioSection activeTab={tab} />
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div>
