@@ -1,6 +1,7 @@
 "use client"
 
 import { formatEUR } from "@/lib/format"
+import { useLocale } from "@/lib/i18n/locale-context"
 import type { AnalyseResponse } from "@/types/api"
 
 type FlagLevel = "ok" | "warn" | "bad" | "info"
@@ -21,70 +22,61 @@ const FLAG_THRESHOLDS = {
   LTV_WARN: 90,
 } as const
 
-function buildFlags(r: AnalyseResponse): Flag[] {
+function buildFlags(r: AnalyseResponse, locale: "en" | "de"): Flag[] {
   const flags: Flag[] = []
 
-  // Net yield
-  if (r.net_yield_pct >= FLAG_THRESHOLDS.NET_YIELD_OK) {
-    flags.push({ level: "ok", text: `Net yield ${r.net_yield_pct.toFixed(1)}% — above threshold` })
-  } else if (r.net_yield_pct >= FLAG_THRESHOLDS.NET_YIELD_WARN) {
-    flags.push({ level: "warn", text: `Net yield ${r.net_yield_pct.toFixed(1)}% — below ${FLAG_THRESHOLDS.NET_YIELD_OK}% target` })
-  } else {
-    flags.push({ level: "bad", text: `Net yield ${r.net_yield_pct.toFixed(1)}% — low return` })
-  }
+  if (locale === "de") {
+    if (r.net_yield_pct >= FLAG_THRESHOLDS.NET_YIELD_OK) flags.push({ level: "ok", text: `Nettorendite ${r.net_yield_pct.toFixed(1)}% — über Zielwert` })
+    else if (r.net_yield_pct >= FLAG_THRESHOLDS.NET_YIELD_WARN) flags.push({ level: "warn", text: `Nettorendite ${r.net_yield_pct.toFixed(1)}% — unter ${FLAG_THRESHOLDS.NET_YIELD_OK}% Ziel` })
+    else flags.push({ level: "bad", text: `Nettorendite ${r.net_yield_pct.toFixed(1)}% — niedrige Rendite` })
 
-  // KPF
-  if (r.kpf < FLAG_THRESHOLDS.KPF_OK) {
-    flags.push({ level: "ok", text: `Kaufpreisfaktor ${r.kpf.toFixed(1)}× — fair value` })
-  } else if (r.kpf < FLAG_THRESHOLDS.KPF_WARN) {
-    flags.push({ level: "warn", text: `Kaufpreisfaktor ${r.kpf.toFixed(1)}× — above ${FLAG_THRESHOLDS.KPF_OK}× threshold` })
-  } else {
-    flags.push({ level: "bad", text: `Kaufpreisfaktor ${r.kpf.toFixed(1)}× — above ${FLAG_THRESHOLDS.KPF_WARN}× threshold` })
-  }
+    if (r.kpf < FLAG_THRESHOLDS.KPF_OK) flags.push({ level: "ok", text: `Kaufpreisfaktor ${r.kpf.toFixed(1)}× — fair bewertet` })
+    else if (r.kpf < FLAG_THRESHOLDS.KPF_WARN) flags.push({ level: "warn", text: `Kaufpreisfaktor ${r.kpf.toFixed(1)}× — über ${FLAG_THRESHOLDS.KPF_OK}× Schwelle` })
+    else flags.push({ level: "bad", text: `Kaufpreisfaktor ${r.kpf.toFixed(1)}× — über ${FLAG_THRESHOLDS.KPF_WARN}× Schwelle` })
 
-  // Cash flow
-  if (r.cash_flow_monthly_yr1 >= FLAG_THRESHOLDS.CASHFLOW_OK) {
-    flags.push({ level: "ok", text: `Cashflow positive (Yr 1)` })
-  } else if (r.cash_flow_monthly_yr1 >= FLAG_THRESHOLDS.CASHFLOW_WARN) {
-    flags.push({ level: "warn", text: `Cashflow slightly negative: ${formatEUR(r.cash_flow_monthly_yr1)}/mo (Yr 1)` })
-  } else {
-    flags.push({ level: "bad", text: `Cashflow negative: ${formatEUR(r.cash_flow_monthly_yr1)}/mo (Yr 1)` })
-  }
+    if (r.cash_flow_monthly_yr1 >= FLAG_THRESHOLDS.CASHFLOW_OK) flags.push({ level: "ok", text: "Cashflow positiv (Jahr 1)" })
+    else if (r.cash_flow_monthly_yr1 >= FLAG_THRESHOLDS.CASHFLOW_WARN) flags.push({ level: "warn", text: `Cashflow leicht negativ: ${formatEUR(r.cash_flow_monthly_yr1)}/Monat (Jahr 1)` })
+    else flags.push({ level: "bad", text: `Cashflow negativ: ${formatEUR(r.cash_flow_monthly_yr1)}/Monat (Jahr 1)` })
 
-  // LTV
-  if (r.ltv_pct != null) {
-    if (r.ltv_pct < FLAG_THRESHOLDS.LTV_OK) {
-      flags.push({ level: "ok", text: `LTV ${r.ltv_pct.toFixed(0)}% — within safe range` })
-    } else if (r.ltv_pct < FLAG_THRESHOLDS.LTV_WARN) {
-      flags.push({ level: "warn", text: `LTV ${r.ltv_pct.toFixed(0)}% — above ${FLAG_THRESHOLDS.LTV_OK}% threshold` })
-    } else {
-      flags.push({ level: "bad", text: `LTV ${r.ltv_pct.toFixed(0)}% — high leverage` })
+    if (r.ltv_pct != null) {
+      if (r.ltv_pct < FLAG_THRESHOLDS.LTV_OK) flags.push({ level: "ok", text: `LTV ${r.ltv_pct.toFixed(0)}% — im sicheren Bereich` })
+      else if (r.ltv_pct < FLAG_THRESHOLDS.LTV_WARN) flags.push({ level: "warn", text: `LTV ${r.ltv_pct.toFixed(0)}% — über ${FLAG_THRESHOLDS.LTV_OK}% Schwelle` })
+      else flags.push({ level: "bad", text: `LTV ${r.ltv_pct.toFixed(0)}% — hohe Hebelwirkung` })
     }
+
+    if (r.afa_tax_saving_yr1 != null && r.afa_tax_saving_yr1 > 0) flags.push({ level: "info", text: `AfA Steuerersparnis: ${formatEUR(r.afa_tax_saving_yr1)}/Jahr` })
+
+    return flags
   }
 
-  // AfA info
-  if (r.afa_tax_saving_yr1 != null && r.afa_tax_saving_yr1 > 0) {
-    flags.push({
-      level: "info",
-      text: `AfA tax saving: ${formatEUR(r.afa_tax_saving_yr1)}/yr`,
-    })
+  if (r.net_yield_pct >= FLAG_THRESHOLDS.NET_YIELD_OK) flags.push({ level: "ok", text: `Net yield ${r.net_yield_pct.toFixed(1)}% — above threshold` })
+  else if (r.net_yield_pct >= FLAG_THRESHOLDS.NET_YIELD_WARN) flags.push({ level: "warn", text: `Net yield ${r.net_yield_pct.toFixed(1)}% — below ${FLAG_THRESHOLDS.NET_YIELD_OK}% target` })
+  else flags.push({ level: "bad", text: `Net yield ${r.net_yield_pct.toFixed(1)}% — low return` })
+
+  if (r.kpf < FLAG_THRESHOLDS.KPF_OK) flags.push({ level: "ok", text: `Purchase factor ${r.kpf.toFixed(1)}× — fair value` })
+  else if (r.kpf < FLAG_THRESHOLDS.KPF_WARN) flags.push({ level: "warn", text: `Purchase factor ${r.kpf.toFixed(1)}× — above ${FLAG_THRESHOLDS.KPF_OK}× threshold` })
+  else flags.push({ level: "bad", text: `Purchase factor ${r.kpf.toFixed(1)}× — above ${FLAG_THRESHOLDS.KPF_WARN}× threshold` })
+
+  if (r.cash_flow_monthly_yr1 >= FLAG_THRESHOLDS.CASHFLOW_OK) flags.push({ level: "ok", text: "Cashflow positive (Yr 1)" })
+  else if (r.cash_flow_monthly_yr1 >= FLAG_THRESHOLDS.CASHFLOW_WARN) flags.push({ level: "warn", text: `Cashflow slightly negative: ${formatEUR(r.cash_flow_monthly_yr1)}/mo (Yr 1)` })
+  else flags.push({ level: "bad", text: `Cashflow negative: ${formatEUR(r.cash_flow_monthly_yr1)}/mo (Yr 1)` })
+
+  if (r.ltv_pct != null) {
+    if (r.ltv_pct < FLAG_THRESHOLDS.LTV_OK) flags.push({ level: "ok", text: `LTV ${r.ltv_pct.toFixed(0)}% — within safe range` })
+    else if (r.ltv_pct < FLAG_THRESHOLDS.LTV_WARN) flags.push({ level: "warn", text: `LTV ${r.ltv_pct.toFixed(0)}% — above ${FLAG_THRESHOLDS.LTV_OK}% threshold` })
+    else flags.push({ level: "bad", text: `LTV ${r.ltv_pct.toFixed(0)}% — high leverage` })
   }
+
+  if (r.afa_tax_saving_yr1 != null && r.afa_tax_saving_yr1 > 0) flags.push({ level: "info", text: `AfA tax saving: ${formatEUR(r.afa_tax_saving_yr1)}/yr` })
 
   return flags
 }
 
-const LEVEL_ICON: Record<FlagLevel, string> = {
-  ok: "✓",
-  warn: "⚠",
-  bad: "✕",
-  info: "ℹ",
-}
-
-const LEVEL_COLOR: Record<FlagLevel, string> = {
-  ok: "text-success",
-  warn: "text-warning",
-  bad: "text-danger",
-  info: "text-brand",
+const LEVEL_DOT: Record<FlagLevel, string> = {
+  ok: "bg-success",
+  warn: "bg-warning",
+  bad: "bg-danger",
+  info: "bg-brand",
 }
 
 interface FlagsSectionProps {
@@ -92,15 +84,14 @@ interface FlagsSectionProps {
 }
 
 export function FlagsSection({ result }: FlagsSectionProps) {
-  const flags = buildFlags(result)
+  const { locale } = useLocale()
+  const flags = buildFlags(result, locale)
 
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-2">
       {flags.map((flag) => (
         <div key={flag.text} className="flex items-start gap-2 text-sm">
-          <span className={`mt-0.5 shrink-0 font-bold ${LEVEL_COLOR[flag.level]}`}>
-            {LEVEL_ICON[flag.level]}
-          </span>
+          <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${LEVEL_DOT[flag.level]}`} />
           <span className="text-text-secondary">{flag.text}</span>
         </div>
       ))}
