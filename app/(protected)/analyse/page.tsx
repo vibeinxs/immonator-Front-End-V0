@@ -16,6 +16,10 @@ import { useAnalysisStore } from "@/store/analysisStore"
 import { useLocale } from "@/lib/i18n/locale-context"
 import type { AnalyseRequest, AnalyseResponse } from "@/types/api"
 
+
+const NEGOTIATION_SCORE_THRESHOLD = 6
+const NEGOTIATION_NEGATIVE_CASHFLOW_THRESHOLD = 0
+
 function toChartData(yearData: AnalyseResponse["year_data"]): YearData[] {
   return yearData.map((y) => ({
     year: y.year,
@@ -127,23 +131,25 @@ function SectionShell({ title, description, children }: { title: string; descrip
 
 function aiInsightText(result: AnalyseResponse) {
   const verdict = result.verdict.replaceAll("_", " ")
-  const cf = result.cash_flow_monthly_yr1 >= 0 ? `+${result.cash_flow_monthly_yr1.toFixed(0)}` : result.cash_flow_monthly_yr1.toFixed(0)
+  const cashflowRounded = result.cash_flow_monthly_yr1.toFixed(0)
+  const cf = result.cash_flow_monthly_yr1 >= 0 ? `+${cashflowRounded}` : cashflowRounded
   return `${verdict} · Score ${result.score.toFixed(1)}/10 · Net yield ${result.net_yield_pct.toFixed(1)}% · Cashflow ${cf}€/mo`
 }
 
 function negotiationBullets(result: AnalyseResponse) {
   const asks: string[] = []
-  if (result.score < 6) {
+  if (result.score < NEGOTIATION_SCORE_THRESHOLD) {
     asks.push("Anchor your offer below list price and justify it with the lower overall investment score.")
   }
-  if (result.cash_flow_monthly_yr1 < 0) {
+  if (result.cash_flow_monthly_yr1 < NEGOTIATION_NEGATIVE_CASHFLOW_THRESHOLD) {
     asks.push("Use the negative first-year cashflow as leverage for either price reduction or seller concessions.")
   }
   if ((result.market_rent_m2 ?? 0) > 0) {
     asks.push(`Reference local rent levels (${result.market_rent_m2}€/m²) to validate your income assumptions during negotiation.`)
   }
-  asks.push("Prepare a clear walk-away price based on your target IRR and maximum acceptable monthly cashflow.")
-  return asks.slice(0, 3)
+  const finalAsks = asks.slice(0, 2)
+  finalAsks.push("Prepare a clear walk-away price based on your target IRR and maximum acceptable monthly cashflow.")
+  return finalAsks
 }
 
 function AskAiShell({ mode }: { mode: "single" | "compare" }) {
