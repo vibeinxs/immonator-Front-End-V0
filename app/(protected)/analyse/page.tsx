@@ -265,7 +265,7 @@ export default function AnalysePage() {
     if (analysisResultPayload.kind === "single") {
       return {
         mode: "single",
-        primaryText: analysisResultPayload.property.result.ai_analysis || t("analyse.ai.empty"),
+        primaryText: activeResult?.ai_analysis || t("analyse.ai.empty"),
       }
     }
 
@@ -279,7 +279,7 @@ export default function AnalysePage() {
         propertyB: analysisResultPayload.propertyB?.result.ai_analysis || t("analyse.ai.empty"),
       },
     }
-  }, [analysisResultPayload, selectedProperty, t])
+  }, [activeResult, analysisResultPayload, selectedProperty, t])
 
   const negotiationPayload = useMemo<NegotiationStrategyPayload | null>(() => {
     if (!activeResult) return null

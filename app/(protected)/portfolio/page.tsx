@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { ChevronDown } from "lucide-react"
 import { MetricCard } from "@/components/metric-card"
@@ -250,6 +250,7 @@ export default function PortfolioPage() {
   const [analysing, setAnalysing] = useState(false)
   const [manualCount, setManualCount] = useState(0)
   const [openingPropertyId, setOpeningPropertyId] = useState<string | null>(null)
+  const openingInFlightRef = useRef(false)
   const { inputA, setInputA, setResultA } = useAnalysisStore()
 
   const mapPropertyToInput = useCallback((property: Property, baseInput: AnalyseRequest): AnalyseRequest => {
@@ -270,14 +271,21 @@ export default function PortfolioPage() {
   }, [])
 
   const handleOpenBackendAnalysis = useCallback(async (propertyId: string) => {
+    if (openingInFlightRef.current) return
+
+    openingInFlightRef.current = true
     setOpeningPropertyId(propertyId)
-    const { data } = await immoApi.fetchPropertyById(propertyId)
-    if (data) {
-      setInputA(mapPropertyToInput(data, inputA))
-      setResultA(null)
-      router.push("/analyse")
+    try {
+      const { data } = await immoApi.fetchPropertyById(propertyId)
+      if (data) {
+        setInputA(mapPropertyToInput(data, inputA))
+        setResultA(null)
+        router.push("/analyse")
+      }
+    } finally {
+      openingInFlightRef.current = false
+      setOpeningPropertyId(null)
     }
-    setOpeningPropertyId(null)
   }, [inputA, mapPropertyToInput, router, setInputA, setResultA])
 
   useEffect(() => {
@@ -606,7 +614,7 @@ export default function PortfolioPage() {
                           e.stopPropagation()
                           void handleOpenBackendAnalysis(p.id)
                         }}
-                        disabled={openingPropertyId === p.id}
+                        disabled={openingPropertyId !== null}
                         className="text-xs text-brand hover:underline disabled:opacity-50"
                       >
                         {openingPropertyId === p.id ? "Opening..." : "Open Analysis"}
@@ -645,7 +653,7 @@ export default function PortfolioPage() {
                     e.stopPropagation()
                     void handleOpenBackendAnalysis(p.id)
                   }}
-                  disabled={openingPropertyId === p.id}
+                  disabled={openingPropertyId !== null}
                   className="mt-3 text-xs text-brand hover:underline disabled:opacity-50"
                 >
                   {openingPropertyId === p.id ? "Opening..." : "Open Analysis"}
