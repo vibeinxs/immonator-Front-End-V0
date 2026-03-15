@@ -29,14 +29,22 @@ export interface AIInsightPayload {
   netYieldPct: number
   cashflowMonthlyYr1: number
   summaryLine: string
+  cards: Array<{
+    id: "verdict" | "score" | "netYield" | "cashflow"
+    label: string
+    value: string
+  }>
 }
 
 export interface AIAnalysisPayload {
   mode: AnalysisMode
   primaryText: string
+  primaryNarrative: string[]
   compare?: {
     propertyA: string
     propertyB: string
+    narrativeA: string[]
+    narrativeB: string[]
   }
 }
 
@@ -57,4 +65,9 @@ export interface AskAiContextPayload {
   propertyInputs: Record<PropertySlot, AnalyseRequest>
   propertyResults: Partial<Record<PropertySlot, AnalyseResponse | null>>
   promptHints: string[]
+  mockMessages: Array<{
+    id: string
+    role: "assistant" | "user"
+    text: string
+  }>
 }

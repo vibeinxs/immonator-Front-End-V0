@@ -31,10 +31,6 @@ const NEGOTIATION_SCORE_THRESHOLD = 6
 const NEGOTIATION_NEGATIVE_CASHFLOW_THRESHOLD = 0
 const NEGOTIATION_DYNAMIC_POINTS_LIMIT = 2
 
-
-const NEGOTIATION_SCORE_THRESHOLD = 6
-const NEGOTIATION_NEGATIVE_CASHFLOW_THRESHOLD = 0
-
 function toChartData(yearData: AnalyseResponse["year_data"]): YearData[] {
   return yearData.map((y) => ({
     year: y.year,
@@ -151,6 +147,31 @@ function aiInsightText(result: AnalyseResponse, t: (k: string) => string) {
   return `${verdict} · Score ${result.score.toFixed(1)}/10 · Net yield ${result.net_yield_pct.toFixed(1)}% · Cashflow ${cf}€/mo`
 }
 
+function aiInsightCards(result: AnalyseResponse, t: (k: string) => string) {
+  const cf = `${result.cash_flow_monthly_yr1 >= 0 ? "+" : ""}${result.cash_flow_monthly_yr1.toFixed(0)}€/mo`
+  return [
+    { id: "verdict" as const, label: t("analyse.results.verdictTitle"), value: t(`verdict.${result.verdict}`) },
+    { id: "score" as const, label: "Score", value: `${result.score.toFixed(1)}/10` },
+    { id: "netYield" as const, label: t("analyse.kpi.netYield"), value: `${result.net_yield_pct.toFixed(1)}%` },
+    { id: "cashflow" as const, label: t("analyse.kpi.cashFlowYr1"), value: cf },
+  ]
+}
+
+function aiNarrative(result: AnalyseResponse, input: AnalyseRequest, t: (k: string) => string): string[] {
+  if (result.ai_analysis && result.ai_analysis.trim().length > 0) {
+    return result.ai_analysis
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+  }
+
+  return [
+    `${t("analyse.results.verdictTitle")}: ${t(`verdict.${result.verdict}`)} (${result.score.toFixed(1)}/10).`,
+    `${t("analyse.kpi.netYield")}: ${result.net_yield_pct.toFixed(1)}% · ${t("analyse.kpi.purchaseFactor")}: ${result.kpf.toFixed(1)}× · IRR 10y: ${result.irr_10.toFixed(1)}%.`,
+    `${t("analyse.kpi.cashFlowYr1")}: ${result.cash_flow_monthly_yr1.toFixed(0)}€/mo · ${t("analyse.market.address")}: ${result.address_resolved || input.address}.`,
+  ]
+}
+
 function negotiationBullets(result: AnalyseResponse, t: (k: string) => string): NegotiationStrategyItem[] {
   const rentReferenceText = result.market_rent_m2 && result.market_rent_m2 > 0
     ? t("analyse.new.negotiation.rentReference").replace("{0}", String(result.market_rent_m2))
@@ -177,23 +198,19 @@ function negotiationBullets(result: AnalyseResponse, t: (k: string) => string): 
 
 function AskAiShell({ context, t }: { context: AskAiContextPayload; t: (k: string) => string }) {
   const mode = context.mode
-  const hint = context.promptHints[0]
+  const messages = context.mockMessages
 
   return (
     <div className="rounded-xl border border-border-default bg-bg-base">
       <div className="max-h-64 space-y-3 overflow-y-auto border-b border-border-default p-4">
-        <div className="flex justify-start">
-          <div className="max-w-[85%] rounded-2xl rounded-bl-sm border border-border-default bg-bg-surface px-4 py-2.5 text-sm text-text-secondary">
-            {t("analyse.new.askAi.shellIntro")}
-          </div>
-        </div>
-        {mode === "compare" ? (
-          <div className="flex justify-start">
-            <div className="max-w-[85%] rounded-2xl rounded-bl-sm border border-border-default bg-bg-surface px-4 py-2.5 text-sm text-text-secondary">
-              {hint || t("analyse.new.askAi.shellCompareHint")}
+        {messages.map((message) => (
+          <div key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
+            <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm ${message.role === "user" ? "rounded-br-sm bg-brand text-white" : "rounded-bl-sm border border-border-default bg-bg-surface text-text-secondary"}`}>
+              {message.text}
             </div>
           </div>
-        ) : null}
+        ))}
+        {mode === "compare" && context.promptHints[0] ? <p className="text-xs text-text-muted">{context.promptHints[0]}</p> : null}
       </div>
       <div className="flex gap-2 p-3">
         <input
@@ -260,6 +277,7 @@ export default function AnalysePage() {
       netYieldPct: activeResult.net_yield_pct,
       cashflowMonthlyYr1: activeResult.cash_flow_monthly_yr1,
       summaryLine: aiInsightText(activeResult, t),
+      cards: aiInsightCards(activeResult, t),
     }
   }, [activeResult, t])
 
@@ -267,11 +285,20 @@ export default function AnalysePage() {
     if (!analysisResultPayload) return null
 
     if (analysisResultPayload.kind === "single") {
+      const narrative = aiNarrative(activeResult ?? analysisResultPayload.property.result, activeInput, t)
       return {
         mode: "single",
         primaryText: activeResult?.ai_analysis || t("analyse.ai.empty"),
+        primaryNarrative: narrative,
       }
     }
+
+    const narrativeA = analysisResultPayload.propertyA
+      ? aiNarrative(analysisResultPayload.propertyA.result, analysisResultPayload.propertyA.input, t)
+      : [t("analyse.ai.empty")]
+    const narrativeB = analysisResultPayload.propertyB
+      ? aiNarrative(analysisResultPayload.propertyB.result, analysisResultPayload.propertyB.input, t)
+      : [t("analyse.ai.empty")]
 
     return {
       mode: "compare",
@@ -281,9 +308,12 @@ export default function AnalysePage() {
       compare: {
         propertyA: analysisResultPayload.propertyA?.result.ai_analysis || t("analyse.ai.empty"),
         propertyB: analysisResultPayload.propertyB?.result.ai_analysis || t("analyse.ai.empty"),
+        narrativeA,
+        narrativeB,
       },
+      primaryNarrative: selectedProperty === "A" ? narrativeA : narrativeB,
     }
-  }, [activeResult, analysisResultPayload, selectedProperty, t])
+  }, [activeInput, activeResult, analysisResultPayload, selectedProperty, t])
 
   const negotiationPayload = useMemo<NegotiationStrategyPayload | null>(() => {
     if (!activeResult) return null
@@ -312,8 +342,19 @@ export default function AnalysePage() {
       promptHints: mode === "compare"
         ? [t("analyse.new.askAi.shellCompareHint")]
         : [],
+      mockMessages: mode === "compare"
+        ? [
+            { id: "a1", role: "assistant", text: t("analyse.new.askAi.shellIntro") },
+            { id: "u1", role: "user", text: t("analyse.new.askAi.shellCompareHint") },
+            { id: "a2", role: "assistant", text: `${t("analyse.propertyA")} ${resultA ? `(${resultA.score.toFixed(1)}/10)` : ""} · ${t("analyse.propertyB")} ${resultB ? `(${resultB.score.toFixed(1)}/10)` : ""}`.trim() },
+          ]
+        : [
+            { id: "a1", role: "assistant", text: t("analyse.new.askAi.shellIntro") },
+            { id: "u1", role: "user", text: t("analyse.new.askAi.inputPlaceholder") },
+            { id: "a2", role: "assistant", text: activeResult ? aiInsightText(activeResult, t) : t("analyse.ai.empty") },
+          ],
     })
-  }, [analysisResultPayload, inputA, inputB, mode, resultA, resultB, selectedProperty, t])
+  }, [activeResult, analysisResultPayload, inputA, inputB, mode, resultA, resultB, selectedProperty, t])
 
   const analyseOne = useCallback(async (input: AnalyseRequest, setResult: (r: AnalyseResponse) => void) => {
     const { data } = await analyseProperty(input)
@@ -434,7 +475,15 @@ export default function AnalysePage() {
               </SectionShell>
 
               <SectionShell title={t("analyse.new.aiInsight.title")} description={t("analyse.new.aiInsight.description")}>
-                <p className="text-sm text-text-secondary">{aiInsightPayload?.summaryLine ?? ""}</p>
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  {aiInsightPayload?.cards.map((card) => (
+                    <div key={card.id} className="rounded-xl border border-border-default bg-bg-base p-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{card.label}</p>
+                      <p className="mt-1 font-mono text-lg font-semibold text-text-primary">{card.value}</p>
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-3 text-sm text-text-secondary">{aiInsightPayload?.summaryLine ?? ""}</p>
               </SectionShell>
 
               <SectionShell title={t("analyse.new.aiAnalysis.title")} description={t("analyse.new.aiAnalysis.description")}>
@@ -442,24 +491,39 @@ export default function AnalysePage() {
                   <div className="grid gap-3 lg:grid-cols-2">
                     <div className="rounded-xl border border-border-default bg-bg-base p-4">
                       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">{t("analyse.propertyA")}</p>
-                      <p className="whitespace-pre-wrap text-sm leading-relaxed text-text-secondary">{aiAnalysisPayload.compare?.propertyA || t("analyse.ai.empty")}</p>
+                      <div className="space-y-2 text-sm leading-relaxed text-text-secondary">
+                        {(aiAnalysisPayload.compare?.narrativeA || [t("analyse.ai.empty")]).map((line, idx) => (
+                          <p key={`a-${idx}`}>{line}</p>
+                        ))}
+                      </div>
                     </div>
                     <div className="rounded-xl border border-border-default bg-bg-base p-4">
                       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">{t("analyse.propertyB")}</p>
-                      <p className="whitespace-pre-wrap text-sm leading-relaxed text-text-secondary">{aiAnalysisPayload.compare?.propertyB || t("analyse.ai.empty")}</p>
+                      <div className="space-y-2 text-sm leading-relaxed text-text-secondary">
+                        {(aiAnalysisPayload.compare?.narrativeB || [t("analyse.ai.empty")]).map((line, idx) => (
+                          <p key={`b-${idx}`}>{line}</p>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 ) : (
-                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-text-secondary">{aiAnalysisPayload?.primaryText || t("analyse.ai.empty")}</p>
+                  <div className="space-y-2 text-sm leading-relaxed text-text-secondary">
+                    {(aiAnalysisPayload?.primaryNarrative || [t("analyse.ai.empty")]).map((line, idx) => (
+                      <p key={`single-${idx}`}>{line}</p>
+                    ))}
+                  </div>
                 )}
               </SectionShell>
 
               <SectionShell title={t("analyse.new.negotiation.title")} description={t("analyse.new.negotiation.description")}>
-                <ul className="space-y-2 text-sm text-text-secondary">
+                <div className="grid gap-2 md:grid-cols-2">
                   {negotiationPayload?.items.map((item) => (
-                    <li key={item.id} className="rounded-lg border border-border-default bg-bg-base px-3 py-2">• {item.text}</li>
+                    <article key={item.id} className="rounded-lg border border-border-default bg-bg-base px-3 py-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{item.id}</p>
+                      <p className="mt-1 text-sm text-text-secondary">{item.text}</p>
+                    </article>
                   ))}
-                </ul>
+                </div>
               </SectionShell>
 
               <SectionShell title={t("analyse.new.askAi.title")} description={t("analyse.new.askAi.description")}>
