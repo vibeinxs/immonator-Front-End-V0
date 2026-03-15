@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useMemo, useRef, useState } from "react"
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Loader2 } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AnalysisInputPanel } from "@/features/analysis/AnalysisInputPanel"
@@ -15,6 +15,20 @@ import { runLocalCompute } from "@/lib/localComputeBridge"
 import { useAnalysisStore } from "@/store/analysisStore"
 import { useLocale } from "@/lib/i18n/locale-context"
 import type { AnalyseRequest, AnalyseResponse } from "@/types/api"
+import type {
+  AIAnalysisPayload,
+  AIInsightPayload,
+  AnalysisResultPayload,
+  AskAiContextPayload,
+  ComparisonAnalysisResult,
+  NegotiationStrategyItem,
+  NegotiationStrategyPayload,
+  SinglePropertyAnalysisResult,
+} from "@/types/analyseView"
+
+
+const NEGOTIATION_SCORE_THRESHOLD = 6
+const NEGOTIATION_NEGATIVE_CASHFLOW_THRESHOLD = 0
 
 function toChartData(yearData: AnalyseResponse["year_data"]): YearData[] {
   return yearData.map((y) => ({
@@ -113,20 +127,180 @@ function MarketDataPanel({ input, result }: { input: AnalyseRequest; result: Ana
   )
 }
 
+function SectionShell({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
+  return (
+    <section className="rounded-2xl border border-border-default bg-bg-surface">
+      <div className="border-b border-border-default px-4 py-3 md:px-5">
+        <h2 className="text-sm font-semibold text-text-primary md:text-base">{title}</h2>
+        {description ? <p className="mt-1 text-xs text-text-muted md:text-sm">{description}</p> : null}
+      </div>
+      <div className="p-4 md:p-5">{children}</div>
+    </section>
+  )
+}
+
+function aiInsightText(result: AnalyseResponse, t: (k: string) => string) {
+  const verdict = t(`verdict.${result.verdict}`)
+  const cashflowRounded = result.cash_flow_monthly_yr1.toFixed(0)
+  const cf = result.cash_flow_monthly_yr1 >= 0 ? `+${cashflowRounded}` : cashflowRounded
+  return `${verdict} · Score ${result.score.toFixed(1)}/10 · Net yield ${result.net_yield_pct.toFixed(1)}% · Cashflow ${cf}€/mo`
+}
+
+function negotiationBullets(result: AnalyseResponse, t: (k: string) => string): NegotiationStrategyItem[] {
+  const asks: NegotiationStrategyItem[] = []
+  if (result.score < NEGOTIATION_SCORE_THRESHOLD) {
+    asks.push({ id: "anchor", text: t("analyse.new.negotiation.anchor") })
+  }
+  if (result.cash_flow_monthly_yr1 < NEGOTIATION_NEGATIVE_CASHFLOW_THRESHOLD) {
+    asks.push({ id: "cashflow", text: t("analyse.new.negotiation.cashflow") })
+  }
+  if (result.market_rent_m2 && result.market_rent_m2 > 0) {
+    asks.push({ id: "rentReference", text: t("analyse.new.negotiation.rentReference").replace("{0}", String(result.market_rent_m2)) })
+  }
+  const finalAsks = asks.slice(0, 2)
+  finalAsks.push({ id: "walkAway", text: t("analyse.new.negotiation.walkAway") })
+  return finalAsks
+}
+
+function AskAiShell({ context, t }: { context: AskAiContextPayload; t: (k: string) => string }) {
+  const mode = context.mode
+  const hint = context.promptHints[0]
+
+  return (
+    <div className="rounded-xl border border-border-default bg-bg-base">
+      <div className="max-h-64 space-y-3 overflow-y-auto border-b border-border-default p-4">
+        <div className="flex justify-start">
+          <div className="max-w-[85%] rounded-2xl rounded-bl-sm border border-border-default bg-bg-surface px-4 py-2.5 text-sm text-text-secondary">
+            {t("analyse.new.askAi.shellIntro")}
+          </div>
+        </div>
+        {mode === "compare" ? (
+          <div className="flex justify-start">
+            <div className="max-w-[85%] rounded-2xl rounded-bl-sm border border-border-default bg-bg-surface px-4 py-2.5 text-sm text-text-secondary">
+              {hint || t("analyse.new.askAi.shellCompareHint")}
+            </div>
+          </div>
+        ) : null}
+      </div>
+      <div className="flex gap-2 p-3">
+        <input
+          type="text"
+          disabled
+          placeholder={t("analyse.new.askAi.inputPlaceholder")}
+          className="flex-1 rounded-xl border border-border-default bg-bg-elevated px-4 py-2.5 text-sm text-text-muted"
+        />
+        <button disabled className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white opacity-50">
+          {t("analyse.new.askAi.send")}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function AnalysePage() {
   const { t } = useLocale()
   const { inputA, setInputA, resultA, setResultA, inputB, setInputB, resultB, setResultB } = useAnalysisStore()
 
   const [mode, setMode] = useState<"single" | "compare">("single")
-  const [resultTab, setResultTab] = useState<"overview" | "projections" | "ai" | "market">("overview")
+  const [resultTab, setResultTab] = useState<"overview" | "projections" | "market">("overview")
   const [selectedProperty, setSelectedProperty] = useState<"A" | "B">("A")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [askAiContext, setAskAiContext] = useState<AskAiContextPayload | null>(null)
   const resultTopRef = useRef<HTMLDivElement | null>(null)
 
   const activeInput = selectedProperty === "A" ? inputA : inputB
   const activeResult = selectedProperty === "A" ? resultA : resultB
   const hasResults = mode === "single" ? !!resultA : !!resultA || !!resultB
+
+  const analysisResultPayload = useMemo<AnalysisResultPayload | null>(() => {
+    if (mode === "single") {
+      if (!resultA) return null
+      const singleResult: SinglePropertyAnalysisResult = {
+        kind: "single",
+        property: {
+          slot: "A",
+          input: inputA,
+          result: resultA,
+        },
+      }
+      return singleResult
+    }
+
+    if (!resultA && !resultB) return null
+
+    const compareResult: ComparisonAnalysisResult = {
+      kind: "compare",
+      selectedProperty,
+      propertyA: resultA ? { slot: "A", input: inputA, result: resultA } : null,
+      propertyB: resultB ? { slot: "B", input: inputB, result: resultB } : null,
+    }
+
+    return compareResult
+  }, [inputA, inputB, mode, resultA, resultB, selectedProperty])
+
+  const aiInsightPayload = useMemo<AIInsightPayload | null>(() => {
+    if (!activeResult) return null
+    return {
+      verdictLabel: t(`verdict.${activeResult.verdict}`),
+      score: activeResult.score,
+      netYieldPct: activeResult.net_yield_pct,
+      cashflowMonthlyYr1: activeResult.cash_flow_monthly_yr1,
+      summaryLine: aiInsightText(activeResult, t),
+    }
+  }, [activeResult, t])
+
+  const aiAnalysisPayload = useMemo<AIAnalysisPayload | null>(() => {
+    if (!analysisResultPayload) return null
+
+    if (analysisResultPayload.kind === "single") {
+      return {
+        mode: "single",
+        primaryText: analysisResultPayload.property.result.ai_analysis || t("analyse.ai.empty"),
+      }
+    }
+
+    return {
+      mode: "compare",
+      primaryText: selectedProperty === "A"
+        ? analysisResultPayload.propertyA?.result.ai_analysis || t("analyse.ai.empty")
+        : analysisResultPayload.propertyB?.result.ai_analysis || t("analyse.ai.empty"),
+      compare: {
+        propertyA: analysisResultPayload.propertyA?.result.ai_analysis || t("analyse.ai.empty"),
+        propertyB: analysisResultPayload.propertyB?.result.ai_analysis || t("analyse.ai.empty"),
+      },
+    }
+  }, [analysisResultPayload, selectedProperty, t])
+
+  const negotiationPayload = useMemo<NegotiationStrategyPayload | null>(() => {
+    if (!activeResult) return null
+    return {
+      items: negotiationBullets(activeResult, t),
+    }
+  }, [activeResult, t])
+
+  useEffect(() => {
+    if (!analysisResultPayload) {
+      setAskAiContext(null)
+      return
+    }
+
+    setAskAiContext({
+      mode,
+      selectedProperty,
+      propertyInputs: {
+        A: inputA,
+        B: inputB,
+      },
+      propertyResults: {
+        A: resultA,
+        B: resultB,
+      },
+      promptHints: mode === "compare"
+        ? [t("analyse.new.askAi.shellCompareHint")]
+        : [],
+    })
+  }, [analysisResultPayload, inputA, inputB, mode, resultA, resultB, selectedProperty, t])
 
   const analyseOne = useCallback(async (input: AnalyseRequest, setResult: (r: AnalyseResponse) => void) => {
     const { data } = await analyseProperty(input)
@@ -210,21 +384,25 @@ export default function AnalysePage() {
               {t("analyse.empty")}
             </div>
           ) : (
-            <Tabs value={resultTab} onValueChange={(v) => setResultTab(v as typeof resultTab)}>
-              <div className="flex items-center justify-between gap-3 border-b border-border-default pb-2">
-                <TabsList className="h-auto bg-transparent p-0 gap-0 rounded-none">
-                  <TabsTrigger value="overview" className="rounded-none border-b-2 border-transparent px-3 py-2 text-sm data-[state=active]:border-brand data-[state=active]:text-brand">{t("analyse.tab.overview")}</TabsTrigger>
-                  <TabsTrigger value="projections" className="rounded-none border-b-2 border-transparent px-3 py-2 text-sm data-[state=active]:border-brand data-[state=active]:text-brand">{t("analyse.tab.projections")}</TabsTrigger>
-                  <TabsTrigger value="ai" className="rounded-none border-b-2 border-transparent px-3 py-2 text-sm data-[state=active]:border-brand data-[state=active]:text-brand">{t("analyse.tab.ai")}</TabsTrigger>
-                  <TabsTrigger value="market" className="rounded-none border-b-2 border-transparent px-3 py-2 text-sm data-[state=active]:border-brand data-[state=active]:text-brand">{t("analyse.tab.market")}</TabsTrigger>
-                </TabsList>
-                {mode === "compare" && compareSelector}
-              </div>
+            <div className="space-y-4">
+              {mode === "compare" ? (
+                <div className="flex justify-end">{compareSelector}</div>
+              ) : null}
 
               {activeResult ? (
                 <>
-                  <TabsContent value="overview" className="mt-4"><ResultOverview input={activeInput} result={activeResult} /></TabsContent>
-                  <TabsContent value="projections" className="mt-4 space-y-4">
+              <SectionShell title={t("analyse.new.analysis.title")} description={t("analyse.new.analysis.description")}>
+                <Tabs value={resultTab} onValueChange={(v) => setResultTab(v as typeof resultTab)}>
+                  <div className="mb-4 flex items-center justify-between gap-3 border-b border-border-default pb-2">
+                    <TabsList className="h-auto bg-transparent p-0 gap-0 rounded-none">
+                      <TabsTrigger value="overview" className="rounded-none border-b-2 border-transparent px-3 py-2 text-sm data-[state=active]:border-brand data-[state=active]:text-brand">{t("analyse.tab.overview")}</TabsTrigger>
+                      <TabsTrigger value="projections" className="rounded-none border-b-2 border-transparent px-3 py-2 text-sm data-[state=active]:border-brand data-[state=active]:text-brand">{t("analyse.tab.projections")}</TabsTrigger>
+                      <TabsTrigger value="market" className="rounded-none border-b-2 border-transparent px-3 py-2 text-sm data-[state=active]:border-brand data-[state=active]:text-brand">{t("analyse.tab.market")}</TabsTrigger>
+                    </TabsList>
+                  </div>
+
+                  <TabsContent value="overview" className="mt-0"><ResultOverview input={activeInput} result={activeResult} /></TabsContent>
+                  <TabsContent value="projections" className="mt-0 space-y-4">
                     <ExitHorizonsTable
                       irr_10={activeResult.irr_10}
                       irr_15={activeResult.irr_15}
@@ -236,21 +414,51 @@ export default function AnalysePage() {
                     />
                     <YearByYearTable yearData={activeResult.year_data} />
                   </TabsContent>
-                  <TabsContent value="ai" className="mt-4">
-                    <div className="rounded-2xl border border-border-default bg-bg-surface p-5 text-sm leading-relaxed text-text-secondary whitespace-pre-wrap">
-                      {activeResult.ai_analysis || t("analyse.ai.empty")}
-                    </div>
-                  </TabsContent>
-                  <TabsContent value="market" className="mt-4">
+                  <TabsContent value="market" className="mt-0">
                     <MarketDataPanel input={activeInput} result={activeResult} />
                   </TabsContent>
+                </Tabs>
+              </SectionShell>
+
+              <SectionShell title={t("analyse.new.aiInsight.title")} description={t("analyse.new.aiInsight.description")}>
+                <p className="text-sm text-text-secondary">{aiInsightPayload?.summaryLine ?? ""}</p>
+              </SectionShell>
+
+              <SectionShell title={t("analyse.new.aiAnalysis.title")} description={t("analyse.new.aiAnalysis.description")}>
+                {aiAnalysisPayload?.mode === "compare" ? (
+                  <div className="grid gap-3 lg:grid-cols-2">
+                    <div className="rounded-xl border border-border-default bg-bg-base p-4">
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">{t("analyse.propertyA")}</p>
+                      <p className="whitespace-pre-wrap text-sm leading-relaxed text-text-secondary">{aiAnalysisPayload.compare?.propertyA || t("analyse.ai.empty")}</p>
+                    </div>
+                    <div className="rounded-xl border border-border-default bg-bg-base p-4">
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">{t("analyse.propertyB")}</p>
+                      <p className="whitespace-pre-wrap text-sm leading-relaxed text-text-secondary">{aiAnalysisPayload.compare?.propertyB || t("analyse.ai.empty")}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-text-secondary">{aiAnalysisPayload?.primaryText || t("analyse.ai.empty")}</p>
+                )}
+              </SectionShell>
+
+              <SectionShell title={t("analyse.new.negotiation.title")} description={t("analyse.new.negotiation.description")}>
+                <ul className="space-y-2 text-sm text-text-secondary">
+                  {negotiationPayload?.items.map((item) => (
+                    <li key={item.id} className="rounded-lg border border-border-default bg-bg-base px-3 py-2">• {item.text}</li>
+                  ))}
+                </ul>
+              </SectionShell>
+
+              <SectionShell title={t("analyse.new.askAi.title")} description={t("analyse.new.askAi.description")}>
+                {askAiContext ? <AskAiShell context={askAiContext} t={t} /> : null}
+              </SectionShell>
                 </>
               ) : (
-                <div className="mt-4 rounded-xl border border-dashed border-border-default bg-bg-surface p-6 text-sm text-text-secondary">
+                <div className="mt-1 rounded-xl border border-dashed border-border-default bg-bg-surface p-6 text-sm text-text-secondary">
                   {t("analyse.compare.pickProperty")}
                 </div>
               )}
-            </Tabs>
+            </div>
           )}
         </section>
       </div>
