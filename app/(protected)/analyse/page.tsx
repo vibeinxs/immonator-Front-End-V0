@@ -31,6 +31,10 @@ const NEGOTIATION_SCORE_THRESHOLD = 6
 const NEGOTIATION_NEGATIVE_CASHFLOW_THRESHOLD = 0
 const NEGOTIATION_DYNAMIC_POINTS_LIMIT = 2
 
+
+const NEGOTIATION_SCORE_THRESHOLD = 6
+const NEGOTIATION_NEGATIVE_CASHFLOW_THRESHOLD = 0
+
 function toChartData(yearData: AnalyseResponse["year_data"]): YearData[] {
   return yearData.map((y) => ({
     year: y.year,
