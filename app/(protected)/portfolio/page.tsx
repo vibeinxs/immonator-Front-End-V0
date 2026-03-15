@@ -17,6 +17,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { listEntries, deleteEntry, updateStatus, type ManualPortfolioEntry, type ManualPortfolioStatus } from "@/lib/manualPortfolio"
 import { useAnalysisStore } from "@/store/analysisStore"
+import type { AnalyseRequest, Property } from "@/types/api"
 
 
 /* ── types ───────────────────────────────────────── */
@@ -111,7 +112,7 @@ const STATUS_BADGE: Record<ManualPortfolioStatus, string> = {
 
 function ManualPortfolioSection({ activeTab }: { activeTab: string }) {
   const router = useRouter()
-  const { setInputA } = useAnalysisStore()
+  const { setInputA, setResultA } = useAnalysisStore()
   const [entries, setEntries] = useState<ManualPortfolioEntry[]>([])
 
   useEffect(() => {
@@ -130,6 +131,7 @@ function ManualPortfolioSection({ activeTab }: { activeTab: string }) {
 
   const handleOpen = (entry: ManualPortfolioEntry) => {
     setInputA(entry.input)
+    setResultA(entry.result)
     router.push("/analyse")
   }
 
@@ -246,10 +248,45 @@ export default function PortfolioPage() {
   const [analysisOpen, setAnalysisOpen] = useState(false)
   const [analysing, setAnalysing] = useState(false)
   const [manualCount, setManualCount] = useState(0)
+  const [openingPropertyId, setOpeningPropertyId] = useState<string | null>(null)
+  const { inputA, setInputA, setResultA } = useAnalysisStore()
+
+  const mapPropertyToInput = useCallback((property: Property, baseInput: AnalyseRequest): AnalyseRequest => {
+    const price = property.asking_price ?? baseInput.purchase_price
+    const currentEquityShare = baseInput.purchase_price > 0 ? baseInput.equity / baseInput.purchase_price : 0.2
+
+    return {
+      ...baseInput,
+      address: [property.address, property.city].filter(Boolean).join(", ") || baseInput.address,
+      sqm: property.living_area_sqm ?? baseInput.sqm,
+      year_built: property.year_built ?? baseInput.year_built,
+      purchase_price: price,
+      equity: Math.round(price * currentEquityShare),
+      rent_monthly: property.monthly_rent ?? baseInput.rent_monthly,
+    }
+  }, [])
+
+  const handleOpenBackendAnalysis = useCallback(async (propertyId: string) => {
+    setOpeningPropertyId(propertyId)
+    const { data } = await immoApi.fetchPropertyById(propertyId)
+    if (data) {
+      setInputA(mapPropertyToInput(data, inputA))
+      setResultA(null)
+      router.push("/analyse")
+    }
+    setOpeningPropertyId(null)
+  }, [inputA, mapPropertyToInput, router, setInputA, setResultA])
 
   useEffect(() => {
     setManualCount(listEntries().length)
-    Promise.all([immoApi.getPortfolio(), immoApi.getPortfolioAnalysis()]).then(([portfolioRes, analysisRes]) => {
+    const controller = new AbortController()
+
+    Promise.all([
+      immoApi.getPortfolio(undefined, controller.signal),
+      immoApi.getPortfolioAnalysis(controller.signal),
+    ]).then(([portfolioRes, analysisRes]) => {
+      if (controller.signal.aborted) return
+
       if (portfolioRes.data) {
         // Backend returns {items: PortfolioItem[], total: number}
         // Map to the local PortfolioData shape
@@ -281,6 +318,10 @@ export default function PortfolioPage() {
       }
       setLoading(false)
     })
+
+    return () => {
+      controller.abort()
+    }
   }, [])
 
   const runAnalysis = useCallback(async () => {
@@ -556,7 +597,18 @@ export default function PortfolioPage() {
                     <td className={cn("px-4 py-3 text-right font-mono", p.gap_percent < 0 ? "text-success" : "text-danger")}>
                       {(p.gap_percent ?? 0) > 0 ? "+" : ""}{(p.gap_percent ?? 0).toFixed(1)}%
                     </td>
-                    <td className="px-4 py-3 text-right text-text-muted">···</td>
+                    <td className="px-4 py-3 text-right text-text-muted">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          void handleOpenBackendAnalysis(p.id)
+                        }}
+                        disabled={openingPropertyId === p.id}
+                        className="text-xs text-brand hover:underline disabled:opacity-50"
+                      >
+                        {openingPropertyId === p.id ? "Opening..." : "Open Analysis"}
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -585,6 +637,16 @@ export default function PortfolioPage() {
                     {(p.gap_percent ?? 0) > 0 ? "+" : ""}{(p.gap_percent ?? 0).toFixed(1)}%
                   </span>
                 </div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    void handleOpenBackendAnalysis(p.id)
+                  }}
+                  disabled={openingPropertyId === p.id}
+                  className="mt-3 text-xs text-brand hover:underline disabled:opacity-50"
+                >
+                  {openingPropertyId === p.id ? "Opening..." : "Open Analysis"}
+                </button>
               </div>
             ))}
           </div>

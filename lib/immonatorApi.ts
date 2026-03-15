@@ -169,19 +169,21 @@ export function createManualProperty(
 
 export function saveToPortfolio(
   propertyId: string
-): Promise<ApiResult<{ success: boolean; message: string }>> {
-  return apiCall<{ success: boolean; message: string }>(
+): Promise<ApiResult<{ success: boolean; message: string; portfolio_id?: string }>> {
+  return apiCall<{ success: boolean; message: string; portfolio_id?: string }>(
     `/api/portfolio/watch/${encodeURIComponent(propertyId)}`,
     { method: "POST" }
   )
 }
 
 export function getPortfolio(
-  status?: PortfolioStatus
+  status?: PortfolioStatus,
+  signal?: AbortSignal
 ): Promise<ApiResult<{ items: PortfolioItem[]; total: number }>> {
   const qs = status ? `?status=${status}` : ""
   return apiCall<{ items: PortfolioItem[]; total: number }>(`/api/portfolio${qs}`, {
     method: "GET",
+    signal,
   })
 }
 
@@ -507,9 +509,10 @@ export async function triggerPortfolioAnalysis(): Promise<
   return { data: { analysis: normalizePortfolioAnalysis(res.data) }, error: null }
 }
 
-export async function getPortfolioAnalysis(): Promise<ApiResult<PortfolioAnalysisShape>> {
+export async function getPortfolioAnalysis(signal?: AbortSignal): Promise<ApiResult<PortfolioAnalysisShape>> {
   const res = await apiCall<Record<string, unknown>>("/api/analysis/portfolio", {
     method: "GET",
+    signal,
   })
   if (!res.data) return { data: null, error: res.error }
   return { data: normalizePortfolioAnalysis(res.data), error: null }
