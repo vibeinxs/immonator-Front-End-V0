@@ -12,6 +12,8 @@ export const translations: Record<Locale, Record<string, string>> = {
     "nav.portfolio": "Portfolio",
     "nav.negotiation": "Negotiation",
     "nav.analyse": "Analyse",
+    "nav.aiInsights": "AI Insights",
+    "nav.import": "Import",
     "nav.feedback": "Feedback",
     "nav.signOut": "Sign out",
 
@@ -377,6 +379,8 @@ export const translations: Record<Locale, Record<string, string>> = {
     "nav.portfolio": "Portfolio",
     "nav.negotiation": "Verhandlung",
     "nav.analyse": "Analyse",
+    "nav.aiInsights": "KI-Insights",
+    "nav.import": "Import",
     "nav.feedback": "Feedback",
     "nav.signOut": "Abmelden",
 
