@@ -136,19 +136,24 @@ function aiInsightText(result: AnalyseResponse, t: (k: string) => string) {
   return `${verdict} · Score ${result.score.toFixed(1)}/10 · Net yield ${result.net_yield_pct.toFixed(1)}% · Cashflow ${cf}€/mo`
 }
 
-function negotiationBullets(result: AnalyseResponse, t: (k: string) => string) {
-  const asks: string[] = []
+type NegotiationBullet = {
+  id: "anchor" | "cashflow" | "rentReference" | "walkAway"
+  text: string
+}
+
+function negotiationBullets(result: AnalyseResponse, t: (k: string) => string): NegotiationBullet[] {
+  const asks: NegotiationBullet[] = []
   if (result.score < NEGOTIATION_SCORE_THRESHOLD) {
-    asks.push(t("analyse.new.negotiation.anchor"))
+    asks.push({ id: "anchor", text: t("analyse.new.negotiation.anchor") })
   }
   if (result.cash_flow_monthly_yr1 < NEGOTIATION_NEGATIVE_CASHFLOW_THRESHOLD) {
-    asks.push(t("analyse.new.negotiation.cashflow"))
+    asks.push({ id: "cashflow", text: t("analyse.new.negotiation.cashflow") })
   }
-  if ((result.market_rent_m2 ?? 0) > 0) {
-    asks.push(t("analyse.new.negotiation.rentReference").replace("{0}", String(result.market_rent_m2)))
+  if (result.market_rent_m2 && result.market_rent_m2 > 0) {
+    asks.push({ id: "rentReference", text: t("analyse.new.negotiation.rentReference").replace("{0}", String(result.market_rent_m2)) })
   }
   const finalAsks = asks.slice(0, 2)
-  finalAsks.push(t("analyse.new.negotiation.walkAway"))
+  finalAsks.push({ id: "walkAway", text: t("analyse.new.negotiation.walkAway") })
   return finalAsks
 }
 
@@ -280,8 +285,14 @@ export default function AnalysePage() {
             <div className="rounded-2xl border border-dashed border-border-default bg-bg-surface p-8 text-center text-sm text-text-secondary">
               {t("analyse.empty")}
             </div>
-          ) : activeResult ? (
+          ) : (
             <div className="space-y-4">
+              {mode === "compare" ? (
+                <div className="flex justify-end">{compareSelector}</div>
+              ) : null}
+
+              {activeResult ? (
+                <>
               <SectionShell title={t("analyse.new.analysis.title")} description={t("analyse.new.analysis.description")}>
                 <Tabs value={resultTab} onValueChange={(v) => setResultTab(v as typeof resultTab)}>
                   <div className="mb-4 flex items-center justify-between gap-3 border-b border-border-default pb-2">
@@ -290,7 +301,6 @@ export default function AnalysePage() {
                       <TabsTrigger value="projections" className="rounded-none border-b-2 border-transparent px-3 py-2 text-sm data-[state=active]:border-brand data-[state=active]:text-brand">{t("analyse.tab.projections")}</TabsTrigger>
                       <TabsTrigger value="market" className="rounded-none border-b-2 border-transparent px-3 py-2 text-sm data-[state=active]:border-brand data-[state=active]:text-brand">{t("analyse.tab.market")}</TabsTrigger>
                     </TabsList>
-                    {mode === "compare" && compareSelector}
                   </div>
 
                   <TabsContent value="overview" className="mt-0"><ResultOverview input={activeInput} result={activeResult} /></TabsContent>
@@ -336,7 +346,7 @@ export default function AnalysePage() {
               <SectionShell title={t("analyse.new.negotiation.title")} description={t("analyse.new.negotiation.description")}>
                 <ul className="space-y-2 text-sm text-text-secondary">
                   {negotiationBullets(activeResult, t).map((item) => (
-                    <li key={item} className="rounded-lg border border-border-default bg-bg-base px-3 py-2">• {item}</li>
+                    <li key={item.id} className="rounded-lg border border-border-default bg-bg-base px-3 py-2">• {item.text}</li>
                   ))}
                 </ul>
               </SectionShell>
@@ -344,10 +354,12 @@ export default function AnalysePage() {
               <SectionShell title={t("analyse.new.askAi.title")} description={t("analyse.new.askAi.description")}>
                 <AskAiShell mode={mode} t={t} />
               </SectionShell>
-            </div>
-          ) : (
-            <div className="mt-4 rounded-xl border border-dashed border-border-default bg-bg-surface p-6 text-sm text-text-secondary">
-              {t("analyse.compare.pickProperty")}
+                </>
+              ) : (
+                <div className="mt-1 rounded-xl border border-dashed border-border-default bg-bg-surface p-6 text-sm text-text-secondary">
+                  {t("analyse.compare.pickProperty")}
+                </div>
+              )}
             </div>
           )}
         </section>
