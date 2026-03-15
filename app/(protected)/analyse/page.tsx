@@ -285,7 +285,7 @@ export default function AnalysePage() {
     if (!analysisResultPayload) return null
 
     if (analysisResultPayload.kind === "single") {
-      const narrative = aiNarrative(activeResult ?? analysisResultPayload.property.result, activeInput, t)
+      const narrative = aiNarrative(activeResult, activeInput, t)
       return {
         mode: "single",
         primaryText: activeResult?.ai_analysis || t("analyse.ai.empty"),

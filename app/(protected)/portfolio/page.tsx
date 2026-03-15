@@ -250,6 +250,7 @@ export default function PortfolioPage() {
   const [analysing, setAnalysing] = useState(false)
   const [manualCount, setManualCount] = useState(0)
   const [openingPropertyId, setOpeningPropertyId] = useState<string | null>(null)
+  const [openAnalysisError, setOpenAnalysisError] = useState<string | null>(null)
   const openingInFlightRef = useRef(false)
   const { inputA, setInputA, setResultA } = useAnalysisStore()
 
@@ -275,13 +276,17 @@ export default function PortfolioPage() {
 
     openingInFlightRef.current = true
     setOpeningPropertyId(propertyId)
+    setOpenAnalysisError(null)
     try {
-      const { data } = await immoApi.fetchPropertyById(propertyId)
+      const { data, error } = await immoApi.fetchPropertyById(propertyId)
       if (data) {
         setInputA(mapPropertyToInput(data, inputA))
         setResultA(null)
         router.push("/analyse")
+        return
       }
+
+      setOpenAnalysisError(error ?? "Failed to open analysis for this property.")
     } finally {
       openingInFlightRef.current = false
       setOpeningPropertyId(null)
@@ -442,6 +447,12 @@ export default function PortfolioPage() {
           {analysing ? copy.portfolio.analysing : t("portfolio.analyse")}
         </button>
       </div>
+
+      {openAnalysisError ? (
+        <div className="rounded-xl border border-warning/30 bg-warning/10 px-4 py-2 text-sm text-warning">
+          {openAnalysisError}
+        </div>
+      ) : null}
 
       {/* Stats */}
       <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
