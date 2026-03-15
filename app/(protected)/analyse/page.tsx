@@ -1,6 +1,6 @@
 "use client"
 
-import { type ReactNode, useCallback, useMemo, useRef, useState } from "react"
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Loader2 } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AnalysisInputPanel } from "@/features/analysis/AnalysisInputPanel"
@@ -15,6 +15,21 @@ import { runLocalCompute } from "@/lib/localComputeBridge"
 import { useAnalysisStore } from "@/store/analysisStore"
 import { useLocale } from "@/lib/i18n/locale-context"
 import type { AnalyseRequest, AnalyseResponse } from "@/types/api"
+import type {
+  AIAnalysisPayload,
+  AIInsightPayload,
+  AnalysisResultPayload,
+  AskAiContextPayload,
+  ComparisonAnalysisResult,
+  NegotiationStrategyItem,
+  NegotiationStrategyPayload,
+  SinglePropertyAnalysisResult,
+} from "@/types/analyseView"
+
+
+const NEGOTIATION_SCORE_THRESHOLD = 6
+const NEGOTIATION_NEGATIVE_CASHFLOW_THRESHOLD = 0
+const NEGOTIATION_DYNAMIC_POINTS_LIMIT = 2
 
 
 const NEGOTIATION_SCORE_THRESHOLD = 6
@@ -136,28 +151,34 @@ function aiInsightText(result: AnalyseResponse, t: (k: string) => string) {
   return `${verdict} · Score ${result.score.toFixed(1)}/10 · Net yield ${result.net_yield_pct.toFixed(1)}% · Cashflow ${cf}€/mo`
 }
 
-type NegotiationBullet = {
-  id: "anchor" | "cashflow" | "rentReference" | "walkAway"
-  text: string
-}
+function negotiationBullets(result: AnalyseResponse, t: (k: string) => string): NegotiationStrategyItem[] {
+  const rentReferenceText = result.market_rent_m2 && result.market_rent_m2 > 0
+    ? t("analyse.new.negotiation.rentReference").replace("{0}", String(result.market_rent_m2))
+    : null
 
-function negotiationBullets(result: AnalyseResponse, t: (k: string) => string): NegotiationBullet[] {
-  const asks: NegotiationBullet[] = []
-  if (result.score < NEGOTIATION_SCORE_THRESHOLD) {
-    asks.push({ id: "anchor", text: t("analyse.new.negotiation.anchor") })
-  }
-  if (result.cash_flow_monthly_yr1 < NEGOTIATION_NEGATIVE_CASHFLOW_THRESHOLD) {
-    asks.push({ id: "cashflow", text: t("analyse.new.negotiation.cashflow") })
-  }
-  if (result.market_rent_m2 && result.market_rent_m2 > 0) {
-    asks.push({ id: "rentReference", text: t("analyse.new.negotiation.rentReference").replace("{0}", String(result.market_rent_m2)) })
-  }
-  const finalAsks = asks.slice(0, 2)
+  const candidates: Array<NegotiationStrategyItem | null> = [
+    result.cash_flow_monthly_yr1 < NEGOTIATION_NEGATIVE_CASHFLOW_THRESHOLD
+      ? { id: "cashflow", text: t("analyse.new.negotiation.cashflow") }
+      : null,
+    rentReferenceText
+      ? { id: "rentReference", text: rentReferenceText }
+      : null,
+    result.score < NEGOTIATION_SCORE_THRESHOLD
+      ? { id: "anchor", text: t("analyse.new.negotiation.anchor") }
+      : null,
+  ]
+
+  // Product UX: show at most 3 bullets total in this block.
+  // We keep the always-on walk-away point and cap dynamic points to 2.
+  const finalAsks = candidates.filter((item): item is NegotiationStrategyItem => item !== null).slice(0, NEGOTIATION_DYNAMIC_POINTS_LIMIT)
   finalAsks.push({ id: "walkAway", text: t("analyse.new.negotiation.walkAway") })
   return finalAsks
 }
 
-function AskAiShell({ mode, t }: { mode: "single" | "compare"; t: (k: string) => string }) {
+function AskAiShell({ context, t }: { context: AskAiContextPayload; t: (k: string) => string }) {
+  const mode = context.mode
+  const hint = context.promptHints[0]
+
   return (
     <div className="rounded-xl border border-border-default bg-bg-base">
       <div className="max-h-64 space-y-3 overflow-y-auto border-b border-border-default p-4">
@@ -169,7 +190,7 @@ function AskAiShell({ mode, t }: { mode: "single" | "compare"; t: (k: string) =>
         {mode === "compare" ? (
           <div className="flex justify-start">
             <div className="max-w-[85%] rounded-2xl rounded-bl-sm border border-border-default bg-bg-surface px-4 py-2.5 text-sm text-text-secondary">
-              {t("analyse.new.askAi.shellCompareHint")}
+              {hint || t("analyse.new.askAi.shellCompareHint")}
             </div>
           </div>
         ) : null}
@@ -198,11 +219,101 @@ export default function AnalysePage() {
   const [selectedProperty, setSelectedProperty] = useState<"A" | "B">("A")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [askAiContext, setAskAiContext] = useState<AskAiContextPayload | null>(null)
   const resultTopRef = useRef<HTMLDivElement | null>(null)
 
   const activeInput = selectedProperty === "A" ? inputA : inputB
   const activeResult = selectedProperty === "A" ? resultA : resultB
   const hasResults = mode === "single" ? !!resultA : !!resultA || !!resultB
+
+  const analysisResultPayload = useMemo<AnalysisResultPayload | null>(() => {
+    if (mode === "single") {
+      if (!resultA) return null
+      const singleResult: SinglePropertyAnalysisResult = {
+        kind: "single",
+        property: {
+          slot: "A",
+          input: inputA,
+          result: resultA,
+        },
+      }
+      return singleResult
+    }
+
+    if (!resultA && !resultB) return null
+
+    const compareResult: ComparisonAnalysisResult = {
+      kind: "compare",
+      selectedProperty,
+      propertyA: resultA ? { slot: "A", input: inputA, result: resultA } : null,
+      propertyB: resultB ? { slot: "B", input: inputB, result: resultB } : null,
+    }
+
+    return compareResult
+  }, [inputA, inputB, mode, resultA, resultB, selectedProperty])
+
+  const aiInsightPayload = useMemo<AIInsightPayload | null>(() => {
+    if (!activeResult) return null
+    return {
+      verdictLabel: t(`verdict.${activeResult.verdict}`),
+      score: activeResult.score,
+      netYieldPct: activeResult.net_yield_pct,
+      cashflowMonthlyYr1: activeResult.cash_flow_monthly_yr1,
+      summaryLine: aiInsightText(activeResult, t),
+    }
+  }, [activeResult, t])
+
+  const aiAnalysisPayload = useMemo<AIAnalysisPayload | null>(() => {
+    if (!analysisResultPayload) return null
+
+    if (analysisResultPayload.kind === "single") {
+      return {
+        mode: "single",
+        primaryText: activeResult?.ai_analysis || t("analyse.ai.empty"),
+      }
+    }
+
+    return {
+      mode: "compare",
+      primaryText: selectedProperty === "A"
+        ? analysisResultPayload.propertyA?.result.ai_analysis || t("analyse.ai.empty")
+        : analysisResultPayload.propertyB?.result.ai_analysis || t("analyse.ai.empty"),
+      compare: {
+        propertyA: analysisResultPayload.propertyA?.result.ai_analysis || t("analyse.ai.empty"),
+        propertyB: analysisResultPayload.propertyB?.result.ai_analysis || t("analyse.ai.empty"),
+      },
+    }
+  }, [activeResult, analysisResultPayload, selectedProperty, t])
+
+  const negotiationPayload = useMemo<NegotiationStrategyPayload | null>(() => {
+    if (!activeResult) return null
+    return {
+      items: negotiationBullets(activeResult, t),
+    }
+  }, [activeResult, t])
+
+  useEffect(() => {
+    if (!analysisResultPayload) {
+      setAskAiContext(null)
+      return
+    }
+
+    setAskAiContext({
+      mode,
+      selectedProperty,
+      propertyInputs: {
+        A: inputA,
+        B: inputB,
+      },
+      propertyResults: {
+        A: resultA,
+        B: resultB,
+      },
+      promptHints: mode === "compare"
+        ? [t("analyse.new.askAi.shellCompareHint")]
+        : [],
+    })
+  }, [analysisResultPayload, inputA, inputB, mode, resultA, resultB, selectedProperty, t])
 
   const analyseOne = useCallback(async (input: AnalyseRequest, setResult: (r: AnalyseResponse) => void) => {
     const { data } = await analyseProperty(input)
@@ -323,36 +434,36 @@ export default function AnalysePage() {
               </SectionShell>
 
               <SectionShell title={t("analyse.new.aiInsight.title")} description={t("analyse.new.aiInsight.description")}>
-                <p className="text-sm text-text-secondary">{aiInsightText(activeResult, t)}</p>
+                <p className="text-sm text-text-secondary">{aiInsightPayload?.summaryLine ?? ""}</p>
               </SectionShell>
 
               <SectionShell title={t("analyse.new.aiAnalysis.title")} description={t("analyse.new.aiAnalysis.description")}>
-                {mode === "compare" ? (
+                {aiAnalysisPayload?.mode === "compare" ? (
                   <div className="grid gap-3 lg:grid-cols-2">
                     <div className="rounded-xl border border-border-default bg-bg-base p-4">
                       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">{t("analyse.propertyA")}</p>
-                      <p className="whitespace-pre-wrap text-sm leading-relaxed text-text-secondary">{resultA?.ai_analysis || t("analyse.ai.empty")}</p>
+                      <p className="whitespace-pre-wrap text-sm leading-relaxed text-text-secondary">{aiAnalysisPayload.compare?.propertyA || t("analyse.ai.empty")}</p>
                     </div>
                     <div className="rounded-xl border border-border-default bg-bg-base p-4">
                       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">{t("analyse.propertyB")}</p>
-                      <p className="whitespace-pre-wrap text-sm leading-relaxed text-text-secondary">{resultB?.ai_analysis || t("analyse.ai.empty")}</p>
+                      <p className="whitespace-pre-wrap text-sm leading-relaxed text-text-secondary">{aiAnalysisPayload.compare?.propertyB || t("analyse.ai.empty")}</p>
                     </div>
                   </div>
                 ) : (
-                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-text-secondary">{activeResult.ai_analysis || t("analyse.ai.empty")}</p>
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-text-secondary">{aiAnalysisPayload?.primaryText || t("analyse.ai.empty")}</p>
                 )}
               </SectionShell>
 
               <SectionShell title={t("analyse.new.negotiation.title")} description={t("analyse.new.negotiation.description")}>
                 <ul className="space-y-2 text-sm text-text-secondary">
-                  {negotiationBullets(activeResult, t).map((item) => (
+                  {negotiationPayload?.items.map((item) => (
                     <li key={item.id} className="rounded-lg border border-border-default bg-bg-base px-3 py-2">• {item.text}</li>
                   ))}
                 </ul>
               </SectionShell>
 
               <SectionShell title={t("analyse.new.askAi.title")} description={t("analyse.new.askAi.description")}>
-                <AskAiShell mode={mode} t={t} />
+                {askAiContext ? <AskAiShell context={askAiContext} t={t} /> : null}
               </SectionShell>
                 </>
               ) : (
