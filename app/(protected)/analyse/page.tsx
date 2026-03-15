@@ -29,6 +29,7 @@ import type {
 
 const NEGOTIATION_SCORE_THRESHOLD = 6
 const NEGOTIATION_NEGATIVE_CASHFLOW_THRESHOLD = 0
+const NEGOTIATION_DYNAMIC_POINTS_LIMIT = 2
 
 function toChartData(yearData: AnalyseResponse["year_data"]): YearData[] {
   return yearData.map((y) => ({
@@ -147,17 +148,25 @@ function aiInsightText(result: AnalyseResponse, t: (k: string) => string) {
 }
 
 function negotiationBullets(result: AnalyseResponse, t: (k: string) => string): NegotiationStrategyItem[] {
-  const asks: NegotiationStrategyItem[] = []
-  if (result.score < NEGOTIATION_SCORE_THRESHOLD) {
-    asks.push({ id: "anchor", text: t("analyse.new.negotiation.anchor") })
-  }
-  if (result.cash_flow_monthly_yr1 < NEGOTIATION_NEGATIVE_CASHFLOW_THRESHOLD) {
-    asks.push({ id: "cashflow", text: t("analyse.new.negotiation.cashflow") })
-  }
-  if (result.market_rent_m2 && result.market_rent_m2 > 0) {
-    asks.push({ id: "rentReference", text: t("analyse.new.negotiation.rentReference").replace("{0}", String(result.market_rent_m2)) })
-  }
-  const finalAsks = asks.slice(0, 2)
+  const rentReferenceText = result.market_rent_m2 && result.market_rent_m2 > 0
+    ? t("analyse.new.negotiation.rentReference").replace("{0}", String(result.market_rent_m2))
+    : null
+
+  const candidates: Array<NegotiationStrategyItem | null> = [
+    result.cash_flow_monthly_yr1 < NEGOTIATION_NEGATIVE_CASHFLOW_THRESHOLD
+      ? { id: "cashflow", text: t("analyse.new.negotiation.cashflow") }
+      : null,
+    rentReferenceText
+      ? { id: "rentReference", text: rentReferenceText }
+      : null,
+    result.score < NEGOTIATION_SCORE_THRESHOLD
+      ? { id: "anchor", text: t("analyse.new.negotiation.anchor") }
+      : null,
+  ]
+
+  // Product UX: show at most 3 bullets total in this block.
+  // We keep the always-on walk-away point and cap dynamic points to 2.
+  const finalAsks = candidates.filter((item): item is NegotiationStrategyItem => item !== null).slice(0, NEGOTIATION_DYNAMIC_POINTS_LIMIT)
   finalAsks.push({ id: "walkAway", text: t("analyse.new.negotiation.walkAway") })
   return finalAsks
 }
