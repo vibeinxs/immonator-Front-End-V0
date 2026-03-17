@@ -323,6 +323,7 @@ export type PortfolioItem = Pick<
 
 // ─── Negotiation ─────────────────────────────────────────────────────────────
 
+/** Flat UI shape — produced by mapNegotiationBrief(), consumed by all UI components. */
 export interface NegotiationBrief {
   recommended_offer: number | null
   walk_away_price: number | null
@@ -333,6 +334,50 @@ export interface NegotiationBrief {
   offer_letter_draft: string | null
 }
 
+/** Actual wire shape returned by the backend negotiation agent (nested JSON). */
+export interface RawNegotiationBrief {
+  // Nested sub-objects produced by Claude's structured output
+  price_analysis?: {
+    asking_price?: number
+    recommended_offer?: number | null
+    max_walk_away_price?: number | null
+    discount_justified_pct?: number
+    price_reasoning?: string
+  }
+  negotiation_position?: {
+    strength?: string
+    headline?: string
+    summary?: string | null
+  }
+  seller_intelligence?: {
+    urgency_level?: string
+    leverage_points?: string[]
+    warning_signs?: string[]
+  }
+  opening_arguments?: string[]
+  counter_offer_strategy?: Record<string, unknown>
+  due_diligence_demands?: string[]
+  scripts?: { opening_line?: string; key_phrase?: string }
+  // Top-level flat fields (newly added; also used by legacy/inline endpoints)
+  talking_points_de?: string[]
+  talking_points_en?: string[]
+  offer_letter_draft?: string | null
+  // Flat fallback keys that may appear on legacy or inline-endpoint responses
+  recommended_offer?: number | null
+  walk_away_price?: number | null
+  strategy?: string | null
+  leverage_points?: string[]
+}
+
+/** Wire envelope returned by /api/negotiate/:id (before mapping). */
+export interface RawNegotiationBriefResponse {
+  id: string
+  property_id: string
+  brief: RawNegotiationBrief
+  created_at: string
+}
+
+/** Post-mapped envelope — brief is the flat NegotiationBrief ready for UI. */
 export interface NegotiationBriefResponse {
   id: string
   property_id: string
