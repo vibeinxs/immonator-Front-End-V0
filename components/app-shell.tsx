@@ -4,11 +4,10 @@ import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
-  Home,
+  BarChart3,
   Briefcase,
-  Columns2,
-  Handshake,
-  Calculator,
+  Sparkles,
+  Link2,
   MessageSquare,
   LogOut,
 } from "lucide-react"
@@ -25,13 +24,12 @@ import { LocaleSwitcher } from "@/components/locale-switcher"
 import { getUserName, getInitials, logout } from "@/lib/auth"
 import { useLocale } from "@/lib/i18n/locale-context"
 
-const NAV_KEYS = [
-  { key: "nav.properties", href: "/properties", icon: Home },
-  { key: "nav.compare", href: "/compare", icon: Columns2 },
+const NAV_ITEMS = [
+  { key: "nav.analyse", href: "/analyse", icon: BarChart3 },
   { key: "nav.portfolio", href: "/portfolio", icon: Briefcase },
-  { key: "nav.negotiation", href: "/negotiation", icon: Handshake },
-  { key: "nav.analyse", href: "/analyse", icon: Calculator },
-]
+  { key: "nav.aiInsights", href: "/ai-insights", icon: Sparkles },
+  { key: "nav.import", href: "/import", icon: Link2 },
+] as const
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   useSessionHeartbeat()
@@ -50,7 +48,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <header className="fixed top-0 right-0 left-0 z-50 flex h-[58px] items-center border-b border-border-default bg-bg-surface">
         <div className="mx-auto flex w-full max-w-[1280px] items-center justify-between px-4 md:px-8">
           {/* Left: Logo */}
-          <Link href="/properties" className="flex items-center gap-2">
+          <Link href="/analyse" className="flex items-center gap-2">
             <span className="font-serif text-[22px] text-text-primary">
               Immonator
             </span>
@@ -61,7 +59,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           {/* Center: Nav links (desktop) */}
           <nav className="hidden items-center gap-1 md:flex" aria-label="Main navigation">
-            {NAV_KEYS.map((item) => (
+            {NAV_ITEMS.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
@@ -146,7 +144,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         className="fixed bottom-0 right-0 left-0 z-50 flex h-[58px] items-center justify-around border-t border-border-default bg-bg-surface md:hidden"
         aria-label="Mobile navigation"
       >
-        {NAV_KEYS.map((item) => {
+        {NAV_ITEMS.map((item) => {
           const Icon = item.icon
           const active = isActive(item.href)
           return (

@@ -1,258 +1,544 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
-import Link from "next/link"
-import { ArrowRight, ChevronDown, ChevronUp, Loader2, Sparkles } from "lucide-react"
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { Loader2 } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AnalysisInputPanel } from "@/features/analysis/AnalysisInputPanel"
 import { KpiGrid } from "@/features/analysis/KpiGrid"
 import { CashflowChart, type YearData } from "@/components/analysis/CashflowChart"
 import { ExitHorizonsTable } from "@/components/analysis/ExitHorizonsTable"
 import { YearByYearTable } from "@/components/analysis/YearByYearTable"
 import { LandShareBlock } from "@/components/analysis/LandShareBlock"
-import { PropertyPanel } from "@/features/analysis/PropertyPanel"
-import { SaveToPortfolioButton } from "@/components/analysis/SaveToPortfolioButton"
+import { FlagsSection } from "@/features/analysis/FlagsSection"
 import { analyseProperty } from "@/lib/analyseApi"
 import { runLocalCompute } from "@/lib/localComputeBridge"
-import { PRESET_A } from "@/features/analysis/presets"
 import { useAnalysisStore } from "@/store/analysisStore"
+import { useLocale } from "@/lib/i18n/locale-context"
 import type { AnalyseRequest, AnalyseResponse } from "@/types/api"
+import type {
+  AIAnalysisPayload,
+  AIInsightPayload,
+  AnalysisResultPayload,
+  AskAiContextPayload,
+  ComparisonAnalysisResult,
+  NegotiationStrategyItem,
+  NegotiationStrategyPayload,
+  SinglePropertyAnalysisResult,
+} from "@/types/analyseView"
+
+
+const NEGOTIATION_SCORE_THRESHOLD = 6
+const NEGOTIATION_NEGATIVE_CASHFLOW_THRESHOLD = 0
+const NEGOTIATION_DYNAMIC_POINTS_LIMIT = 2
 
 function toChartData(yearData: AnalyseResponse["year_data"]): YearData[] {
   return yearData.map((y) => ({
     year: y.year,
-    cashflow_monthly:
-      y.cash_flow_monthly ?? (y.cash_flow != null ? y.cash_flow / 12 : undefined),
+    cashflow_monthly: y.cash_flow_monthly ?? (y.cash_flow != null ? y.cash_flow / 12 : undefined),
     equity: y.net_worth,
   }))
 }
 
-export default function AnalysePage() {
-  const { inputA, setInputA, resultA, setResultA, inputB, resultB, setInputB, setResultB } = useAnalysisStore()
+function verdictClass(score: number) {
+  if (score >= 7) return "text-success"
+  if (score >= 5) return "text-warning"
+  return "text-danger"
+}
 
-  const input = inputA
-  const setInput = setInputA
-  const result = resultA
-  const setResult = setResultA
+function formatVerdict(verdict: string, t: (k: string) => string) {
+  return t(`verdict.${verdict}`)
+}
+
+function ResultOverview({ input, result }: { input: AnalyseRequest; result: AnalyseResponse }) {
+  const { t } = useLocale()
+
+  return (
+    <div className="space-y-4">
+      <section className="rounded-2xl border border-border-default bg-bg-surface p-4 md:p-5">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center">
+          <div className="flex h-20 w-20 items-center justify-center rounded-full border-4 border-border-default text-center">
+            <div>
+              <div className="font-mono text-2xl font-bold text-text-primary">{result.score.toFixed(1)}</div>
+              <div className="text-[10px] text-text-muted">/10</div>
+            </div>
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-text-muted">{t("analyse.results.verdictTitle")}</p>
+            <p className={`mt-1 text-3xl font-semibold ${verdictClass(result.score)}`}>{formatVerdict(result.verdict, t)}</p>
+            <p className="mt-2 text-sm text-text-secondary">
+              {t("analyse.kpi.netYield")}: {result.net_yield_pct.toFixed(1)}% · {t("analyse.kpi.purchaseFactor")}: {result.kpf.toFixed(1)}× · IRR 10y: {result.irr_10.toFixed(1)}% · {t("analyse.kpi.cashFlowYr1")}: {result.cash_flow_monthly_yr1.toFixed(0)}€/mo
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <KpiGrid result={result} />
+      </section>
+
+      <section className="rounded-[14px] border border-border-default bg-bg-surface p-4">
+        <p className="mb-1 text-sm font-semibold text-text-primary">{t("analyse.results.landShareTitle")}</p>
+        <LandShareBlock landSharePct={input.land_share_pct ?? 20} purchasePrice={input.purchase_price} />
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-2">
+        <div className="rounded-[14px] border border-border-default bg-bg-surface p-4">
+          <h3 className="mb-2 text-sm font-semibold text-text-primary">{t("analyse.results.annualCashflow")}</h3>
+          <p className="mb-3 text-[11px] text-text-muted">{t("analyse.results.cashflowSubtitle")}</p>
+          <CashflowChart yearData={toChartData(result.year_data)} />
+        </div>
+        <div className="rounded-[14px] border border-border-default bg-bg-surface p-4">
+          <h3 className="mb-3 text-sm font-semibold text-text-primary">{t("analyse.results.flags")}</h3>
+          <FlagsSection result={result} />
+        </div>
+      </section>
+    </div>
+  )
+}
+
+function MarketDataPanel({ input, result }: { input: AnalyseRequest; result: AnalyseResponse }) {
+  const { t } = useLocale()
+  const rows = [
+    { label: t("analyse.market.bodenrichtwert"), value: result.bodenrichtwert_m2 ? `€${result.bodenrichtwert_m2}/m²` : "N/A", note: t("analyse.market.landValue") },
+    { label: t("analyse.market.rentIndex"), value: result.market_rent_m2 ? `€${result.market_rent_m2}/m²` : "N/A", note: t("analyse.market.mietspiegel") },
+    { label: t("analyse.market.mortgageRate"), value: result.current_mortgage_rate ? `${result.current_mortgage_rate}%` : "N/A", note: t("analyse.market.bundesbank") },
+    { label: t("analyse.market.locationScore"), value: result.location_score ? `${result.location_score}/10` : "N/A", note: t("analyse.market.amenity") },
+    { label: t("analyse.market.populationTrend"), value: result.population_trend || "N/A", note: t("analyse.market.populationNote") },
+    { label: t("analyse.market.address"), value: result.address_resolved || input.address, note: t("analyse.market.geocoded") },
+  ]
+
+  return (
+    <div className="rounded-2xl border border-border-default bg-bg-surface overflow-hidden">
+      <div className="flex items-center justify-between border-b border-border-default px-4 py-3">
+        <p className="text-sm font-semibold text-text-primary">{t("analyse.market.title")}</p>
+        <span className="rounded-md bg-bg-elevated px-2 py-0.5 text-[11px] text-text-muted">
+          {result.market_rent_m2 ? t("analyse.market.live") : t("analyse.market.offline")}
+        </span>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2">
+        {rows.map((row, idx) => (
+          <div key={row.label} className={`p-4 ${idx % 2 === 0 ? "md:border-r" : ""} ${idx < rows.length - 2 ? "border-b" : ""} border-border-default`}>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{row.label}</p>
+            <p className="mt-1 break-words font-mono text-2xl font-bold text-text-primary">{row.value}</p>
+            <p className="mt-1 text-xs text-text-muted">{row.note}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function SectionShell({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
+  return (
+    <section className="rounded-2xl border border-border-default bg-bg-surface">
+      <div className="border-b border-border-default px-4 py-3 md:px-5">
+        <h2 className="text-sm font-semibold text-text-primary md:text-base">{title}</h2>
+        {description ? <p className="mt-1 text-xs text-text-muted md:text-sm">{description}</p> : null}
+      </div>
+      <div className="p-4 md:p-5">{children}</div>
+    </section>
+  )
+}
+
+function aiInsightText(result: AnalyseResponse, t: (k: string) => string) {
+  const verdict = t(`verdict.${result.verdict}`)
+  const cashflowRounded = result.cash_flow_monthly_yr1.toFixed(0)
+  const cf = result.cash_flow_monthly_yr1 >= 0 ? `+${cashflowRounded}` : cashflowRounded
+  return `${verdict} · Score ${result.score.toFixed(1)}/10 · Net yield ${result.net_yield_pct.toFixed(1)}% · Cashflow ${cf}€/mo`
+}
+
+function aiInsightCards(result: AnalyseResponse, t: (k: string) => string) {
+  const cf = `${result.cash_flow_monthly_yr1 >= 0 ? "+" : ""}${result.cash_flow_monthly_yr1.toFixed(0)}€/mo`
+  return [
+    { id: "verdict" as const, label: t("analyse.results.verdictTitle"), value: t(`verdict.${result.verdict}`) },
+    { id: "score" as const, label: "Score", value: `${result.score.toFixed(1)}/10` },
+    { id: "netYield" as const, label: t("analyse.kpi.netYield"), value: `${result.net_yield_pct.toFixed(1)}%` },
+    { id: "cashflow" as const, label: t("analyse.kpi.cashFlowYr1"), value: cf },
+  ]
+}
+
+function aiNarrative(result: AnalyseResponse, input: AnalyseRequest, t: (k: string) => string): string[] {
+  if (result.ai_analysis && result.ai_analysis.trim().length > 0) {
+    return result.ai_analysis
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+  }
+
+  return [
+    `${t("analyse.results.verdictTitle")}: ${t(`verdict.${result.verdict}`)} (${result.score.toFixed(1)}/10).`,
+    `${t("analyse.kpi.netYield")}: ${result.net_yield_pct.toFixed(1)}% · ${t("analyse.kpi.purchaseFactor")}: ${result.kpf.toFixed(1)}× · IRR 10y: ${result.irr_10.toFixed(1)}%.`,
+    `${t("analyse.kpi.cashFlowYr1")}: ${result.cash_flow_monthly_yr1.toFixed(0)}€/mo · ${t("analyse.market.address")}: ${result.address_resolved || input.address}.`,
+  ]
+}
+
+function negotiationBullets(result: AnalyseResponse, t: (k: string) => string): NegotiationStrategyItem[] {
+  const rentReferenceText = result.market_rent_m2 && result.market_rent_m2 > 0
+    ? t("analyse.new.negotiation.rentReference").replace("{0}", String(result.market_rent_m2))
+    : null
+
+  const candidates: Array<NegotiationStrategyItem | null> = [
+    result.cash_flow_monthly_yr1 < NEGOTIATION_NEGATIVE_CASHFLOW_THRESHOLD
+      ? { id: "cashflow", text: t("analyse.new.negotiation.cashflow") }
+      : null,
+    rentReferenceText
+      ? { id: "rentReference", text: rentReferenceText }
+      : null,
+    result.score < NEGOTIATION_SCORE_THRESHOLD
+      ? { id: "anchor", text: t("analyse.new.negotiation.anchor") }
+      : null,
+  ]
+
+  // Product UX: show at most 3 bullets total in this block.
+  // We keep the always-on walk-away point and cap dynamic points to 2.
+  const finalAsks = candidates.filter((item): item is NegotiationStrategyItem => item !== null).slice(0, NEGOTIATION_DYNAMIC_POINTS_LIMIT)
+  finalAsks.push({ id: "walkAway", text: t("analyse.new.negotiation.walkAway") })
+  return finalAsks
+}
+
+function AskAiShell({ context, t }: { context: AskAiContextPayload; t: (k: string) => string }) {
+  const mode = context.mode
+  const messages = context.mockMessages
+
+  return (
+    <div className="rounded-xl border border-border-default bg-bg-base">
+      <div className="max-h-64 space-y-3 overflow-y-auto border-b border-border-default p-4">
+        {messages.map((message) => (
+          <div key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
+            <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm ${message.role === "user" ? "rounded-br-sm bg-brand text-white" : "rounded-bl-sm border border-border-default bg-bg-surface text-text-secondary"}`}>
+              {message.text}
+            </div>
+          </div>
+        ))}
+        {mode === "compare" && context.promptHints[0] ? <p className="text-xs text-text-muted">{context.promptHints[0]}</p> : null}
+      </div>
+      <div className="flex gap-2 p-3">
+        <input
+          type="text"
+          disabled
+          placeholder={t("analyse.new.askAi.inputPlaceholder")}
+          className="flex-1 rounded-xl border border-border-default bg-bg-elevated px-4 py-2.5 text-sm text-text-muted"
+        />
+        <button disabled className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white opacity-50">
+          {t("analyse.new.askAi.send")}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+export default function AnalysePage() {
+  const { t } = useLocale()
+  const { inputA, setInputA, resultA, setResultA, inputB, setInputB, resultB, setResultB } = useAnalysisStore()
+
+  const [mode, setMode] = useState<"single" | "compare">("single")
+  const [resultTab, setResultTab] = useState<"overview" | "projections" | "market">("overview")
+  const [selectedProperty, setSelectedProperty] = useState<"A" | "B">("A")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [compareOpen, setCompareOpen] = useState(false)
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [askAiContext, setAskAiContext] = useState<AskAiContextPayload | null>(null)
+  const resultTopRef = useRef<HTMLDivElement | null>(null)
 
-  // Live preview via localCompute on every input change
-  useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => {
-      try {
-        setResult(runLocalCompute(input))
-      } catch {
-        // ignore errors during editing
+  const activeInput = selectedProperty === "A" ? inputA : inputB
+  const activeResult = selectedProperty === "A" ? resultA : resultB
+  const hasResults = mode === "single" ? !!resultA : !!resultA || !!resultB
+
+  const analysisResultPayload = useMemo<AnalysisResultPayload | null>(() => {
+    if (mode === "single") {
+      if (!resultA) return null
+      const singleResult: SinglePropertyAnalysisResult = {
+        kind: "single",
+        property: {
+          slot: "A",
+          input: inputA,
+          result: resultA,
+        },
       }
-    }, 150)
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current)
+      return singleResult
     }
-  }, [input])
+
+    if (!resultA && !resultB) return null
+
+    const compareResult: ComparisonAnalysisResult = {
+      kind: "compare",
+      selectedProperty,
+      propertyA: resultA ? { slot: "A", input: inputA, result: resultA } : null,
+      propertyB: resultB ? { slot: "B", input: inputB, result: resultB } : null,
+    }
+
+    return compareResult
+  }, [inputA, inputB, mode, resultA, resultB, selectedProperty])
+
+  const aiInsightPayload = useMemo<AIInsightPayload | null>(() => {
+    if (!activeResult) return null
+    return {
+      verdictLabel: t(`verdict.${activeResult.verdict}`),
+      score: activeResult.score,
+      netYieldPct: activeResult.net_yield_pct,
+      cashflowMonthlyYr1: activeResult.cash_flow_monthly_yr1,
+      summaryLine: aiInsightText(activeResult, t),
+      cards: aiInsightCards(activeResult, t),
+    }
+  }, [activeResult, t])
+
+  const aiAnalysisPayload = useMemo<AIAnalysisPayload | null>(() => {
+    if (!analysisResultPayload) return null
+
+    if (analysisResultPayload.kind === "single") {
+      const narrative = aiNarrative(activeResult, activeInput, t)
+      return {
+        mode: "single",
+        primaryText: activeResult?.ai_analysis || t("analyse.ai.empty"),
+        primaryNarrative: narrative,
+      }
+    }
+
+    const narrativeA = analysisResultPayload.propertyA
+      ? aiNarrative(analysisResultPayload.propertyA.result, analysisResultPayload.propertyA.input, t)
+      : [t("analyse.ai.empty")]
+    const narrativeB = analysisResultPayload.propertyB
+      ? aiNarrative(analysisResultPayload.propertyB.result, analysisResultPayload.propertyB.input, t)
+      : [t("analyse.ai.empty")]
+
+    return {
+      mode: "compare",
+      primaryText: selectedProperty === "A"
+        ? analysisResultPayload.propertyA?.result.ai_analysis || t("analyse.ai.empty")
+        : analysisResultPayload.propertyB?.result.ai_analysis || t("analyse.ai.empty"),
+      compare: {
+        propertyA: analysisResultPayload.propertyA?.result.ai_analysis || t("analyse.ai.empty"),
+        propertyB: analysisResultPayload.propertyB?.result.ai_analysis || t("analyse.ai.empty"),
+        narrativeA,
+        narrativeB,
+      },
+      primaryNarrative: selectedProperty === "A" ? narrativeA : narrativeB,
+    }
+  }, [activeInput, activeResult, analysisResultPayload, selectedProperty, t])
+
+  const negotiationPayload = useMemo<NegotiationStrategyPayload | null>(() => {
+    if (!activeResult) return null
+    return {
+      items: negotiationBullets(activeResult, t),
+    }
+  }, [activeResult, t])
+
+  useEffect(() => {
+    if (!analysisResultPayload) {
+      setAskAiContext(null)
+      return
+    }
+
+    setAskAiContext({
+      mode,
+      selectedProperty,
+      propertyInputs: {
+        A: inputA,
+        B: inputB,
+      },
+      propertyResults: {
+        A: resultA,
+        B: resultB,
+      },
+      promptHints: mode === "compare"
+        ? [t("analyse.new.askAi.shellCompareHint")]
+        : [],
+      mockMessages: mode === "compare"
+        ? [
+            { id: "a1", role: "assistant", text: t("analyse.new.askAi.shellIntro") },
+            { id: "u1", role: "user", text: t("analyse.new.askAi.shellCompareHint") },
+            { id: "a2", role: "assistant", text: `${t("analyse.propertyA")} ${resultA ? `(${resultA.score.toFixed(1)}/10)` : ""} · ${t("analyse.propertyB")} ${resultB ? `(${resultB.score.toFixed(1)}/10)` : ""}`.trim() },
+          ]
+        : [
+            { id: "a1", role: "assistant", text: t("analyse.new.askAi.shellIntro") },
+            { id: "u1", role: "user", text: t("analyse.new.askAi.inputPlaceholder") },
+            { id: "a2", role: "assistant", text: activeResult ? aiInsightText(activeResult, t) : t("analyse.ai.empty") },
+          ],
+    })
+  }, [activeResult, analysisResultPayload, inputA, inputB, mode, resultA, resultB, selectedProperty, t])
+
+  const analyseOne = useCallback(async (input: AnalyseRequest, setResult: (r: AnalyseResponse) => void) => {
+    const { data } = await analyseProperty(input)
+    if (data) {
+      setResult(data)
+      return
+    }
+    setResult(runLocalCompute(input))
+  }, [])
 
   const handleAnalyse = useCallback(async () => {
-    setError(null)
     setLoading(true)
+    setError(null)
     try {
-      const { data, error: apiError } = await analyseProperty(input)
-      if (data) {
-        setResult(data)
+      if (mode === "single") {
+        await analyseOne(inputA, setResultA)
+        setSelectedProperty("A")
       } else {
-        // Keep local result; show soft error
-        setError(apiError ?? "Backend unavailable — showing local estimate")
+        await Promise.all([
+          analyseOne(inputA, setResultA),
+          analyseOne(inputB, setResultB),
+        ])
       }
+      setTimeout(() => resultTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 20)
+    } catch {
+      setError(t("analyse.error"))
     } finally {
       setLoading(false)
     }
-  }, [input])
+  }, [analyseOne, inputA, inputB, mode, setResultA, setResultB, t])
 
-  const bothReady = result !== null && resultB !== null
+  const compareSelector = useMemo(() => (
+    <div className="inline-flex rounded-lg border border-border-default bg-bg-surface p-1 text-xs font-semibold">
+      <button className={`rounded px-3 py-1 ${selectedProperty === "A" ? "bg-brand text-white" : "text-text-secondary"}`} onClick={() => setSelectedProperty("A")}>{t("analyse.propertyA")}</button>
+      <button className={`rounded px-3 py-1 ${selectedProperty === "B" ? "bg-brand text-white" : "text-text-secondary"}`} onClick={() => setSelectedProperty("B")}>{t("analyse.propertyB")}</button>
+    </div>
+  ), [selectedProperty, t])
 
   return (
-    <div className="flex h-full overflow-hidden">
-      {/* ── Left sidebar: input form ─────────────────────────── */}
-      <aside className="w-72 shrink-0 overflow-hidden border-r border-border-default bg-bg-surface flex flex-col">
-        <div className="border-b border-border-default px-4 py-3">
-          <h1 className="font-serif text-base font-semibold text-text-primary">Property Analysis</h1>
-          <p className="text-[11px] text-text-muted">Immonator · AfA · IRR · 20-yr projection</p>
+    <div className="h-full overflow-y-auto bg-bg-base p-4 md:p-6">
+      <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h1 className="font-serif text-2xl font-semibold text-text-primary">{t("analyse.title")}</h1>
+          <p className="text-sm text-text-secondary">{t("analyse.subtitle")}</p>
         </div>
-        <div className="flex-1 overflow-hidden">
-          <AnalysisInputPanel
-            input={input}
-            onChange={setInput}
-            onAnalyse={handleAnalyse}
-            loading={loading}
-          />
-        </div>
-      </aside>
+        <button onClick={handleAnalyse} disabled={loading} className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-60">
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          {loading ? t("analyse.action.analysing") : t("analyse.action.analyse")}
+        </button>
+      </div>
 
-      {/* ── Right main area ───────────────────────────────────── */}
-      <main className="flex-1 overflow-y-auto bg-bg-base">
-        <Tabs defaultValue="analysis" className="h-full flex flex-col">
-          {/* Tab bar */}
-          <div className="sticky top-0 z-10 border-b border-border-default bg-bg-surface px-6 py-0">
-            <TabsList className="h-auto bg-transparent p-0 gap-0 rounded-none">
-              {[
-                { value: "analysis", label: "Analysis" },
-                { value: "ai-analysis", label: "AI Analysis" },
-              ].map(({ value, label }) => (
-                <TabsTrigger
-                  key={value}
-                  value={value}
-                  className="rounded-none border-b-2 border-transparent px-4 py-3 text-sm text-text-secondary transition-colors data-[state=active]:border-brand data-[state=active]:text-brand data-[state=active]:shadow-none"
-                >
-                  {label}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </div>
+      <Tabs value={mode} onValueChange={(v) => setMode(v as "single" | "compare")} className="mb-4">
+        <TabsList className="h-auto rounded-xl border border-border-default bg-bg-surface p-1">
+          <TabsTrigger value="single" className="rounded-lg px-4 py-2 text-sm">{t("analyse.mode.single")}</TabsTrigger>
+          <TabsTrigger value="compare" className="rounded-lg px-4 py-2 text-sm">{t("analyse.mode.compare")}</TabsTrigger>
+        </TabsList>
+      </Tabs>
 
-          {/* ── Analysis tab ────────────────────────────────── */}
-          <TabsContent value="analysis" className="flex-1 p-6 space-y-6 mt-0">
-            {/* Backend error banner */}
-            {error && (
-              <div className="rounded-xl border border-warning/30 bg-warning/5 px-4 py-2.5 text-sm text-warning">
-                {error}
+      <div className="grid gap-4 lg:grid-cols-[minmax(360px,42%)_1fr]">
+        <section className="rounded-2xl border border-border-default bg-bg-surface">
+          {mode === "single" ? (
+            <AnalysisInputPanel input={inputA} onChange={setInputA} showAnalyseButton={false} />
+          ) : (
+            <div className="grid gap-4 p-4 xl:grid-cols-2">
+              <div className="rounded-xl border border-border-default">
+                <div className="border-b border-border-default px-3 py-2 text-sm font-semibold text-text-primary">{t("analyse.propertyA")}</div>
+                <AnalysisInputPanel input={inputA} onChange={setInputA} showAnalyseButton={false} />
               </div>
-            )}
+              <div className="rounded-xl border border-border-default">
+                <div className="border-b border-border-default px-3 py-2 text-sm font-semibold text-text-primary">{t("analyse.propertyB")}</div>
+                <AnalysisInputPanel input={inputB} onChange={setInputB} showAnalyseButton={false} />
+              </div>
+            </div>
+          )}
+        </section>
 
-            {result ? (
-              <>
-                {/* KPI Grid */}
-                <section>
-                  <KpiGrid result={result} />
-                </section>
+        <section ref={resultTopRef} className="space-y-4">
+          {error && <div className="rounded-xl border border-warning/30 bg-warning/10 px-4 py-2 text-sm text-warning">{error}</div>}
+          {!hasResults ? (
+            <div className="rounded-2xl border border-dashed border-border-default bg-bg-surface p-8 text-center text-sm text-text-secondary">
+              {t("analyse.empty")}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {mode === "compare" ? (
+                <div className="flex justify-end">{compareSelector}</div>
+              ) : null}
 
-                {/* Land share hint */}
-                <section>
-                  <LandShareBlock
-                    landSharePct={input.land_share_pct ?? 20}
-                    purchasePrice={input.purchase_price}
-                  />
-                </section>
+              {activeResult ? (
+                <>
+              <SectionShell title={t("analyse.new.analysis.title")} description={t("analyse.new.analysis.description")}>
+                <Tabs value={resultTab} onValueChange={(v) => setResultTab(v as typeof resultTab)}>
+                  <div className="mb-4 flex items-center justify-between gap-3 border-b border-border-default pb-2">
+                    <TabsList className="h-auto bg-transparent p-0 gap-0 rounded-none">
+                      <TabsTrigger value="overview" className="rounded-none border-b-2 border-transparent px-3 py-2 text-sm data-[state=active]:border-brand data-[state=active]:text-brand">{t("analyse.tab.overview")}</TabsTrigger>
+                      <TabsTrigger value="projections" className="rounded-none border-b-2 border-transparent px-3 py-2 text-sm data-[state=active]:border-brand data-[state=active]:text-brand">{t("analyse.tab.projections")}</TabsTrigger>
+                      <TabsTrigger value="market" className="rounded-none border-b-2 border-transparent px-3 py-2 text-sm data-[state=active]:border-brand data-[state=active]:text-brand">{t("analyse.tab.market")}</TabsTrigger>
+                    </TabsList>
+                  </div>
 
-                {/* Cash Flow chart */}
-                <section className="rounded-[14px] border border-border-default bg-bg-surface p-5">
-                  <h3 className="mb-3 text-sm font-semibold text-text-primary">Annual Cash Flow</h3>
-                  <p className="mb-3 text-[11px] text-text-muted">Monthly cash flow by year (€/mo)</p>
-                  <CashflowChart yearData={toChartData(result.year_data)} />
-                </section>
+                  <TabsContent value="overview" className="mt-0"><ResultOverview input={activeInput} result={activeResult} /></TabsContent>
+                  <TabsContent value="projections" className="mt-0 space-y-4">
+                    <ExitHorizonsTable
+                      irr_10={activeResult.irr_10}
+                      irr_15={activeResult.irr_15}
+                      irr_20={activeResult.irr_20}
+                      equity_multiple_10={activeResult.equity_multiple_10}
+                      equity_multiple_15={activeResult.equity_multiple_15}
+                      equity_multiple_20={activeResult.equity_multiple_20}
+                      holding_years={activeInput.holding_years ?? 10}
+                    />
+                    <YearByYearTable yearData={activeResult.year_data} />
+                  </TabsContent>
+                  <TabsContent value="market" className="mt-0">
+                    <MarketDataPanel input={activeInput} result={activeResult} />
+                  </TabsContent>
+                </Tabs>
+              </SectionShell>
 
-                {/* Returns at Exit Horizons table */}
-                <section>
-                  <ExitHorizonsTable
-                    irr_10={result.irr_10}
-                    irr_15={result.irr_15}
-                    irr_20={result.irr_20}
-                    equity_multiple_10={result.equity_multiple_10}
-                    equity_multiple_15={result.equity_multiple_15}
-                    equity_multiple_20={result.equity_multiple_20}
-                    holding_years={input.holding_years ?? 10}
-                  />
-                </section>
-
-                {/* Year-by-Year overview */}
-                <section>
-                  <YearByYearTable yearData={result.year_data} />
-                </section>
-
-                {/* ── Compare with Property B (collapsible) ── */}
-                <section className="rounded-[14px] border border-border-default bg-bg-surface">
-                  <button
-                    type="button"
-                    onClick={() => setCompareOpen((v) => !v)}
-                    className="flex w-full items-center justify-between px-5 py-4 text-left transition-colors hover:bg-bg-elevated/50"
-                  >
-                    <div>
-                      <p className="text-sm font-semibold text-text-primary">Compare with Property B</p>
-                      <p className="text-[11px] text-text-muted">Add a second property to compare side by side</p>
+              <SectionShell title={t("analyse.new.aiInsight.title")} description={t("analyse.new.aiInsight.description")}>
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  {aiInsightPayload?.cards.map((card) => (
+                    <div key={card.id} className="rounded-xl border border-border-default bg-bg-base p-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{card.label}</p>
+                      <p className="mt-1 font-mono text-lg font-semibold text-text-primary">{card.value}</p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {bothReady && (
-                        <Link
-                          href="/analyse/compare"
-                          onClick={(e) => e.stopPropagation()}
-                          className="flex items-center gap-1 rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-hover"
-                        >
-                          Full Comparison
-                          <ArrowRight className="h-3 w-3" />
-                        </Link>
-                      )}
-                      {compareOpen ? (
-                        <ChevronUp className="h-4 w-4 text-text-muted" />
-                      ) : (
-                        <ChevronDown className="h-4 w-4 text-text-muted" />
-                      )}
-                    </div>
-                  </button>
-
-                  {compareOpen && (
-                    <div className="border-t border-border-default p-5">
-                      <PropertyPanel
-                        label="Property B"
-                        input={inputB}
-                        result={resultB}
-                        onInputChange={setInputB}
-                        onResult={setResultB}
-                      />
-                    </div>
-                  )}
-                </section>
-
-                {/* Save to Portfolio */}
-                <section className="flex justify-end">
-                  <SaveToPortfolioButton input={input} result={result} />
-                </section>
-              </>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-24 text-center">
-                <div className="h-12 w-12 rounded-full bg-brand/10 flex items-center justify-center mb-4">
-                  <span className="text-2xl">🏠</span>
+                  ))}
                 </div>
-                <h3 className="font-serif text-lg text-text-primary">Fill in property details</h3>
-                <p className="mt-2 text-sm text-text-secondary max-w-xs">
-                  Enter details in the sidebar. KPIs will appear instantly as you type.
-                </p>
-              </div>
-            )}
-          </TabsContent>
+                <p className="mt-3 text-sm text-text-secondary">{aiInsightPayload?.summaryLine ?? ""}</p>
+              </SectionShell>
 
-          {/* ── AI Analysis tab (placeholder) ───────────────── */}
-          <TabsContent value="ai-analysis" className="flex-1 p-6 mt-0">
-            <div className="flex flex-col items-center justify-center py-24 text-center">
-              <div className="h-14 w-14 rounded-2xl bg-brand/10 flex items-center justify-center mb-5">
-                <Sparkles className="h-7 w-7 text-brand" />
-              </div>
-              <h3 className="font-serif text-xl text-text-primary">AI Analysis</h3>
-              <p className="mt-3 text-sm text-text-secondary max-w-sm">
-                AI-powered commentary, risk flags, and investment recommendations are coming soon.
-                Run the backend analysis to receive AI insights when available.
-              </p>
-              {result?.ai_analysis && (
-                <div className="mt-6 max-w-2xl rounded-[14px] border border-border-default bg-bg-surface p-6 text-left">
-                  <p className="text-sm font-semibold text-text-primary mb-3">AI Analysis</p>
-                  <p className="text-sm text-text-secondary leading-relaxed">{result.ai_analysis}</p>
+              <SectionShell title={t("analyse.new.aiAnalysis.title")} description={t("analyse.new.aiAnalysis.description")}>
+                {aiAnalysisPayload?.mode === "compare" ? (
+                  <div className="grid gap-3 lg:grid-cols-2">
+                    <div className="rounded-xl border border-border-default bg-bg-base p-4">
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">{t("analyse.propertyA")}</p>
+                      <div className="space-y-2 text-sm leading-relaxed text-text-secondary">
+                        {(aiAnalysisPayload.compare?.narrativeA || [t("analyse.ai.empty")]).map((line, idx) => (
+                          <p key={`a-${idx}`}>{line}</p>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-border-default bg-bg-base p-4">
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">{t("analyse.propertyB")}</p>
+                      <div className="space-y-2 text-sm leading-relaxed text-text-secondary">
+                        {(aiAnalysisPayload.compare?.narrativeB || [t("analyse.ai.empty")]).map((line, idx) => (
+                          <p key={`b-${idx}`}>{line}</p>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2 text-sm leading-relaxed text-text-secondary">
+                    {(aiAnalysisPayload?.primaryNarrative || [t("analyse.ai.empty")]).map((line, idx) => (
+                      <p key={`single-${idx}`}>{line}</p>
+                    ))}
+                  </div>
+                )}
+              </SectionShell>
+
+              <SectionShell title={t("analyse.new.negotiation.title")} description={t("analyse.new.negotiation.description")}>
+                <div className="grid gap-2 md:grid-cols-2">
+                  {negotiationPayload?.items.map((item) => (
+                    <article key={item.id} className="rounded-lg border border-border-default bg-bg-base px-3 py-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{item.id}</p>
+                      <p className="mt-1 text-sm text-text-secondary">{item.text}</p>
+                    </article>
+                  ))}
                 </div>
-              )}
-              {!result?.ai_analysis && (
-                <button
-                  type="button"
-                  onClick={handleAnalyse}
-                  disabled={loading}
-                  className="mt-6 flex items-center gap-2 rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-60"
-                >
-                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                  Run Backend Analysis
-                </button>
+              </SectionShell>
+
+              <SectionShell title={t("analyse.new.askAi.title")} description={t("analyse.new.askAi.description")}>
+                {askAiContext ? <AskAiShell context={askAiContext} t={t} /> : null}
+              </SectionShell>
+                </>
+              ) : (
+                <div className="mt-1 rounded-xl border border-dashed border-border-default bg-bg-surface p-6 text-sm text-text-secondary">
+                  {t("analyse.compare.pickProperty")}
+                </div>
               )}
             </div>
-          </TabsContent>
-        </Tabs>
-      </main>
+          )}
+        </section>
+      </div>
     </div>
   )
 }

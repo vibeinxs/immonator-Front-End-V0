@@ -6,7 +6,10 @@ import type {
   BetaLoginRequest,
   BetaLoginResponse,
   CompactAnalysis,
+  NegotiationBrief,
   NegotiationBriefResponse,
+  RawNegotiationBrief,
+  RawNegotiationBriefResponse,
   PortfolioItem,
   PortfolioStatus,
   Property,
@@ -169,19 +172,21 @@ export function createManualProperty(
 
 export function saveToPortfolio(
   propertyId: string
-): Promise<ApiResult<{ success: boolean; message: string }>> {
-  return apiCall<{ success: boolean; message: string }>(
+): Promise<ApiResult<{ success: boolean; message: string; portfolio_id?: string }>> {
+  return apiCall<{ success: boolean; message: string; portfolio_id?: string }>(
     `/api/portfolio/watch/${encodeURIComponent(propertyId)}`,
     { method: "POST" }
   )
 }
 
 export function getPortfolio(
-  status?: PortfolioStatus
+  status?: PortfolioStatus,
+  signal?: AbortSignal
 ): Promise<ApiResult<{ items: PortfolioItem[]; total: number }>> {
   const qs = status ? `?status=${status}` : ""
   return apiCall<{ items: PortfolioItem[]; total: number }>(`/api/portfolio${qs}`, {
     method: "GET",
+    signal,
   })
 }
 
@@ -394,14 +399,62 @@ export function getStrategyMatches(): Promise<ApiResult<{ items: unknown[]; tota
 
 // ─── Negotiation ──────────────────────────────────────────────────────────────
 
-export function generateNegotiationBrief(
-  id: string
-): Promise<ApiResult<NegotiationBriefResponse>> {
-  return apiCall<NegotiationBriefResponse>(`/api/negotiate/${encodeURIComponent(id)}`, { method: "POST" })
+/**
+ * Normalises a negotiation brief payload into the flat NegotiationBrief shape
+ * the UI consumes. Supports two source formats:
+ *
+ *   Nested  — Claude's _JSON_SCHEMA output: recommended_offer lives inside
+ *             price_analysis, strategy inside negotiation_position, etc.
+ *   Flat    — Any response that already carries top-level keys matching
+ *             NegotiationBrief (e.g. legacy DB rows, future inline endpoints).
+ *
+ * Strategy: flat key wins; nested path is the fallback; missing → null / [].
+ */
+function mapNegotiationBrief(raw: RawNegotiationBrief): NegotiationBrief {
+  const pa = raw.price_analysis
+  const np = raw.negotiation_position
+  const si = raw.seller_intelligence
+  return {
+    recommended_offer:  raw.recommended_offer  ?? pa?.recommended_offer  ?? null,
+    walk_away_price:    raw.walk_away_price     ?? pa?.max_walk_away_price ?? null,
+    strategy:           raw.strategy            ?? np?.summary             ?? null,
+    leverage_points:    raw.leverage_points     ?? si?.leverage_points     ?? [],
+    talking_points_de:  raw.talking_points_de   ?? [],
+    talking_points_en:  raw.talking_points_en   ?? [],
+    offer_letter_draft: raw.offer_letter_draft  ?? null,
+  }
 }
 
-export function getNegotiationBrief(id: string): Promise<ApiResult<NegotiationBriefResponse>> {
-  return apiCall<NegotiationBriefResponse>(`/api/negotiate/${encodeURIComponent(id)}`, { method: "GET" })
+function toNegotiationBriefResponse(
+  raw: RawNegotiationBriefResponse
+): NegotiationBriefResponse {
+  return { ...raw, brief: mapNegotiationBrief(raw.brief) }
+}
+
+export async function generateNegotiationBrief(
+  id: string
+): Promise<ApiResult<NegotiationBriefResponse>> {
+  const result = await apiCall<RawNegotiationBriefResponse>(
+    `/api/negotiate/${encodeURIComponent(id)}`,
+    { method: "POST" }
+  )
+  return {
+    data:  result.data  ? toNegotiationBriefResponse(result.data)  : null,
+    error: result.error,
+  }
+}
+
+export async function getNegotiationBrief(
+  id: string
+): Promise<ApiResult<NegotiationBriefResponse>> {
+  const result = await apiCall<RawNegotiationBriefResponse>(
+    `/api/negotiate/${encodeURIComponent(id)}`,
+    { method: "GET" }
+  )
+  return {
+    data:  result.data  ? toNegotiationBriefResponse(result.data)  : null,
+    error: result.error,
+  }
 }
 
 // ─── Profile ──────────────────────────────────────────────────────────────────
@@ -507,9 +560,10 @@ export async function triggerPortfolioAnalysis(): Promise<
   return { data: { analysis: normalizePortfolioAnalysis(res.data) }, error: null }
 }
 
-export async function getPortfolioAnalysis(): Promise<ApiResult<PortfolioAnalysisShape>> {
+export async function getPortfolioAnalysis(signal?: AbortSignal): Promise<ApiResult<PortfolioAnalysisShape>> {
   const res = await apiCall<Record<string, unknown>>("/api/analysis/portfolio", {
     method: "GET",
+    signal,
   })
   if (!res.data) return { data: null, error: res.error }
   return { data: normalizePortfolioAnalysis(res.data), error: null }
