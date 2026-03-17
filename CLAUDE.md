@@ -195,3 +195,54 @@ pnpm dev
 - [x] Created `features/analysis/AnalysisInputPanel.tsx`: 7-section sidebar input form matching reference layout
 - [x] Rewrote `app/(protected)/analyse/page.tsx`: two-pane layout (sidebar + main), two tabs (Analysis / AI Analysis), live localCompute preview, backend API call, collapsible Property B comparison, save-to-portfolio
 - [x] Updated `app/(protected)/portfolio/page.tsx`: added `ManualPortfolioSection` showing localStorage-saved analyses with KPIs, status, Open Analysis, and Delete actions
+
+### Session: 2026-03-17 — AI Feature Data Contract
+
+#### Completed
+- [x] Defined shared frontend-backend data contract for all four AI features (research only, no code changes)
+
+#### AI Endpoints — New Contract (backend not yet implemented)
+
+| Method | Path | Status | Notes |
+|--------|------|--------|-------|
+| `POST` | `/api/ai/insight` | **NEW** | Executive summary card; single + compare mode |
+| `POST` | `/api/ai/analysis` | **NEW** | Narrative analysis; single + compare mode |
+| `POST` | `/api/ai/negotiation` | **NEW** | Inline (calc-based) negotiation brief; no property_id required |
+| `POST` | `/api/negotiate/:id` | existing | Property-ID–based brief; unchanged |
+| `POST` | `/api/chat` | extend | Add `context_type: "analysis"` + optional `analysis_context` body field |
+
+#### Shared PropertyMetricsInput payload (send to all new AI endpoints)
+
+```typescript
+interface PropertyMetricsInput {
+  address: string;           purchase_price: number;   sqm: number
+  year_built?: number;       condition?: string;        energy_class?: string
+  score: number;             verdict: string
+  gross_yield_pct?: number;  net_yield_pct: number;    kpf: number
+  cash_flow_monthly_yr1: number;  annuity_monthly?: number
+  equity?: number;           loan?: number;             ltv_pct?: number
+  afa_tax_saving_yr1?: number
+  irr_10: number;            irr_15?: number;           irr_20?: number
+  equity_multiple_10?: number
+  bodenrichtwert_m2?: number | null;  market_rent_m2?: number | null
+  location_score?: number | null;     population_trend?: string | null
+}
+```
+
+#### Frontend mapping summary
+
+| Feature | Source store/hook | Key gap |
+|---------|-------------------|---------|
+| AI Insight | `analysisStore.resultA/B` | `energy_class` must come from `inputA/B`, not result |
+| AI Analysis | `analysisStore.resultA/B` + `inputA/B` | `year_data[]` must be omitted (too large) |
+| Negotiation (inline) | `analysisStore.inputA` + `resultA` | `talking_points_de/en` and `offer_letter_draft` missing from backend `_JSON_SCHEMA` |
+| Ask AI Chat | `components/chat/AnalysisChat.tsx` | Must add `analysis_context` field to `ChatRequest`; trim to key metrics only |
+
+#### Types already defined (no changes needed)
+- `types/analyseView.ts`: `AIInsightPayload`, `AIAnalysisPayload`, `NegotiationStrategyPayload`, `AskAiContextPayload`
+- `types/api.ts`: `NegotiationBrief`, `NegotiationBriefResponse`, `AnalyseRequest`, `AnalyseResponse`
+
+#### Open questions
+1. `context_id` for analysis chat — needs a stable key (frontend-generated UUID?) to scope history when no DB property exists
+2. Compare mode negotiation — call inline endpoint separately for A and B (recommended), no single combined endpoint
+3. `energy_class` is in `AnalyseRequest` (input) but **not** in `AnalyseResponse` (output) — must always forward from `inputA/B`
