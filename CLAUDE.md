@@ -195,3 +195,77 @@ pnpm dev
 - [x] Created `features/analysis/AnalysisInputPanel.tsx`: 7-section sidebar input form matching reference layout
 - [x] Rewrote `app/(protected)/analyse/page.tsx`: two-pane layout (sidebar + main), two tabs (Analysis / AI Analysis), live localCompute preview, backend API call, collapsible Property B comparison, save-to-portfolio
 - [x] Updated `app/(protected)/portfolio/page.tsx`: added `ManualPortfolioSection` showing localStorage-saved analyses with KPIs, status, Open Analysis, and Delete actions
+
+### Session: 2026-03-17 — AI Feature Data Contract
+
+#### Completed
+- [x] Defined shared frontend-backend data contract for all four AI features (research only, no code changes)
+
+#### AI Endpoints — New Contract (backend not yet implemented)
+
+| Method | Path | Status | Notes |
+|--------|------|--------|-------|
+| `POST` | `/api/ai/insight` | **NEW** | Executive summary card; single + compare mode |
+| `POST` | `/api/ai/analysis` | **NEW** | Narrative analysis; single + compare mode |
+| `POST` | `/api/ai/negotiation` | **NEW** | Inline (calc-based) negotiation brief; no property_id required |
+| `POST` | `/api/negotiate/:id` | existing | Property-ID–based brief; unchanged |
+| `POST` | `/api/chat` | extend | Add `context_type: "analysis"` + optional `analysis_context` body field |
+
+#### Shared PropertyMetricsInput payload (send to all new AI endpoints)
+
+```typescript
+interface PropertyMetricsInput {
+  address: string;           purchase_price: number;   sqm: number
+  year_built?: number;       condition?: string;        energy_class?: string
+  score: number;             verdict: string
+  gross_yield_pct?: number;  net_yield_pct: number;    kpf: number
+  cash_flow_monthly_yr1: number;  annuity_monthly?: number
+  equity?: number;           loan?: number;             ltv_pct?: number
+  afa_tax_saving_yr1?: number
+  irr_10: number;            irr_15?: number;           irr_20?: number
+  equity_multiple_10?: number
+  bodenrichtwert_m2?: number | null;  market_rent_m2?: number | null
+  location_score?: number | null;     population_trend?: string | null
+}
+```
+
+#### Frontend mapping summary
+
+| Feature | Source store/hook | Key gap |
+|---------|-------------------|---------|
+| AI Insight | `analysisStore.resultA/B` | `energy_class` must come from `inputA/B`, not result |
+| AI Analysis | `analysisStore.resultA/B` + `inputA/B` | `year_data[]` must be omitted (too large) |
+| Negotiation (inline) | `analysisStore.inputA` + `resultA` | `talking_points_de/en` and `offer_letter_draft` missing from backend `_JSON_SCHEMA` |
+| Ask AI Chat | `components/chat/AnalysisChat.tsx` | Must add `analysis_context` field to `ChatRequest`; trim to key metrics only |
+
+#### Types already defined (no changes needed)
+- `types/analyseView.ts`: `AIInsightPayload`, `AIAnalysisPayload`, `NegotiationStrategyPayload`, `AskAiContextPayload`
+- `types/api.ts`: `NegotiationBrief`, `NegotiationBriefResponse`, `AnalyseRequest`, `AnalyseResponse`
+
+#### Open questions (resolved — see gap resolution below)
+1. `context_id` for analysis chat — **resolved**: required; format `manual:<entryId>` or `transient:<uuid>`
+2. Compare mode negotiation — **resolved**: call inline endpoint separately per property
+3. `energy_class` gap — **resolved**: stays input-only; always read from `inputA/B.energy_class`
+
+### Session: 2026-03-17 — Gap Resolution (P0 fixes implemented)
+
+#### Completed
+- [x] `lib/immonatorApi.ts` — added `mapNegotiationBrief()` mapper; applied to both `generateNegotiationBrief` and `getNegotiationBrief`; added `NegotiationBrief` to imports
+- [x] The mapper normalises the nested backend JSON (`price_analysis.recommended_offer`, `negotiation_position.summary`, `seller_intelligence.leverage_points`) into the flat `NegotiationBrief` shape that the UI consumes. Backward-compatible: old DB rows without new fields return empty arrays / null.
+
+#### NegotiationBrief mapping (how nested → flat)
+
+| Frontend field | Source in backend `brief` dict |
+|---|---|
+| `recommended_offer` | `brief.price_analysis.recommended_offer` |
+| `walk_away_price` | `brief.price_analysis.max_walk_away_price` |
+| `strategy` | `brief.negotiation_position.summary` |
+| `leverage_points` | `brief.seller_intelligence.leverage_points` |
+| `talking_points_de` | `brief.talking_points_de` (top-level, newly added) |
+| `talking_points_en` | `brief.talking_points_en` (top-level, newly added) |
+| `offer_letter_draft` | `brief.offer_letter_draft` (top-level, newly added) |
+
+#### Still to implement (future sessions)
+- `types/api.ts` — export `PropertyMetricsInput` interface
+- `lib/immonatorApi.ts` — add `getAiInsight()`, `getAiAnalysis()`, `getInlineNegotiationBrief()`
+- `app/(protected)/analyse/page.tsx` — stable `contextId` generation, `PropertyMetricsInput` builder, AI Insight + AI Analysis wiring, pass `contextType="analysis"` + `contextId` to `AnalysisChat`
