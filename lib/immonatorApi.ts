@@ -398,25 +398,32 @@ export function getStrategyMatches(): Promise<ApiResult<{ items: unknown[]; tota
 // ─── Negotiation ──────────────────────────────────────────────────────────────
 
 /**
- * Normalises the nested JSON that Claude produces into the flat NegotiationBrief
- * shape that the UI consumes. Applied to every negotiation response so consumers
- * never need to know about the backend's internal nesting.
+ * Normalises a negotiation brief payload into the flat NegotiationBrief shape
+ * the UI consumes. Supports two source formats:
  *
- * Backward-compatible: fields missing from old DB rows (talking_points_de/en,
- * offer_letter_draft) fall back to empty arrays / null without throwing.
+ *   Nested  — Claude's _JSON_SCHEMA output: recommended_offer lives inside
+ *             price_analysis, strategy inside negotiation_position, etc.
+ *   Flat    — Any response that already carries top-level keys matching
+ *             NegotiationBrief (e.g. legacy DB rows, future inline endpoints).
+ *
+ * Strategy: flat key wins; nested path is the fallback; missing → null / [].
  */
 function mapNegotiationBrief(raw: Record<string, unknown>): NegotiationBrief {
   const pa = raw.price_analysis       as Record<string, unknown> | undefined
   const np = raw.negotiation_position as Record<string, unknown> | undefined
   const si = raw.seller_intelligence  as Record<string, unknown> | undefined
   return {
-    recommended_offer:  (pa?.recommended_offer   as number  | null) ?? null,
-    walk_away_price:    (pa?.max_walk_away_price  as number  | null) ?? null,
-    strategy:           (np?.summary             as string  | null) ?? null,
-    leverage_points:    (si?.leverage_points      as string[])       ?? [],
-    talking_points_de:  (raw.talking_points_de    as string[])       ?? [],
-    talking_points_en:  (raw.talking_points_en    as string[])       ?? [],
-    offer_letter_draft: (raw.offer_letter_draft   as string  | null) ?? null,
+    recommended_offer:  (raw.recommended_offer  as number  | null)
+                        ?? (pa?.recommended_offer  as number  | null) ?? null,
+    walk_away_price:    (raw.walk_away_price     as number  | null)
+                        ?? (pa?.max_walk_away_price as number  | null) ?? null,
+    strategy:           (raw.strategy            as string  | null)
+                        ?? (np?.summary            as string  | null) ?? null,
+    leverage_points:    (raw.leverage_points      as string[] | undefined)
+                        ?? (si?.leverage_points    as string[] | undefined) ?? [],
+    talking_points_de:  (raw.talking_points_de    as string[])         ?? [],
+    talking_points_en:  (raw.talking_points_en    as string[])         ?? [],
+    offer_letter_draft: (raw.offer_letter_draft   as string  | null)   ?? null,
   }
 }
 
