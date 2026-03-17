@@ -157,7 +157,7 @@ export interface AnalyseYearData {
   rent_gross?: number
   interest?: number
   afa?: number
-  afa_sonder?: number
+  afa_sonder?: number | null
   taxable_income?: number
   tax_impact?: number
   property_value?: number
