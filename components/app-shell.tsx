@@ -25,11 +25,11 @@ import { getUserName, getInitials, logout } from "@/lib/auth"
 import { useLocale } from "@/lib/i18n/locale-context"
 
 const NAV_ITEMS = [
-  { label: "Analyze", href: "/analyse", icon: BarChart3 },
-  { label: "Portfolio", href: "/portfolio", icon: Briefcase },
-  { label: "AI Insights", href: "/ai-insights", icon: Sparkles },
-  { label: "Import", href: "/import", icon: Link2 },
-]
+  { key: "nav.analyse", href: "/analyse", icon: BarChart3 },
+  { key: "nav.portfolio", href: "/portfolio", icon: Briefcase },
+  { key: "nav.aiInsights", href: "/ai-insights", icon: Sparkles },
+  { key: "nav.import", href: "/import", icon: Link2 },
+] as const
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   useSessionHeartbeat()
@@ -69,7 +69,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     : "text-text-secondary hover:text-text-primary"
                 }`}
               >
-                {item.label}
+                {t(item.key)}
                 {isActive(item.href) && (
                   <span className="absolute bottom-0 left-4 right-4 h-0.5 rounded-full bg-brand" />
                 )}
@@ -157,7 +157,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               aria-current={active ? "page" : undefined}
             >
               <Icon className="h-5 w-5" />
-              <span>{item.label}</span>
+              <span>{t(item.key)}</span>
             </Link>
           )
         })}
