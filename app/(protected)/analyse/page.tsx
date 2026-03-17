@@ -151,10 +151,14 @@ function aiInsightCards(result: AnalyseResponse, t: (k: string) => string) {
   const cf = `${result.cash_flow_monthly_yr1 >= 0 ? "+" : ""}${result.cash_flow_monthly_yr1.toFixed(0)}€/mo`
   return [
     { id: "verdict" as const, label: t("analyse.results.verdictTitle"), value: t(`verdict.${result.verdict}`) },
-    { id: "score" as const, label: "Score", value: `${result.score.toFixed(1)}/10` },
+    { id: "score" as const, label: t("analyse.new.aiInsight.scoreLabel"), value: `${result.score.toFixed(1)}/10` },
     { id: "netYield" as const, label: t("analyse.kpi.netYield"), value: `${result.net_yield_pct.toFixed(1)}%` },
     { id: "cashflow" as const, label: t("analyse.kpi.cashFlowYr1"), value: cf },
   ]
+}
+
+function negotiationCardTitle(id: NegotiationStrategyItem["id"], t: (k: string) => string): string {
+  return t(`analyse.new.negotiation.cardTitle.${id}`)
 }
 
 function aiNarrative(result: AnalyseResponse, input: AnalyseRequest, t: (k: string) => string): string[] {
@@ -239,8 +243,8 @@ export default function AnalysePage() {
   const [askAiContext, setAskAiContext] = useState<AskAiContextPayload | null>(null)
   const resultTopRef = useRef<HTMLDivElement | null>(null)
 
-  const activeInput = selectedProperty === "A" ? inputA : inputB
-  const activeResult = selectedProperty === "A" ? resultA : resultB
+  const activeInput = mode === "single" ? inputA : (selectedProperty === "A" ? inputA : inputB)
+  const activeResult = mode === "single" ? resultA : (selectedProperty === "A" ? resultA : resultB)
   const hasResults = mode === "single" ? !!resultA : !!resultA || !!resultB
 
   const analysisResultPayload = useMemo<AnalysisResultPayload | null>(() => {
@@ -285,10 +289,12 @@ export default function AnalysePage() {
     if (!analysisResultPayload) return null
 
     if (analysisResultPayload.kind === "single") {
+      if (!activeResult) return null
+
       const narrative = aiNarrative(activeResult, activeInput, t)
       return {
         mode: "single",
-        primaryText: activeResult?.ai_analysis || t("analyse.ai.empty"),
+        primaryText: activeResult.ai_analysis || t("analyse.ai.empty"),
         primaryNarrative: narrative,
       }
     }
@@ -519,7 +525,7 @@ export default function AnalysePage() {
                 <div className="grid gap-2 md:grid-cols-2">
                   {negotiationPayload?.items.map((item) => (
                     <article key={item.id} className="rounded-lg border border-border-default bg-bg-base px-3 py-3">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{item.id}</p>
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{negotiationCardTitle(item.id, t)}</p>
                       <p className="mt-1 text-sm text-text-secondary">{item.text}</p>
                     </article>
                   ))}

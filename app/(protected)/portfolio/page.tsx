@@ -286,12 +286,12 @@ export default function PortfolioPage() {
         return
       }
 
-      setOpenAnalysisError(error ?? "Failed to open analysis for this property.")
+      setOpenAnalysisError(error ?? t("portfolio.openAnalysis.error"))
     } finally {
       openingInFlightRef.current = false
       setOpeningPropertyId(null)
     }
-  }, [inputA, mapPropertyToInput, router, setInputA, setResultA])
+  }, [inputA, mapPropertyToInput, router, setInputA, setResultA, t])
 
   useEffect(() => {
     setManualCount(listEntries().length)
