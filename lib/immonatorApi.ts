@@ -8,6 +8,8 @@ import type {
   CompactAnalysis,
   NegotiationBrief,
   NegotiationBriefResponse,
+  RawNegotiationBrief,
+  RawNegotiationBriefResponse,
   PortfolioItem,
   PortfolioStatus,
   Property,
@@ -408,55 +410,51 @@ export function getStrategyMatches(): Promise<ApiResult<{ items: unknown[]; tota
  *
  * Strategy: flat key wins; nested path is the fallback; missing → null / [].
  */
-function mapNegotiationBrief(raw: Record<string, unknown>): NegotiationBrief {
-  const pa = raw.price_analysis       as Record<string, unknown> | undefined
-  const np = raw.negotiation_position as Record<string, unknown> | undefined
-  const si = raw.seller_intelligence  as Record<string, unknown> | undefined
+function mapNegotiationBrief(raw: RawNegotiationBrief): NegotiationBrief {
+  const pa = raw.price_analysis
+  const np = raw.negotiation_position
+  const si = raw.seller_intelligence
   return {
-    recommended_offer:  (raw.recommended_offer  as number  | null)
-                        ?? (pa?.recommended_offer  as number  | null) ?? null,
-    walk_away_price:    (raw.walk_away_price     as number  | null)
-                        ?? (pa?.max_walk_away_price as number  | null) ?? null,
-    strategy:           (raw.strategy            as string  | null)
-                        ?? (np?.summary            as string  | null) ?? null,
-    leverage_points:    (raw.leverage_points      as string[] | undefined)
-                        ?? (si?.leverage_points    as string[] | undefined) ?? [],
-    talking_points_de:  (raw.talking_points_de    as string[])         ?? [],
-    talking_points_en:  (raw.talking_points_en    as string[])         ?? [],
-    offer_letter_draft: (raw.offer_letter_draft   as string  | null)   ?? null,
+    recommended_offer:  raw.recommended_offer  ?? pa?.recommended_offer  ?? null,
+    walk_away_price:    raw.walk_away_price     ?? pa?.max_walk_away_price ?? null,
+    strategy:           raw.strategy            ?? np?.summary             ?? null,
+    leverage_points:    raw.leverage_points     ?? si?.leverage_points     ?? [],
+    talking_points_de:  raw.talking_points_de   ?? [],
+    talking_points_en:  raw.talking_points_en   ?? [],
+    offer_letter_draft: raw.offer_letter_draft  ?? null,
   }
+}
+
+function toNegotiationBriefResponse(
+  raw: RawNegotiationBriefResponse
+): NegotiationBriefResponse {
+  return { ...raw, brief: mapNegotiationBrief(raw.brief) }
 }
 
 export async function generateNegotiationBrief(
   id: string
 ): Promise<ApiResult<NegotiationBriefResponse>> {
-  const result = await apiCall<NegotiationBriefResponse>(
+  const result = await apiCall<RawNegotiationBriefResponse>(
     `/api/negotiate/${encodeURIComponent(id)}`,
     { method: "POST" }
   )
-  if (result.data?.brief) {
-    result.data = {
-      ...result.data,
-      brief: mapNegotiationBrief(result.data.brief as unknown as Record<string, unknown>),
-    }
+  return {
+    data:  result.data  ? toNegotiationBriefResponse(result.data)  : null,
+    error: result.error,
   }
-  return result
 }
 
 export async function getNegotiationBrief(
   id: string
 ): Promise<ApiResult<NegotiationBriefResponse>> {
-  const result = await apiCall<NegotiationBriefResponse>(
+  const result = await apiCall<RawNegotiationBriefResponse>(
     `/api/negotiate/${encodeURIComponent(id)}`,
     { method: "GET" }
   )
-  if (result.data?.brief) {
-    result.data = {
-      ...result.data,
-      brief: mapNegotiationBrief(result.data.brief as unknown as Record<string, unknown>),
-    }
+  return {
+    data:  result.data  ? toNegotiationBriefResponse(result.data)  : null,
+    error: result.error,
   }
-  return result
 }
 
 // ─── Profile ──────────────────────────────────────────────────────────────────
