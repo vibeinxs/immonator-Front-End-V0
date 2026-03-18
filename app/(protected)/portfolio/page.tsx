@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
+import { ManualPortfolioSection } from "@/components/portfolio/ManualPortfolioSection"
 import { ChevronDown } from "lucide-react"
 import { MetricCard } from "@/components/metric-card"
 import { VerdictBadge } from "@/components/verdict-badge"
@@ -15,7 +16,6 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { listEntries, deleteEntry, updateStatus, type ManualPortfolioEntry, type ManualPortfolioStatus } from "@/lib/manualPortfolio"
 import { useAnalysisStore } from "@/store/analysisStore"
 import type { AnalyseRequest, Property } from "@/types/api"
 
@@ -102,143 +102,6 @@ function EmptyState({ icon, headline, body, actionLabel, onAction, disabled }: {
 }
 
 
-/* ── ManualPortfolioSection ──────────────────────── */
-const STATUS_BADGE: Record<ManualPortfolioStatus, string> = {
-  watching: "bg-brand/10 text-brand",
-  analysing: "bg-warning/10 text-warning",
-  negotiating: "bg-warning/15 text-warning",
-  purchased: "bg-success/10 text-success",
-  rejected: "bg-danger/10 text-danger",
-}
-
-function ManualPortfolioSection({ activeTab }: { activeTab: string }) {
-  const router = useRouter()
-  const { setInputA, setResultA } = useAnalysisStore()
-  const [entries, setEntries] = useState<ManualPortfolioEntry[]>([])
-
-  useEffect(() => {
-    setEntries(listEntries())
-  }, [])
-
-  const handleDelete = (id: string) => {
-    deleteEntry(id)
-    setEntries(listEntries())
-  }
-
-  const handleStatusChange = (id: string, status: ManualPortfolioStatus) => {
-    updateStatus(id, status)
-    setEntries(listEntries())
-  }
-
-  const handleOpen = (entry: ManualPortfolioEntry) => {
-    setInputA(entry.input)
-    setResultA(entry.result)
-    router.push("/analyse")
-  }
-
-  const filteredEntries = entries.filter((entry) => activeTab === "all" || entry.status === activeTab)
-
-  if (entries.length === 0) return null
-
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <h2 className="font-display text-lg font-semibold text-text-primary">
-          Manual Portfolio
-          <span className="ml-2 rounded-full bg-bg-elevated px-2 py-0.5 text-xs font-normal text-text-muted">
-            {entries.length}
-          </span>
-        </h2>
-        <button
-          onClick={() => router.push("/analyse")}
-          className="text-xs text-brand hover:underline"
-        >
-          + Add from Analysis
-        </button>
-      </div>
-
-      <div className="rounded-[14px] border border-border-default bg-bg-surface overflow-hidden">
-        {filteredEntries.length === 0 ? (
-          <div className="px-5 py-8 text-sm text-text-secondary">
-            No manual entries in this status yet.
-          </div>
-        ) : filteredEntries.map((entry, i) => (
-          <div
-            key={entry.id}
-            className={cn(
-              "flex flex-col gap-1.5 px-5 py-4 transition-colors hover:bg-bg-elevated/40",
-              i > 0 && "border-t border-border-default"
-            )}
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-text-primary truncate">{entry.name}</p>
-                <p className="text-xs text-text-muted">
-                  Saved {new Date(entry.savedAt).toLocaleDateString("de-DE")}
-                </p>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <select
-                  value={entry.status}
-                  onChange={(e) => handleStatusChange(entry.id, e.target.value as ManualPortfolioStatus)}
-                  className={cn(
-                    "rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase cursor-pointer border-0 outline-none",
-                    STATUS_BADGE[entry.status]
-                  )}
-                >
-                  <option value="watching">Watching</option>
-                  <option value="analysing">Analysing</option>
-                  <option value="negotiating">Negotiating</option>
-                  <option value="purchased">Purchased</option>
-                  <option value="rejected">Rejected</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-3 text-sm">
-              <span className="font-mono">
-                <span className="text-[10px] uppercase tracking-wide text-text-muted mr-1">IRR 10yr</span>
-                <span className={entry.result.irr_10 >= 5 ? "text-success" : "text-warning"}>
-                  {entry.result.irr_10.toFixed(1)}%
-                </span>
-              </span>
-              <span className="font-mono">
-                <span className="text-[10px] uppercase tracking-wide text-text-muted mr-1">CF/mo</span>
-                <span className={entry.result.cash_flow_monthly_yr1 >= 0 ? "text-success" : "text-danger"}>
-                  {entry.result.cash_flow_monthly_yr1 >= 0 ? "+" : ""}{EUR}{Math.abs(Math.round(entry.result.cash_flow_monthly_yr1)).toLocaleString("de-DE")}
-                </span>
-              </span>
-              <span className="font-mono">
-                <span className="text-[10px] uppercase tracking-wide text-text-muted mr-1">Net Yield</span>
-                <span className="text-text-primary">{entry.result.net_yield_pct.toFixed(1)}%</span>
-              </span>
-              <span className="font-mono">
-                <span className="text-[10px] uppercase tracking-wide text-text-muted mr-1">Equity ×</span>
-                <span className="text-text-primary">{entry.result.equity_multiple_10.toFixed(2)}×</span>
-              </span>
-            </div>
-
-            <div className="flex gap-2 mt-0.5">
-              <button
-                onClick={() => handleOpen(entry)}
-                className="text-xs text-brand hover:underline"
-              >
-                Open Analysis →
-              </button>
-              <button
-                onClick={() => handleDelete(entry.id)}
-                className="text-xs text-text-muted hover:text-danger transition-colors"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 /* ── Main ────────────────────────────────────────── */
 export default function PortfolioPage() {
   const { t } = useLocale()
@@ -294,7 +157,6 @@ export default function PortfolioPage() {
   }, [inputA, mapPropertyToInput, router, setInputA, setResultA, t])
 
   useEffect(() => {
-    setManualCount(listEntries().length)
     const controller = new AbortController()
 
     Promise.all([
@@ -367,39 +229,13 @@ export default function PortfolioPage() {
     )
   }
 
-  /* ── Empty portfolio ──────────────────────────── */
-  if ((!data || data.properties.length === 0) && manualCount === 0) {
+  /* ── Manual-only fallback ─────────────────────── */
+  if (!data) {
     return (
       <div className="flex flex-col gap-8 animate-fade-in">
         <div>
           <h1 className="font-display text-3xl text-text-primary">{t("portfolio.title")}</h1>
         </div>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <MetricCard label={t("portfolio.metric.totalValue")} value={0} prefix={EUR} sentiment="neutral" />
-          <MetricCard label={t("portfolio.metric.cashFlow")} value={0} prefix={EUR} sentiment="neutral" />
-          <MetricCard label={t("portfolio.metric.avgYield")} value={0} suffix="%" sentiment="neutral" />
-          <MetricCard label={t("portfolio.metric.properties")} value={0} sentiment="neutral" />
-        </div>
-        <EmptyState
-          icon={String.fromCharCode(128278)}
-          headline={t("portfolio.empty.title")}
-          body={t("portfolio.empty.body")}
-          actionLabel={copy.portfolio.browseCta}
-          onAction={() => router.push("/properties")}
-        />
-      </div>
-    )
-  }
-
-
-  if (!data) {
-    return (
-      <div className="flex flex-col gap-6 animate-fade-in">
-        <div>
-          <h1 className="font-display text-3xl text-text-primary">{t("portfolio.title")}</h1>
-          <p className="mt-1 text-sm text-text-secondary">Manual portfolio entries</p>
-        </div>
-
         <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
           <MetricCard label={t("portfolio.metric.totalValue")} value={0} prefix={EUR} sentiment="neutral" />
           <MetricCard label={t("portfolio.metric.cashFlow")} value={0} prefix={EUR} sentiment="neutral" />
@@ -424,7 +260,33 @@ export default function PortfolioPage() {
           </TabsList>
         </Tabs>
 
-        <ManualPortfolioSection activeTab={tab} />
+        <ManualPortfolioSection activeTab={tab} onCountChange={setManualCount} />
+      </div>
+    )
+  }
+
+
+  /* ── Empty backend portfolio ───────────────────── */
+  if (data.properties.length === 0) {
+    return (
+      <div className="flex flex-col gap-8 animate-fade-in">
+        <div>
+          <h1 className="font-display text-3xl text-text-primary">{t("portfolio.title")}</h1>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <MetricCard label={t("portfolio.metric.totalValue")} value={0} prefix={EUR} sentiment="neutral" />
+          <MetricCard label={t("portfolio.metric.cashFlow")} value={0} prefix={EUR} sentiment="neutral" />
+          <MetricCard label={t("portfolio.metric.avgYield")} value={0} suffix="%" sentiment="neutral" />
+          <MetricCard label={t("portfolio.metric.properties")} value={0} sentiment="neutral" />
+        </div>
+        <EmptyState
+          icon={String.fromCharCode(128278)}
+          headline={t("portfolio.empty.title")}
+          body={t("portfolio.empty.body")}
+          actionLabel={copy.portfolio.browseCta}
+          onAction={() => router.push("/properties")}
+        />
+        <ManualPortfolioSection activeTab={tab} onCountChange={setManualCount} />
       </div>
     )
   }
@@ -463,7 +325,7 @@ export default function PortfolioPage() {
       </div>
 
       {/* Manual Portfolio */}
-      <ManualPortfolioSection activeTab={tab} />
+      <ManualPortfolioSection activeTab={tab} onCountChange={setManualCount} />
 
       {/* Portfolio Analysis */}
       <Collapsible open={analysisOpen} onOpenChange={setAnalysisOpen}>
