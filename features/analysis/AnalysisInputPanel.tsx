@@ -1,5 +1,6 @@
 "use client"
 
+import * as React from "react"
 import { useLocale } from "@/lib/i18n/locale-context"
 import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
@@ -65,8 +66,7 @@ function FieldRow({
   children,
 }: {
   label: string
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  children: any
+  children: React.ReactNode
 }) {
   return (
     <div className={ROW}>
