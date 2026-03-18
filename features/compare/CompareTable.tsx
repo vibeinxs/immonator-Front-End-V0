@@ -121,7 +121,7 @@ const ROW_DEFS: KpiRowDef[] = [
   },
 ]
 
-function buildSummary(resultA: AnalyseResponse, resultB: AnalyseResponse): string {
+export function buildComparisonSummary(resultA: AnalyseResponse, resultB: AnalyseResponse): string {
   const parts: string[] = []
 
   if (resultA.net_yield_pct > resultB.net_yield_pct) {
@@ -165,7 +165,7 @@ export function CompareTable({
   labelA = "Property A",
   labelB = "Property B",
 }: CompareTableProps) {
-  const summary = buildSummary(resultA, resultB)
+  const summary = buildComparisonSummary(resultA, resultB)
 
   return (
     <div className="flex flex-col gap-6">
