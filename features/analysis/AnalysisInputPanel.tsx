@@ -156,7 +156,7 @@ export function AnalysisInputPanel({
   const fieldId = React.useCallback((suffix: string) => `${idPrefix}-${suffix}`, [idPrefix])
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex-1 space-y-4 overflow-y-auto p-4">
         <Section title={t("analyse.section.property")}>
           <div className="space-y-2">

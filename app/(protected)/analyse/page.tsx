@@ -540,7 +540,7 @@ function ComparePropertyCard({
   onReset: () => void
 }) {
   return (
-    <section className="overflow-hidden rounded-2xl border border-border-default bg-bg-surface">
+    <section className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-border-default bg-bg-surface">
       <div className="flex items-start justify-between gap-3 border-b border-border-default px-4 py-4 md:px-5">
         <div>
           <p className="text-sm font-semibold text-text-primary">{label}</p>
@@ -556,7 +556,7 @@ function ComparePropertyCard({
         </button>
       </div>
 
-      <div className="border-b border-border-default">
+      <div className="min-h-0 flex-1 border-b border-border-default">
         <AnalysisInputPanel
           value={input}
           onChange={onChange}
@@ -763,7 +763,7 @@ function SingleAnalysisWorkspace({
         description="Focus on one property from underwriting input through verdict, projections, and market context."
       >
         <div className="grid gap-4 lg:grid-cols-[minmax(360px,42%)_1fr]">
-          <section className="overflow-hidden rounded-2xl border border-border-default bg-bg-base">
+          <section className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-border-default bg-bg-base">
             <div className="border-b border-border-default px-4 py-4 md:px-5">
               <p className="text-sm font-semibold text-text-primary">Property input</p>
               <p className="mt-1 text-sm text-text-secondary">Use the full underwriting form for a single-property analysis.</p>
