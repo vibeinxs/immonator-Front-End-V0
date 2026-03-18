@@ -14,11 +14,15 @@ export interface FormParams {
   repayment_rate: number
   transfer_tax_pct: number
   notary_pct: number
+  /** Agent/broker commission as a percentage of purchase price (e.g. 3.57). */
+  agent_pct?: number
   land_share_pct: number
   rent_monthly: number
   hausgeld_monthly: number
   maintenance_nd: number
   management_nd: number
+  /** Annual Grundsteuer (property tax) in euros. Deducted from taxable income and cash flow. */
+  grundsteuer_annual?: number
   rent_growth: number
   appreciation: number
   tax_rate: number
@@ -26,8 +30,12 @@ export interface FormParams {
   holding_years: number
   afa_rate_input: number
   special_afa_enabled: boolean
+  /** Sonder-AfA rate as a percent (e.g. 5 = 5%). Same >1 convention as afa_rate_input. */
   special_afa_rate_input?: number
+  /** Number of years Sonder-AfA applies (counted from year 1). */
   special_afa_years?: number
+  /** Energy efficiency class (e.g. "A+", "A", "B"). Metadata only — no effect on local calc. */
+  energy_class?: string
 }
 
 export interface YearData {
@@ -35,6 +43,8 @@ export interface YearData {
   rent_gross: number
   interest: number
   afa: number
+  /** Sonder-AfA (accelerated depreciation) for this year. Null when not active. */
+  afa_sonder: number | null
   taxable_income: number
   tax_impact: number
   cash_flow: number
@@ -96,20 +106,42 @@ function calcIRR(flows: number[]): number {
 }
 
 export function localCompute(p: FormParams): ComputeResult {
+  // ── Closing costs ──────────────────────────────────────────────────────────
   const grEst = (p.purchase_price * p.transfer_tax_pct) / 100
   const notary = (p.purchase_price * p.notary_pct) / 100
-  const closing = grEst + notary
+  // agent_pct (Maklerprovision): included in closing costs and therefore in
+  // the AfA basis (acquisition cost); defaults to 0 when not supplied.
+  const agentFee = (p.purchase_price * (p.agent_pct ?? 0)) / 100
+  const closing = grEst + notary + agentFee
   const loan = p.purchase_price + closing - p.equity
   const ltv = loan / p.purchase_price
 
   const landV = (p.purchase_price * p.land_share_pct) / 100
   const afaBasis = p.purchase_price + closing - landV
 
+  // ── Regular AfA ────────────────────────────────────────────────────────────
   // afa_rate_input is in percent (e.g. 2.0 = 2%); >1 means it's a percent, divide by 100
   const afaRateRaw =
     p.afa_rate_input > 0 ? p.afa_rate_input : p.condition === "newbuild" ? 3 : 2
   const afaRate = afaRateRaw > 1 ? afaRateRaw / 100 : afaRateRaw
   const annAfA = afaBasis * afaRate
+
+  // ── Sonder-AfA setup ───────────────────────────────────────────────────────
+  // special_afa_rate_input follows the same >1 = percent convention.
+  // special_afa_years: integer number of years from yr=1. Defaults to 0 (off).
+  const sonderEnabled =
+    p.special_afa_enabled &&
+    (p.special_afa_rate_input ?? 0) > 0 &&
+    (p.special_afa_years ?? 0) > 0
+  const sonderRateRaw = p.special_afa_rate_input ?? 0
+  const sonderRate = sonderRateRaw > 1 ? sonderRateRaw / 100 : sonderRateRaw
+  const sonderYears = p.special_afa_years ?? 0
+  // Sonder-AfA is applied to the same afaBasis as regular AfA.
+  const annSonderAfa = afaBasis * sonderRate
+
+  // ── Annual Grundsteuer ────────────────────────────────────────────────────
+  // Deductible Werbungskosten; also a real annual cash outflow.
+  const grundsteuer = p.grundsteuer_annual ?? 0
 
   const mRate = p.interest_rate / 100 / 12
   const annMo = loan * (p.repayment_rate / 100 / 12 + mRate)
@@ -134,13 +166,18 @@ export function localCompute(p: FormParams): ComputeResult {
     const py = Math.min(annAnn - iy, rem)
     rem = Math.max(0, rem - py)
 
+    // Sonder-AfA applies for years 1..sonderYears (paper deduction, not cash)
+    const sonderAfa = sonderEnabled && yr <= sonderYears ? annSonderAfa : 0
+
     const hAnn = p.hausgeld_monthly * 12
-    const ti = rg - iy - hAnn - annAfA
+    // taxable_income: deduct regular AfA + Sonder-AfA + Grundsteuer
+    const ti = rg - iy - hAnn - annAfA - sonderAfa - grundsteuer
     const tax = ti * (p.tax_rate / 100)
 
     const nd = p.maintenance_nd + p.management_nd
     const aa = rem > 0 ? annAnn : iy + py
-    const cf = rg - aa - nd - tax
+    // cash_flow: Grundsteuer is a real cash outflow; sonderAfa is paper only
+    const cf = rg - aa - nd - tax - grundsteuer
     cumCF += cf
 
     const pv = p.purchase_price * Math.pow(1 + p.appreciation / 100, yr)
@@ -152,6 +189,7 @@ export function localCompute(p: FormParams): ComputeResult {
       rent_gross: rg,
       interest: iy,
       afa: annAfA,
+      afa_sonder: sonderAfa > 0 ? sonderAfa : null,
       taxable_income: ti,
       tax_impact: tax,
       cash_flow: cf,
@@ -169,8 +207,9 @@ export function localCompute(p: FormParams): ComputeResult {
 
   const ar = p.rent_monthly * 12
   const gy = (ar / p.purchase_price) * 100
+  // NOI: also subtract Grundsteuer from the net yield base
   const noi =
-    ar * (1 - p.vacancy_rate / 100) - p.hausgeld_monthly * 12 - p.maintenance_nd
+    ar * (1 - p.vacancy_rate / 100) - p.hausgeld_monthly * 12 - p.maintenance_nd - grundsteuer
   const ny = (noi / p.purchase_price) * 100
   const kpf = p.purchase_price / ar
 
