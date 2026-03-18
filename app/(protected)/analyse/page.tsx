@@ -12,6 +12,7 @@ import { PRESET_B } from "@/features/analysis/presets"
 import { buildComparisonSummary } from "@/features/compare/CompareTable"
 import { CashflowChart, type YearData } from "@/components/analysis/CashflowChart"
 import { ExitHorizonsTable } from "@/components/analysis/ExitHorizonsTable"
+import { SaveToPortfolioButton } from "@/components/analysis/SaveToPortfolioButton"
 import { YearByYearTable } from "@/components/analysis/YearByYearTable"
 import { LandShareBlock } from "@/components/analysis/LandShareBlock"
 import { FlagsSection } from "@/features/analysis/FlagsSection"
@@ -576,12 +577,13 @@ export default function AnalysePage() {
             <div className="space-y-4">
               <SectionShell title={t("analyse.new.analysis.title")} description={t("analyse.new.analysis.description")}>
                 <Tabs value={resultTab} onValueChange={(v) => setResultTab(v as typeof resultTab)}>
-                  <div className="mb-4 flex items-center justify-between gap-3 border-b border-border-default pb-2">
+                  <div className="mb-4 flex flex-col gap-3 border-b border-border-default pb-2 sm:flex-row sm:items-center sm:justify-between">
                     <TabsList className="h-auto gap-0 rounded-none bg-transparent p-0">
                       <TabsTrigger value="overview" className="rounded-none border-b-2 border-transparent px-3 py-2 text-sm data-[state=active]:border-brand data-[state=active]:text-brand">{t("analyse.tab.overview")}</TabsTrigger>
                       <TabsTrigger value="projections" className="rounded-none border-b-2 border-transparent px-3 py-2 text-sm data-[state=active]:border-brand data-[state=active]:text-brand">{t("analyse.tab.projections")}</TabsTrigger>
                       <TabsTrigger value="market" className="rounded-none border-b-2 border-transparent px-3 py-2 text-sm data-[state=active]:border-brand data-[state=active]:text-brand">{t("analyse.tab.market")}</TabsTrigger>
                     </TabsList>
+                    <SaveToPortfolioButton input={inputA} result={resultA} className="self-start" />
                   </div>
 
                   <TabsContent value="overview" className="mt-0"><ResultOverview input={inputA} result={resultA} /></TabsContent>

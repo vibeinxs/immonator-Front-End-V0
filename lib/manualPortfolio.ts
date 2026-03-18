@@ -2,7 +2,7 @@ import type { AnalyseRequest, AnalyseResponse } from "@/types/api"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type ManualPortfolioStatus = "watching" | "analysing" | "purchased"
+export type ManualPortfolioStatus = "watching" | "analysing" | "negotiating" | "purchased" | "rejected"
 
 export interface ManualPortfolioEntry {
   id: string
@@ -20,7 +20,7 @@ const STORAGE_KEY = "immo_manual_portfolio"
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
-const VALID_STATUSES = new Set<ManualPortfolioStatus>(["watching", "analysing", "purchased"])
+const VALID_STATUSES = new Set<ManualPortfolioStatus>(["watching", "analysing", "negotiating", "purchased", "rejected"])
 
 /** Return true if `v` is a non-null plain object (not an array). */
 function isObject(v: unknown): v is Record<string, unknown> {
