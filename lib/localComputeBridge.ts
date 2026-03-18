@@ -117,6 +117,14 @@ function clamp(value: number, min: number, max: number): number {
  * localCompute() never receives NaN or undefined.
  */
 export function toFormParams(r: AnalyseRequest): FormParams {
+  /**
+   * Like n() but for optional numeric fields that must stay `undefined`
+   * (not a numeric fallback) when absent or invalid. Returns the value if
+   * finite, otherwise undefined.
+   */
+  const opt = (v: number | null | undefined): number | undefined =>
+    v != null && isFinite(v) ? v : undefined
+
   return {
     // ── Identity ──────────────────────────────────────────────────────────
     address: r.address,
@@ -161,12 +169,8 @@ export function toFormParams(r: AnalyseRequest): FormParams {
     // special_afa_*: fully implemented in localCompute() — Sonder-AfA is
     // computed per year and deducted from taxable income.
     special_afa_enabled: r.special_afa_enabled ?? false,
-    special_afa_rate_input: r.special_afa_rate_input != null && isFinite(r.special_afa_rate_input)
-      ? r.special_afa_rate_input
-      : undefined,
-    special_afa_years: r.special_afa_years != null && isFinite(r.special_afa_years)
-      ? r.special_afa_years
-      : undefined,
+    special_afa_rate_input: opt(r.special_afa_rate_input),
+    special_afa_years: opt(r.special_afa_years),
 
     // energy_class: metadata passthrough — no effect on local calculations
     energy_class: r.energy_class,
