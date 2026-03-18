@@ -422,16 +422,16 @@ export default function AnalysePage() {
       <div className="grid gap-4 lg:grid-cols-[minmax(360px,42%)_1fr]">
         <section className="rounded-2xl border border-border-default bg-bg-surface">
           {mode === "single" ? (
-            <AnalysisInputPanel input={inputA} onChange={setInputA} showAnalyseButton={false} />
+            <AnalysisInputPanel value={inputA} onChange={setInputA} showAnalyseButton={false} />
           ) : (
             <div className="grid gap-4 p-4 xl:grid-cols-2">
               <div className="rounded-xl border border-border-default">
                 <div className="border-b border-border-default px-3 py-2 text-sm font-semibold text-text-primary">{t("analyse.propertyA")}</div>
-                <AnalysisInputPanel input={inputA} onChange={setInputA} showAnalyseButton={false} />
+                <AnalysisInputPanel value={inputA} onChange={setInputA} showAnalyseButton={false} />
               </div>
               <div className="rounded-xl border border-border-default">
                 <div className="border-b border-border-default px-3 py-2 text-sm font-semibold text-text-primary">{t("analyse.propertyB")}</div>
-                <AnalysisInputPanel input={inputB} onChange={setInputB} showAnalyseButton={false} />
+                <AnalysisInputPanel value={inputB} onChange={setInputB} showAnalyseButton={false} />
               </div>
             </div>
           )}
