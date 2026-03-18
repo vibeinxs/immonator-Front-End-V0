@@ -1,35 +1,38 @@
 "use client"
 
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Loader2 } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { ChevronDown, ChevronUp, ExternalLink, Loader2, RotateCcw } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { Input } from "@/components/ui/input"
 import { AnalysisInputPanel } from "@/features/analysis/AnalysisInputPanel"
 import { KpiGrid } from "@/features/analysis/KpiGrid"
+import { PRESET_B } from "@/features/analysis/presets"
+import { buildComparisonSummary } from "@/features/compare/CompareTable"
 import { CashflowChart, type YearData } from "@/components/analysis/CashflowChart"
 import { ExitHorizonsTable } from "@/components/analysis/ExitHorizonsTable"
 import { YearByYearTable } from "@/components/analysis/YearByYearTable"
 import { LandShareBlock } from "@/components/analysis/LandShareBlock"
 import { FlagsSection } from "@/features/analysis/FlagsSection"
 import { analyseProperty } from "@/lib/analyseApi"
+import { formatEUR, formatPct, formatX } from "@/lib/format"
 import { runLocalCompute } from "@/lib/localComputeBridge"
 import { useAnalysisStore } from "@/store/analysisStore"
 import { useLocale } from "@/lib/i18n/locale-context"
 import type { AnalyseRequest, AnalyseResponse } from "@/types/api"
 import type {
-  AIAnalysisPayload,
   AIInsightPayload,
-  AnalysisResultPayload,
   AskAiContextPayload,
-  ComparisonAnalysisResult,
   NegotiationStrategyItem,
   NegotiationStrategyPayload,
-  SinglePropertyAnalysisResult,
 } from "@/types/analyseView"
-
 
 const NEGOTIATION_SCORE_THRESHOLD = 6
 const NEGOTIATION_NEGATIVE_CASHFLOW_THRESHOLD = 0
 const NEGOTIATION_DYNAMIC_POINTS_LIMIT = 2
+
+type CompareMetricTone = "higher" | "lower"
 
 function toChartData(yearData: AnalyseResponse["year_data"]): YearData[] {
   return yearData.map((y) => ({
@@ -47,6 +50,13 @@ function verdictClass(score: number) {
 
 function formatVerdict(verdict: string, t: (k: string) => string) {
   return t(`verdict.${verdict}`)
+}
+
+function compareMetricClass(delta: number, better: CompareMetricTone) {
+  if (delta === 0) return "text-text-muted"
+
+  const isPositive = better === "higher" ? delta > 0 : delta < 0
+  return isPositive ? "text-success" : "text-danger"
 }
 
 function ResultOverview({ input, result }: { input: AnalyseRequest; result: AnalyseResponse }) {
@@ -108,7 +118,7 @@ function MarketDataPanel({ input, result }: { input: AnalyseRequest; result: Ana
   ]
 
   return (
-    <div className="rounded-2xl border border-border-default bg-bg-surface overflow-hidden">
+    <div className="overflow-hidden rounded-2xl border border-border-default bg-bg-surface">
       <div className="flex items-center justify-between border-b border-border-default px-4 py-3">
         <p className="text-sm font-semibold text-text-primary">{t("analyse.market.title")}</p>
         <span className="rounded-md bg-bg-elevated px-2 py-0.5 text-[11px] text-text-muted">
@@ -117,7 +127,7 @@ function MarketDataPanel({ input, result }: { input: AnalyseRequest; result: Ana
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2">
         {rows.map((row, idx) => (
-          <div key={row.label} className={`p-4 ${idx % 2 === 0 ? "md:border-r" : ""} ${idx < rows.length - 2 ? "border-b" : ""} border-border-default`}>
+          <div key={row.label} className={`border-border-default p-4 ${idx % 2 === 0 ? "md:border-r" : ""} ${idx < rows.length - 2 ? "border-b" : ""}`}>
             <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{row.label}</p>
             <p className="mt-1 break-words font-mono text-2xl font-bold text-text-primary">{row.value}</p>
             <p className="mt-1 text-xs text-text-muted">{row.note}</p>
@@ -137,6 +147,175 @@ function SectionShell({ title, description, children }: { title: string; descrip
       </div>
       <div className="p-4 md:p-5">{children}</div>
     </section>
+  )
+}
+
+function MetricMiniCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-border-default bg-bg-base p-3">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{label}</p>
+      <p className="mt-1 font-mono text-lg font-semibold text-text-primary">{value}</p>
+    </div>
+  )
+}
+
+function CompactPropertyResult({ result }: { result: AnalyseResponse | null }) {
+  if (!result) {
+    return (
+      <div className="rounded-xl border border-dashed border-border-default bg-bg-base p-4 text-sm text-text-muted">
+        Analyse Property B to see a compact result summary here.
+      </div>
+    )
+  }
+
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      <MetricMiniCard label="Score" value={`${result.score.toFixed(1)}/10`} />
+      <MetricMiniCard label="Net Yield" value={formatPct(result.net_yield_pct)} />
+      <MetricMiniCard label="Cash Flow / Mo Yr 1" value={formatEUR(result.cash_flow_monthly_yr1)} />
+      <MetricMiniCard label="IRR 10 yr" value={formatPct(result.irr_10)} />
+    </div>
+  )
+}
+
+function CompactCompareSummary({ resultA, resultB }: { resultA: AnalyseResponse; resultB: AnalyseResponse }) {
+  const summary = buildComparisonSummary(resultA, resultB)
+  const metrics = [
+    {
+      label: "Score Δ",
+      value: `${resultA.score >= resultB.score ? "A" : "B"} ${Math.abs(resultA.score - resultB.score).toFixed(1)}`,
+      className: compareMetricClass(resultA.score - resultB.score, "higher"),
+    },
+    {
+      label: "Net Yield Δ",
+      value: formatPct(Math.abs(resultA.net_yield_pct - resultB.net_yield_pct)),
+      className: compareMetricClass(resultA.net_yield_pct - resultB.net_yield_pct, "higher"),
+    },
+    {
+      label: "Cash Flow Δ",
+      value: formatEUR(Math.abs(resultA.cash_flow_monthly_yr1 - resultB.cash_flow_monthly_yr1)),
+      className: compareMetricClass(resultA.cash_flow_monthly_yr1 - resultB.cash_flow_monthly_yr1, "higher"),
+    },
+    {
+      label: "KPF Δ",
+      value: formatX(Math.abs(resultA.kpf - resultB.kpf)),
+      className: compareMetricClass(resultA.kpf - resultB.kpf, "lower"),
+    },
+  ]
+
+  return (
+    <div className="space-y-4 rounded-xl border border-brand/20 bg-brand/5 p-4">
+      <div>
+        <p className="text-sm font-semibold text-text-primary">A vs B snapshot</p>
+        <p className="mt-1 text-sm text-text-secondary">{summary}</p>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {metrics.map((metric) => (
+          <div key={metric.label} className="rounded-xl border border-border-default bg-bg-surface p-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{metric.label}</p>
+            <p className={`mt-1 font-mono text-lg font-semibold ${metric.className}`}>{metric.value}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function CompactPropertyBPanel({
+  input,
+  result,
+  onChange,
+  onAnalyse,
+  onReset,
+  loading,
+}: {
+  input: AnalyseRequest
+  result: AnalyseResponse | null
+  onChange: (value: AnalyseRequest) => void
+  onAnalyse: () => void
+  onReset: () => void
+  loading: boolean
+}) {
+  const setField = useCallback(
+    <K extends keyof AnalyseRequest>(field: K, value: AnalyseRequest[K]) => {
+      onChange({ ...input, [field]: value })
+    },
+    [input, onChange],
+  )
+
+  const numericField = (
+    id: string,
+    label: string,
+    value: number,
+    onValue: (next: number) => void,
+    unit?: string,
+  ) => (
+    <label htmlFor={id} className="space-y-1.5">
+      <span className="text-xs font-medium text-text-secondary">{label}</span>
+      <div className="flex items-center gap-2">
+        <Input
+          id={id}
+          type="number"
+          inputMode="decimal"
+          value={value}
+          onChange={(event) => onValue(Number(event.target.value) || 0)}
+          className="font-mono"
+        />
+        {unit ? <span className="text-xs text-text-muted">{unit}</span> : null}
+      </div>
+    </label>
+  )
+
+  return (
+    <div className="space-y-4 rounded-xl border border-border-default bg-bg-surface p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold text-text-primary">Property B</p>
+          <p className="text-xs text-text-muted">Compact beta input for a quick side-by-side check.</p>
+        </div>
+        <button
+          type="button"
+          onClick={onReset}
+          className="inline-flex items-center gap-1 text-xs text-text-muted transition-colors hover:text-text-secondary"
+        >
+          <RotateCcw className="h-3.5 w-3.5" />
+          Reset B
+        </button>
+      </div>
+
+      <label htmlFor="compare-address-b" className="block space-y-1.5">
+        <span className="text-xs font-medium text-text-secondary">Address</span>
+        <Input
+          id="compare-address-b"
+          value={input.address}
+          onChange={(event) => setField("address", event.target.value)}
+          placeholder="Property B address"
+        />
+      </label>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        {numericField("compare-sqm-b", "Area", input.sqm, (next) => setField("sqm", next), "m²")}
+        {numericField("compare-year-built-b", "Year built", input.year_built, (next) => setField("year_built", Math.round(next)))}
+        {numericField("compare-price-b", "Purchase price", input.purchase_price, (next) => setField("purchase_price", next), "€")}
+        {numericField("compare-equity-b", "Equity", input.equity, (next) => setField("equity", next), "€")}
+        {numericField("compare-rent-b", "Rent / month", input.rent_monthly, (next) => setField("rent_monthly", next), "€")}
+      </div>
+
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs text-text-muted">Other financing and tax assumptions keep Property B defaults for now.</p>
+        <button
+          type="button"
+          onClick={onAnalyse}
+          disabled={loading}
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-hover disabled:opacity-60"
+        >
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          {loading ? "Analysing…" : "Analyse B"}
+        </button>
+      </div>
+
+      <CompactPropertyResult result={result} />
+    </div>
   )
 }
 
@@ -193,15 +372,12 @@ function negotiationBullets(result: AnalyseResponse, t: (k: string) => string): 
       : null,
   ]
 
-  // Product UX: show at most 3 bullets total in this block.
-  // We keep the always-on walk-away point and cap dynamic points to 2.
   const finalAsks = candidates.filter((item): item is NegotiationStrategyItem => item !== null).slice(0, NEGOTIATION_DYNAMIC_POINTS_LIMIT)
   finalAsks.push({ id: "walkAway", text: t("analyse.new.negotiation.walkAway") })
   return finalAsks
 }
 
 function AskAiShell({ context, t }: { context: AskAiContextPayload; t: (k: string) => string }) {
-  const mode = context.mode
   const messages = context.mockMessages
 
   return (
@@ -214,7 +390,6 @@ function AskAiShell({ context, t }: { context: AskAiContextPayload; t: (k: strin
             </div>
           </div>
         ))}
-        {mode === "compare" && context.promptHints[0] ? <p className="text-xs text-text-muted">{context.promptHints[0]}</p> : null}
       </div>
       <div className="flex gap-2 p-3">
         <input
@@ -233,110 +408,63 @@ function AskAiShell({ context, t }: { context: AskAiContextPayload; t: (k: strin
 
 export default function AnalysePage() {
   const { t } = useLocale()
-  const { inputA, setInputA, resultA, setResultA, inputB, setInputB, resultB, setResultB } = useAnalysisStore()
+  const router = useRouter()
+  const {
+    inputA: storeInputA,
+    setInputA: setStoreInputA,
+    resultA: storeResultA,
+    setResultA: setStoreResultA,
+    inputB: storeInputB,
+    setInputB: setStoreInputB,
+    resultB: storeResultB,
+    setResultB: setStoreResultB,
+  } = useAnalysisStore()
 
-  const [mode, setMode] = useState<"single" | "compare">("single")
+  const [inputA, setInputA] = useState<AnalyseRequest>(() => storeInputA)
+  const [resultA, setResultA] = useState<AnalyseResponse | null>(() => storeResultA)
+  const [inputB, setInputB] = useState<AnalyseRequest>(() => storeInputB)
+  const [resultB, setResultB] = useState<AnalyseResponse | null>(() => storeResultB)
   const [resultTab, setResultTab] = useState<"overview" | "projections" | "market">("overview")
-  const [selectedProperty, setSelectedProperty] = useState<"A" | "B">("A")
-  const [loading, setLoading] = useState(false)
+  const [compareOpen, setCompareOpen] = useState(false)
+  const [loadingA, setLoadingA] = useState(false)
+  const [loadingB, setLoadingB] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [askAiContext, setAskAiContext] = useState<AskAiContextPayload | null>(null)
   const resultTopRef = useRef<HTMLDivElement | null>(null)
 
-  const activeInput = mode === "single" ? inputA : (selectedProperty === "A" ? inputA : inputB)
-  const activeResult = mode === "single" ? resultA : (selectedProperty === "A" ? resultA : resultB)
-  const hasResults = mode === "single" ? !!resultA : !!resultA || !!resultB
-
-  const analysisResultPayload = useMemo<AnalysisResultPayload | null>(() => {
-    if (mode === "single") {
-      if (!resultA) return null
-      const singleResult: SinglePropertyAnalysisResult = {
-        kind: "single",
-        property: {
-          slot: "A",
-          input: inputA,
-          result: resultA,
-        },
-      }
-      return singleResult
-    }
-
-    if (!resultA && !resultB) return null
-
-    const compareResult: ComparisonAnalysisResult = {
-      kind: "compare",
-      selectedProperty,
-      propertyA: resultA ? { slot: "A", input: inputA, result: resultA } : null,
-      propertyB: resultB ? { slot: "B", input: inputB, result: resultB } : null,
-    }
-
-    return compareResult
-  }, [inputA, inputB, mode, resultA, resultB, selectedProperty])
-
   const aiInsightPayload = useMemo<AIInsightPayload | null>(() => {
-    if (!activeResult) return null
+    if (!resultA) return null
     return {
-      verdictLabel: t(`verdict.${activeResult.verdict}`),
-      score: activeResult.score,
-      netYieldPct: activeResult.net_yield_pct,
-      cashflowMonthlyYr1: activeResult.cash_flow_monthly_yr1,
-      summaryLine: aiInsightText(activeResult, t),
-      cards: aiInsightCards(activeResult, t),
+      verdictLabel: t(`verdict.${resultA.verdict}`),
+      score: resultA.score,
+      netYieldPct: resultA.net_yield_pct,
+      cashflowMonthlyYr1: resultA.cash_flow_monthly_yr1,
+      summaryLine: aiInsightText(resultA, t),
+      cards: aiInsightCards(resultA, t),
     }
-  }, [activeResult, t])
+  }, [resultA, t])
 
-  const aiAnalysisPayload = useMemo<AIAnalysisPayload | null>(() => {
-    if (!analysisResultPayload) return null
-
-    if (analysisResultPayload.kind === "single") {
-      if (!activeResult) return null
-
-      const narrative = aiNarrative(activeResult, activeInput, t)
-      return {
-        mode: "single",
-        primaryText: activeResult.ai_analysis || t("analyse.ai.empty"),
-        primaryNarrative: narrative,
-      }
-    }
-
-    const narrativeA = analysisResultPayload.propertyA
-      ? aiNarrative(analysisResultPayload.propertyA.result, analysisResultPayload.propertyA.input, t)
-      : [t("analyse.ai.empty")]
-    const narrativeB = analysisResultPayload.propertyB
-      ? aiNarrative(analysisResultPayload.propertyB.result, analysisResultPayload.propertyB.input, t)
-      : [t("analyse.ai.empty")]
-
-    return {
-      mode: "compare",
-      primaryText: selectedProperty === "A"
-        ? analysisResultPayload.propertyA?.result.ai_analysis || t("analyse.ai.empty")
-        : analysisResultPayload.propertyB?.result.ai_analysis || t("analyse.ai.empty"),
-      compare: {
-        propertyA: analysisResultPayload.propertyA?.result.ai_analysis || t("analyse.ai.empty"),
-        propertyB: analysisResultPayload.propertyB?.result.ai_analysis || t("analyse.ai.empty"),
-        narrativeA,
-        narrativeB,
-      },
-      primaryNarrative: selectedProperty === "A" ? narrativeA : narrativeB,
-    }
-  }, [activeInput, activeResult, analysisResultPayload, selectedProperty, t])
+  const aiAnalysisNarrative = useMemo(() => {
+    if (!resultA) return [t("analyse.ai.empty")]
+    return aiNarrative(resultA, inputA, t)
+  }, [inputA, resultA, t])
 
   const negotiationPayload = useMemo<NegotiationStrategyPayload | null>(() => {
-    if (!activeResult) return null
+    if (!resultA) return null
     return {
-      items: negotiationBullets(activeResult, t),
+      items: negotiationBullets(resultA, t),
     }
-  }, [activeResult, t])
+  }, [resultA, t])
 
   useEffect(() => {
-    if (!analysisResultPayload) {
+    if (!resultA) {
       setAskAiContext(null)
       return
     }
 
     setAskAiContext({
-      mode,
-      selectedProperty,
+      mode: "single",
+      selectedProperty: "A",
       propertyInputs: {
         A: inputA,
         B: inputB,
@@ -345,22 +473,14 @@ export default function AnalysePage() {
         A: resultA,
         B: resultB,
       },
-      promptHints: mode === "compare"
-        ? [t("analyse.new.askAi.shellCompareHint")]
-        : [],
-      mockMessages: mode === "compare"
-        ? [
-            { id: "a1", role: "assistant", text: t("analyse.new.askAi.shellIntro") },
-            { id: "u1", role: "user", text: t("analyse.new.askAi.shellCompareHint") },
-            { id: "a2", role: "assistant", text: `${t("analyse.propertyA")} ${resultA ? `(${resultA.score.toFixed(1)}/10)` : ""} · ${t("analyse.propertyB")} ${resultB ? `(${resultB.score.toFixed(1)}/10)` : ""}`.trim() },
-          ]
-        : [
-            { id: "a1", role: "assistant", text: t("analyse.new.askAi.shellIntro") },
-            { id: "u1", role: "user", text: t("analyse.new.askAi.inputPlaceholder") },
-            { id: "a2", role: "assistant", text: activeResult ? aiInsightText(activeResult, t) : t("analyse.ai.empty") },
-          ],
+      promptHints: [],
+      mockMessages: [
+        { id: "a1", role: "assistant", text: t("analyse.new.askAi.shellIntro") },
+        { id: "u1", role: "user", text: t("analyse.new.askAi.inputPlaceholder") },
+        { id: "a2", role: "assistant", text: aiInsightText(resultA, t) },
+      ],
     })
-  }, [activeResult, analysisResultPayload, inputA, inputB, mode, resultA, resultB, selectedProperty, t])
+  }, [inputA, inputB, resultA, resultB, t])
 
   const analyseOne = useCallback(async (input: AnalyseRequest, setResult: (r: AnalyseResponse) => void) => {
     const { data } = await analyseProperty(input)
@@ -371,33 +491,47 @@ export default function AnalysePage() {
     setResult(runLocalCompute(input))
   }, [])
 
-  const handleAnalyse = useCallback(async () => {
-    setLoading(true)
+  const handleAnalyseA = useCallback(async () => {
+    setLoadingA(true)
     setError(null)
     try {
-      if (mode === "single") {
-        await analyseOne(inputA, setResultA)
-        setSelectedProperty("A")
-      } else {
-        await Promise.all([
-          analyseOne(inputA, setResultA),
-          analyseOne(inputB, setResultB),
-        ])
-      }
+      await analyseOne(inputA, setResultA)
       setTimeout(() => resultTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 20)
     } catch {
       setError(t("analyse.error"))
     } finally {
-      setLoading(false)
+      setLoadingA(false)
     }
-  }, [analyseOne, inputA, inputB, mode, setResultA, setResultB, t])
+  }, [analyseOne, inputA, t])
 
-  const compareSelector = useMemo(() => (
-    <div className="inline-flex rounded-lg border border-border-default bg-bg-surface p-1 text-xs font-semibold">
-      <button className={`rounded px-3 py-1 ${selectedProperty === "A" ? "bg-brand text-white" : "text-text-secondary"}`} onClick={() => setSelectedProperty("A")}>{t("analyse.propertyA")}</button>
-      <button className={`rounded px-3 py-1 ${selectedProperty === "B" ? "bg-brand text-white" : "text-text-secondary"}`} onClick={() => setSelectedProperty("B")}>{t("analyse.propertyB")}</button>
-    </div>
-  ), [selectedProperty, t])
+  const handleAnalyseB = useCallback(async () => {
+    setLoadingB(true)
+    setError(null)
+    try {
+      await analyseOne(inputB, setResultB)
+    } catch {
+      setError(t("analyse.error"))
+    } finally {
+      setLoadingB(false)
+    }
+  }, [analyseOne, inputB, t])
+
+  const handleResetB = useCallback(() => {
+    setStoreInputB(PRESET_B)
+    setStoreResultB(null)
+    setInputB(PRESET_B)
+    setResultB(null)
+  }, [setStoreInputB, setStoreResultB])
+
+  const handleOpenFullComparison = useCallback(() => {
+    if (!resultA || !resultB) return
+
+    setStoreInputA(inputA)
+    setStoreResultA(resultA)
+    setStoreInputB(inputB)
+    setStoreResultB(resultB)
+    router.push("/analyse/compare")
+  }, [inputA, inputB, resultA, resultB, router, setStoreInputA, setStoreInputB, setStoreResultA, setStoreResultB])
 
   return (
     <div className="h-full overflow-y-auto bg-bg-base p-4 md:p-6">
@@ -406,76 +540,50 @@ export default function AnalysePage() {
           <h1 className="font-serif text-2xl font-semibold text-text-primary">{t("analyse.title")}</h1>
           <p className="text-sm text-text-secondary">{t("analyse.subtitle")}</p>
         </div>
-        <button onClick={handleAnalyse} disabled={loading} className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-60">
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-          {loading ? t("analyse.action.analysing") : t("analyse.action.analyse")}
+        <button onClick={handleAnalyseA} disabled={loadingA} className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-60">
+          {loadingA ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          {loadingA ? t("analyse.action.analysing") : t("analyse.action.analyse")}
         </button>
       </div>
 
-      <Tabs value={mode} onValueChange={(v) => setMode(v as "single" | "compare")} className="mb-4">
-        <TabsList className="h-auto rounded-xl border border-border-default bg-bg-surface p-1">
-          <TabsTrigger value="single" className="rounded-lg px-4 py-2 text-sm">{t("analyse.mode.single")}</TabsTrigger>
-          <TabsTrigger value="compare" className="rounded-lg px-4 py-2 text-sm">{t("analyse.mode.compare")}</TabsTrigger>
-        </TabsList>
-      </Tabs>
-
       <div className="grid gap-4 lg:grid-cols-[minmax(360px,42%)_1fr]">
         <section className="rounded-2xl border border-border-default bg-bg-surface">
-          {mode === "single" ? (
-            <AnalysisInputPanel value={inputA} onChange={setInputA} showAnalyseButton={false} />
-          ) : (
-            <div className="grid gap-4 p-4 xl:grid-cols-2">
-              <div className="rounded-xl border border-border-default">
-                <div className="border-b border-border-default px-3 py-2 text-sm font-semibold text-text-primary">{t("analyse.propertyA")}</div>
-                <AnalysisInputPanel value={inputA} onChange={setInputA} showAnalyseButton={false} />
-              </div>
-              <div className="rounded-xl border border-border-default">
-                <div className="border-b border-border-default px-3 py-2 text-sm font-semibold text-text-primary">{t("analyse.propertyB")}</div>
-                <AnalysisInputPanel value={inputB} onChange={setInputB} showAnalyseButton={false} />
-              </div>
-            </div>
-          )}
+          <AnalysisInputPanel value={inputA} onChange={setInputA} showAnalyseButton={false} />
         </section>
 
         <section ref={resultTopRef} className="space-y-4">
           {error && <div className="rounded-xl border border-warning/30 bg-warning/10 px-4 py-2 text-sm text-warning">{error}</div>}
-          {!hasResults ? (
+          {!resultA ? (
             <div className="rounded-2xl border border-dashed border-border-default bg-bg-surface p-8 text-center text-sm text-text-secondary">
               {t("analyse.empty")}
             </div>
           ) : (
             <div className="space-y-4">
-              {mode === "compare" ? (
-                <div className="flex justify-end">{compareSelector}</div>
-              ) : null}
-
-              {activeResult ? (
-                <>
               <SectionShell title={t("analyse.new.analysis.title")} description={t("analyse.new.analysis.description")}>
                 <Tabs value={resultTab} onValueChange={(v) => setResultTab(v as typeof resultTab)}>
                   <div className="mb-4 flex items-center justify-between gap-3 border-b border-border-default pb-2">
-                    <TabsList className="h-auto bg-transparent p-0 gap-0 rounded-none">
+                    <TabsList className="h-auto gap-0 rounded-none bg-transparent p-0">
                       <TabsTrigger value="overview" className="rounded-none border-b-2 border-transparent px-3 py-2 text-sm data-[state=active]:border-brand data-[state=active]:text-brand">{t("analyse.tab.overview")}</TabsTrigger>
                       <TabsTrigger value="projections" className="rounded-none border-b-2 border-transparent px-3 py-2 text-sm data-[state=active]:border-brand data-[state=active]:text-brand">{t("analyse.tab.projections")}</TabsTrigger>
                       <TabsTrigger value="market" className="rounded-none border-b-2 border-transparent px-3 py-2 text-sm data-[state=active]:border-brand data-[state=active]:text-brand">{t("analyse.tab.market")}</TabsTrigger>
                     </TabsList>
                   </div>
 
-                  <TabsContent value="overview" className="mt-0"><ResultOverview input={activeInput} result={activeResult} /></TabsContent>
+                  <TabsContent value="overview" className="mt-0"><ResultOverview input={inputA} result={resultA} /></TabsContent>
                   <TabsContent value="projections" className="mt-0 space-y-4">
                     <ExitHorizonsTable
-                      irr_10={activeResult.irr_10}
-                      irr_15={activeResult.irr_15}
-                      irr_20={activeResult.irr_20}
-                      equity_multiple_10={activeResult.equity_multiple_10}
-                      equity_multiple_15={activeResult.equity_multiple_15}
-                      equity_multiple_20={activeResult.equity_multiple_20}
-                      holding_years={activeInput.holding_years ?? 10}
+                      irr_10={resultA.irr_10}
+                      irr_15={resultA.irr_15}
+                      irr_20={resultA.irr_20}
+                      equity_multiple_10={resultA.equity_multiple_10}
+                      equity_multiple_15={resultA.equity_multiple_15}
+                      equity_multiple_20={resultA.equity_multiple_20}
+                      holding_years={inputA.holding_years ?? 10}
                     />
-                    <YearByYearTable yearData={activeResult.year_data} />
+                    <YearByYearTable yearData={resultA.year_data} />
                   </TabsContent>
                   <TabsContent value="market" className="mt-0">
-                    <MarketDataPanel input={activeInput} result={activeResult} />
+                    <MarketDataPanel input={inputA} result={resultA} />
                   </TabsContent>
                 </Tabs>
               </SectionShell>
@@ -493,32 +601,11 @@ export default function AnalysePage() {
               </SectionShell>
 
               <SectionShell title={t("analyse.new.aiAnalysis.title")} description={t("analyse.new.aiAnalysis.description")}>
-                {aiAnalysisPayload?.mode === "compare" ? (
-                  <div className="grid gap-3 lg:grid-cols-2">
-                    <div className="rounded-xl border border-border-default bg-bg-base p-4">
-                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">{t("analyse.propertyA")}</p>
-                      <div className="space-y-2 text-sm leading-relaxed text-text-secondary">
-                        {(aiAnalysisPayload.compare?.narrativeA || [t("analyse.ai.empty")]).map((line, idx) => (
-                          <p key={`a-${idx}`}>{line}</p>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="rounded-xl border border-border-default bg-bg-base p-4">
-                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">{t("analyse.propertyB")}</p>
-                      <div className="space-y-2 text-sm leading-relaxed text-text-secondary">
-                        {(aiAnalysisPayload.compare?.narrativeB || [t("analyse.ai.empty")]).map((line, idx) => (
-                          <p key={`b-${idx}`}>{line}</p>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-2 text-sm leading-relaxed text-text-secondary">
-                    {(aiAnalysisPayload?.primaryNarrative || [t("analyse.ai.empty")]).map((line, idx) => (
-                      <p key={`single-${idx}`}>{line}</p>
-                    ))}
-                  </div>
-                )}
+                <div className="space-y-2 text-sm leading-relaxed text-text-secondary">
+                  {aiAnalysisNarrative.map((line, idx) => (
+                    <p key={`single-${idx}`}>{line}</p>
+                  ))}
+                </div>
               </SectionShell>
 
               <SectionShell title={t("analyse.new.negotiation.title")} description={t("analyse.new.negotiation.description")}>
@@ -535,15 +622,89 @@ export default function AnalysePage() {
               <SectionShell title={t("analyse.new.askAi.title")} description={t("analyse.new.askAi.description")}>
                 {askAiContext ? <AskAiShell context={askAiContext} t={t} /> : null}
               </SectionShell>
-                </>
-              ) : (
-                <div className="mt-1 rounded-xl border border-dashed border-border-default bg-bg-surface p-6 text-sm text-text-secondary">
-                  {t("analyse.compare.pickProperty")}
-                </div>
-              )}
             </div>
           )}
         </section>
+      </div>
+
+      <div className="mt-6">
+        <Collapsible open={compareOpen} onOpenChange={setCompareOpen}>
+          <div className="rounded-2xl border border-border-default bg-bg-surface">
+            <CollapsibleTrigger className="flex w-full items-center justify-between gap-4 px-4 py-4 text-left md:px-5">
+              <div>
+                <p className="text-sm font-semibold text-text-primary">Compare with Property B</p>
+                <p className="mt-1 text-xs text-text-muted">
+                  Keep Property A on this page, then optionally run a compact second-property check.
+                </p>
+              </div>
+              <div className="inline-flex items-center gap-2 text-sm text-text-secondary">
+                <span>{compareOpen ? "Hide" : "Show"}</span>
+                {compareOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </div>
+            </CollapsibleTrigger>
+
+            <CollapsibleContent className="border-t border-border-default px-4 py-4 md:px-5">
+              <div className="space-y-4">
+                <div className="grid gap-4 xl:grid-cols-[minmax(0,420px)_1fr]">
+                  <CompactPropertyBPanel
+                    input={inputB}
+                    result={resultB}
+                    onChange={(next) => {
+                      setInputB(next)
+                      setResultB(null)
+                    }}
+                    onAnalyse={handleAnalyseB}
+                    onReset={handleResetB}
+                    loading={loadingB}
+                  />
+
+                  <div className="space-y-4">
+                    <div className="rounded-xl border border-border-default bg-bg-surface p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-text-primary">Property A status</p>
+                          <p className="mt-1 text-xs text-text-muted">Property A stays page-local here and is never replaced by Property B edits.</p>
+                        </div>
+                      </div>
+                      {resultA ? (
+                        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                          <MetricMiniCard label="Score" value={`${resultA.score.toFixed(1)}/10`} />
+                          <MetricMiniCard label="Net Yield" value={formatPct(resultA.net_yield_pct)} />
+                          <MetricMiniCard label="Cash Flow / Mo Yr 1" value={formatEUR(resultA.cash_flow_monthly_yr1)} />
+                          <MetricMiniCard label="KPF" value={formatX(resultA.kpf)} />
+                        </div>
+                      ) : (
+                        <div className="mt-4 rounded-xl border border-dashed border-border-default bg-bg-base p-4 text-sm text-text-muted">
+                          Run Property A analysis first to unlock the comparison snapshot.
+                        </div>
+                      )}
+                    </div>
+
+                    {resultA && resultB ? (
+                      <>
+                        <CompactCompareSummary resultA={resultA} resultB={resultB} />
+                        <div className="flex justify-end">
+                          <button
+                            type="button"
+                            onClick={handleOpenFullComparison}
+                            className="inline-flex items-center gap-2 rounded-xl border border-border-default bg-bg-base px-4 py-2 text-sm font-medium text-text-primary transition-colors hover:bg-bg-hover"
+                          >
+                            Open full comparison
+                            <ExternalLink className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="rounded-xl border border-dashed border-border-default bg-bg-base p-4 text-sm text-text-muted">
+                        Run Property B after Property A to see a lightweight A vs B summary.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </CollapsibleContent>
+          </div>
+        </Collapsible>
       </div>
     </div>
   )
