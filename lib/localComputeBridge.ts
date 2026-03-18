@@ -21,11 +21,12 @@
  *
  *   afa_rate_input
  *     Type is `number | null | undefined` on AnalyseRequest.
- *     Mapped as: `n(r.afa_rate_input, 0)` — null/undefined/NaN → 0.
- *     When 0, localCompute() falls back to condition-based defaults
- *     (newbuild → 3%, existing → 2%), preserving its own logic.
- *     We do NOT substitute a hardcoded 2.0 for null so the fallback
- *     chain stays inside localCompute rather than the bridge.
+ *     Mapped as: `n(r.afa_rate_input, 2.0)` — null/undefined/NaN → 2.0.
+ *     2.0 matches the visible UI default in AnalysisInputPanel
+ *     (`input.afa_rate_input ?? 2.0`), so the preview is always
+ *     consistent with what the user sees in the form. Passing 0 would
+ *     trigger localCompute()'s condition-based fallback (3% newbuild),
+ *     creating a silent mismatch for unset or legacy saved inputs.
  *
  *   agent_pct  (Maklerprovision)
  *     Mapped to FormParams.agent_pct. Included in closing costs and AfA
@@ -161,10 +162,12 @@ export function toFormParams(r: AnalyseRequest): FormParams {
     holding_years: n(r.holding_years, 10),
 
     // ── AfA (depreciation) ────────────────────────────────────────────────
-    // Intentionally NOT defaulting to 2.0 when null/undefined — passing 0
-    // lets localCompute() apply its own condition-based fallback (3% new /
-    // 2% existing), which is the correct authoritative source of the default.
-    afa_rate_input: n(r.afa_rate_input, 0),
+    // Default 2.0 to match the visible UI default in AnalysisInputPanel
+    // (input.afa_rate_input ?? 2.0). Passing 0 would let localCompute()
+    // auto-pick by condition (3% newbuild / 2% existing), which diverges
+    // from what the form shows when the field is unset — including
+    // previously saved inputs that predate afa_rate_input being populated.
+    afa_rate_input: n(r.afa_rate_input, 2.0),
 
     // special_afa_*: fully implemented in localCompute() — Sonder-AfA is
     // computed per year and deducted from taxable income.
