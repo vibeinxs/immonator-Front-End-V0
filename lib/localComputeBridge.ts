@@ -12,27 +12,6 @@
  * at the FormParams boundary and documented here so callers are never
  * surprised by silent divergence from the backend result.
  *
- *   energy_class
- *     Not present in FormParams. The backend uses it for §7b EStG
- *     Sonder-AfA eligibility (buildings with energy class A/A+).
- *     Local preview cannot replicate this — the field is intentionally
- *     excluded rather than approximated.
- *
- *   agent_pct  (Maklerprovision)
- *     Not present in FormParams. The backend adds it to closing costs.
- *     Local preview omits Maklerprovision; closing costs are slightly
- *     understated as a result.
- *
- *   grundsteuer_annual
- *     Not present in FormParams. The backend subtracts it from NOI.
- *     Local preview omits Grundsteuer; net yield is slightly overstated.
- *
- *   special_afa_rate_input / special_afa_years
- *     Present in FormParams (and passed through) but localCompute()
- *     does NOT read these fields in any calculation. They are structural
- *     stubs only. The per-year afa_sonder value is therefore always null
- *     in local preview output.
- *
  *   afa_method
  *     Not present in FormParams. localCompute() uses straight-line only.
  *     The value from AnalyseRequest is echoed in the response for display
@@ -47,6 +26,24 @@
  *     (newbuild → 3%, existing → 2%), preserving its own logic.
  *     We do NOT substitute a hardcoded 2.0 for null so the fallback
  *     chain stays inside localCompute rather than the bridge.
+ *
+ *   agent_pct  (Maklerprovision)
+ *     Mapped to FormParams.agent_pct. Included in closing costs and AfA
+ *     basis. Default 0 (omitted if caller does not supply it).
+ *
+ *   grundsteuer_annual
+ *     Mapped to FormParams.grundsteuer_annual. Deducted from taxable income
+ *     and from cash flow. Default 0.
+ *
+ *   energy_class
+ *     Mapped to FormParams.energy_class as metadata passthrough. Has no
+ *     effect on local calculations — localCompute() does not gate any logic
+ *     on it. The backend uses it for §7b EStG Sonder-AfA eligibility.
+ *
+ *   special_afa_rate_input / special_afa_years
+ *     Passed to FormParams and now fully implemented in localCompute():
+ *     Sonder-AfA is computed per year for yr ≤ special_afa_years and
+ *     deducted from taxable income. afa_sonder in year_data is populated.
  *
  *   land_share_pct  (Bodenanteil)
  *     Clamped to [0, 100]. Default 20.0 (typical German residential
@@ -72,13 +69,14 @@
  *     Default 10. Affects IRR horizon selection in localCompute.
  *
  *   special_afa_enabled
- *     Default false. Even when true, localCompute() computes no
- *     per-year Sonder-AfA; the flag is forwarded for future use.
+ *     Default false. When true (with special_afa_rate_input and
+ *     special_afa_years set), localCompute() deducts Sonder-AfA from
+ *     taxable income for years 1..special_afa_years.
  *
  *   year_data
  *     localCompute() emits rows [1,2,3,5,7,10,15,20].
- *     Bridge adds cash_flow_monthly (= cash_flow / 12) and
- *     afa_sonder: null (not computed locally).
+ *     Bridge adds cash_flow_monthly (= cash_flow / 12).
+ *     afa_sonder is non-null for years where Sonder-AfA was active.
  *
  *   verdict
  *     localCompute() returns human-readable strings ("Strong Buy" etc.).
@@ -133,9 +131,10 @@ export function toFormParams(r: AnalyseRequest): FormParams {
     repayment_rate: n(r.repayment_rate, 2.0),
     transfer_tax_pct: n(r.transfer_tax_pct, 6.0),
     notary_pct: n(r.notary_pct, 2.0),
+    // agent_pct (Maklerprovision): added to closing costs and AfA basis
+    agent_pct: n(r.agent_pct, 0),
 
     // land_share_pct: clamp to valid percent range; default 20%
-    // agent_pct is NOT forwarded — see header comment
     land_share_pct: clamp(n(r.land_share_pct, 20.0), 0, 100),
 
     // ── Income & costs ────────────────────────────────────────────────────
@@ -143,7 +142,8 @@ export function toFormParams(r: AnalyseRequest): FormParams {
     hausgeld_monthly: n(r.hausgeld_monthly, 0),
     maintenance_nd: n(r.maintenance_nd, 0),
     management_nd: n(r.management_nd, 0),
-    // grundsteuer_annual is NOT forwarded — see header comment
+    // grundsteuer_annual: deducted from taxable income and cash flow
+    grundsteuer_annual: n(r.grundsteuer_annual, 0),
 
     // ── Assumptions ───────────────────────────────────────────────────────
     rent_growth: n(r.rent_growth, 2.0),
@@ -158,8 +158,8 @@ export function toFormParams(r: AnalyseRequest): FormParams {
     // 2% existing), which is the correct authoritative source of the default.
     afa_rate_input: n(r.afa_rate_input, 0),
 
-    // special_afa_* fields are passed through but localCompute() does not
-    // read them. They are forwarded so FormParams stays structurally honest.
+    // special_afa_*: fully implemented in localCompute() — Sonder-AfA is
+    // computed per year and deducted from taxable income.
     special_afa_enabled: r.special_afa_enabled ?? false,
     special_afa_rate_input: r.special_afa_rate_input != null && isFinite(r.special_afa_rate_input)
       ? r.special_afa_rate_input
@@ -168,8 +168,8 @@ export function toFormParams(r: AnalyseRequest): FormParams {
       ? r.special_afa_years
       : undefined,
 
-    // energy_class is NOT forwarded — FormParams has no such field.
-    // See header comment for backend behaviour.
+    // energy_class: metadata passthrough — no effect on local calculations
+    energy_class: r.energy_class,
   }
 }
 
@@ -179,9 +179,8 @@ export function toFormParams(r: AnalyseRequest): FormParams {
  * Map a single localCompute YearData row to the AnalyseYearData shape.
  *
  * cash_flow_monthly: derived as cash_flow / 12 (not stored in YearData).
- * afa_sonder:        always null — localCompute() does not compute
- *                    per-year Sonder-AfA even when special_afa_enabled is
- *                    true. The backend populates this for qualifying assets.
+ * afa_sonder:        taken from YearData.afa_sonder (non-null only for years
+ *                    where Sonder-AfA was active, i.e. yr ≤ special_afa_years).
  */
 function mapYearData(y: YearData): AnalyseYearData {
   return {
@@ -189,7 +188,7 @@ function mapYearData(y: YearData): AnalyseYearData {
     rent_gross: y.rent_gross,
     interest: y.interest,
     afa: y.afa,
-    afa_sonder: null,
+    afa_sonder: y.afa_sonder,
     taxable_income: y.taxable_income,
     tax_impact: y.tax_impact,
     cash_flow: y.cash_flow,
