@@ -69,7 +69,7 @@ export function SaveToPortfolioButton({ input, result, className }: SaveToPortfo
   const saveDisabled = !canSave || trimmedName.length === 0
 
   const handleSave = () => {
-    if (!canSave || trimmedName.length === 0) return
+    if (!result || !canSave || trimmedName.length === 0) return
 
     saveEntry({
       name: trimmedName,
