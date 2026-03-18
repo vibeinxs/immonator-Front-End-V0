@@ -249,6 +249,11 @@ function CompactPropertyBPanel({
     value: number,
     onValue: (next: number) => void,
     unit?: string,
+    validation?: {
+      min?: number
+      max?: number
+      step?: number
+    },
   ) => (
     <label htmlFor={id} className="space-y-1.5">
       <span className="text-xs font-medium text-text-secondary">{label}</span>
@@ -257,8 +262,18 @@ function CompactPropertyBPanel({
           id={id}
           type="number"
           inputMode="decimal"
+          min={validation?.min}
+          max={validation?.max}
+          step={validation?.step ?? "any"}
           value={value}
-          onChange={(event) => onValue(Number(event.target.value) || 0)}
+          onChange={(event) => {
+            if (event.target.value === "") return
+
+            const nextValue = Number(event.target.value)
+            if (!Number.isFinite(nextValue)) return
+
+            onValue(nextValue)
+          }}
           className="font-mono"
         />
         {unit ? <span className="text-xs text-text-muted">{unit}</span> : null}
@@ -294,11 +309,11 @@ function CompactPropertyBPanel({
       </label>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        {numericField("compare-sqm-b", "Area", input.sqm, (next) => setField("sqm", next), "m²")}
-        {numericField("compare-year-built-b", "Year built", input.year_built, (next) => setField("year_built", Math.round(next)))}
-        {numericField("compare-price-b", "Purchase price", input.purchase_price, (next) => setField("purchase_price", next), "€")}
-        {numericField("compare-equity-b", "Equity", input.equity, (next) => setField("equity", next), "€")}
-        {numericField("compare-rent-b", "Rent / month", input.rent_monthly, (next) => setField("rent_monthly", next), "€")}
+        {numericField("compare-sqm-b", "Area", input.sqm, (next) => setField("sqm", next), "m²", { min: 1, step: 1 })}
+        {numericField("compare-year-built-b", "Year built", input.year_built, (next) => setField("year_built", Math.round(next)), undefined, { min: 1800, max: 2030, step: 1 })}
+        {numericField("compare-price-b", "Purchase price", input.purchase_price, (next) => setField("purchase_price", next), "€", { min: 0, step: 1 })}
+        {numericField("compare-equity-b", "Equity", input.equity, (next) => setField("equity", next), "€", { min: 0, step: 1 })}
+        {numericField("compare-rent-b", "Rent / month", input.rent_monthly, (next) => setField("rent_monthly", next), "€", { min: 0, step: 1 })}
       </div>
 
       <div className="flex items-center justify-between gap-3">
@@ -521,7 +536,7 @@ export default function AnalysePage() {
     setStoreResultB(null)
     setInputB(PRESET_B)
     setResultB(null)
-  }, [setStoreInputB, setStoreResultB])
+  }, [setStoreInputB, setStoreResultB, setInputB, setResultB])
 
   const handleOpenFullComparison = useCallback(() => {
     if (!resultA || !resultB) return
