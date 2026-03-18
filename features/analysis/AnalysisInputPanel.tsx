@@ -29,6 +29,11 @@ const UNIT = "text-xs text-text-muted"
 const ENERGY_CLASSES = ["A+", "A", "B", "C", "D", "E", "F", "G", "H"] as const
 const VACANCY_OPTIONS = [1, 3, 5, 8] as const
 const AFA_METHODS = ["linear"] as const
+type AfaMethod = (typeof AFA_METHODS)[number]
+
+function isAfaMethod(value: string | null | undefined): value is AfaMethod {
+  return value != null && AFA_METHODS.includes(value as AfaMethod)
+}
 
 function Section({ title, description, children }: React.PropsWithChildren<{ title: string; description?: string }>) {
   return (
@@ -127,16 +132,21 @@ export function AnalysisInputPanel({
   showAnalyseButton = true,
 }: AnalysisInputPanelProps) {
   const { t } = useLocale()
+  const latestValueRef = React.useRef(value)
+
+  React.useEffect(() => {
+    latestValueRef.current = value
+  }, [value])
 
   const setField = React.useCallback(
     <K extends keyof PropertyAnalysisInput>(field: K, fieldValue: PropertyAnalysisInput[K]) => {
-      onChange({ ...value, [field]: fieldValue })
+      onChange({ ...latestValueRef.current, [field]: fieldValue })
     },
-    [onChange, value],
+    [onChange],
   )
 
   const specialAfaEnabled = value.special_afa_enabled ?? false
-  const afaMethod = (value.afa_method ?? "linear") as (typeof AFA_METHODS)[number]
+  const afaMethod: AfaMethod = isAfaMethod(value.afa_method) ? value.afa_method : "linear"
   const selectedVacancy = String(value.vacancy_rate ?? 1)
 
   return (
