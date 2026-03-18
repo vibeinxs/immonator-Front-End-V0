@@ -1,6 +1,7 @@
 "use client"
 
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { type ReactNode, useCallback, useEffect, useMemo, useReducer, useRef } from "react"
+import { useSearchParams } from "next/navigation"
 import { Loader2, RotateCcw } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AnalysisInputPanel } from "@/features/analysis/AnalysisInputPanel"
@@ -15,6 +16,7 @@ import { LandShareBlock } from "@/components/analysis/LandShareBlock"
 import { FlagsSection } from "@/features/analysis/FlagsSection"
 import { analyseProperty } from "@/lib/analyseApi"
 import { formatEUR, formatPct, formatX } from "@/lib/format"
+import { getEntryById } from "@/lib/manualPortfolio"
 import { runLocalCompute } from "@/lib/localComputeBridge"
 import { useAnalysisStore } from "@/store/analysisStore"
 import { useLocale } from "@/lib/i18n/locale-context"
@@ -62,6 +64,256 @@ function compareMetricClass(delta: number, better: CompareMetricTone) {
 
   const isPositive = better === "higher" ? delta > 0 : delta < 0
   return isPositive ? "text-success" : "text-danger"
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+function mergeWithPreset<T extends Record<string, string | number | boolean>>(preset: T, candidate: unknown): T {
+  if (!isRecord(candidate)) return preset
+
+  const nextValue = { ...preset }
+
+  for (const key of Object.keys(preset) as Array<keyof T>) {
+    const presetValue = preset[key]
+    const savedValue = candidate[key]
+    const presetValueType = typeof presetValue
+
+    if (presetValueType !== typeof savedValue) continue
+    if (presetValueType === "number" && !Number.isFinite(savedValue)) continue
+
+    nextValue[key] = savedValue as T[keyof T]
+  }
+
+  return nextValue
+}
+
+function hydrateAnalyseInput(candidate: unknown): AnalyseRequest {
+  return mergeWithPreset(PRESET_A, candidate)
+}
+
+function isHydratableAnalyseResult(value: unknown): value is AnalyseResponse {
+  if (!isRecord(value)) return false
+
+  return (
+    typeof value.score === "number" &&
+    Number.isFinite(value.score) &&
+    typeof value.net_yield_pct === "number" &&
+    Number.isFinite(value.net_yield_pct) &&
+    typeof value.kpf === "number" &&
+    Number.isFinite(value.kpf) &&
+    typeof value.cash_flow_monthly_yr1 === "number" &&
+    Number.isFinite(value.cash_flow_monthly_yr1) &&
+    typeof value.irr_10 === "number" &&
+    Number.isFinite(value.irr_10) &&
+    Array.isArray(value.year_data)
+  )
+}
+
+interface AnalysePageState {
+  analysisMode: AnalysisMode
+  singleDraftInput: AnalyseRequest
+  singleAnalysisResult: AnalyseResponse | null
+  singleResultTab: ResultTab
+  singleLoading: boolean
+  singleError: string | null
+  compareDraftInputs: CompareInputsState
+  compareAnalysisResults: CompareResultsState
+  compareLoading: CompareLoadingState
+  compareError: string | null
+}
+
+type AnalysePageAction =
+  | { type: "setAnalysisMode"; mode: AnalysisMode }
+  | { type: "setSingleDraftInput"; input: AnalyseRequest }
+  | { type: "setSingleResultTab"; tab: ResultTab }
+  | { type: "singleAnalyseStart" }
+  | { type: "singleAnalyseSuccess"; result: AnalyseResponse }
+  | { type: "singleAnalyseError"; error: string }
+  | { type: "hydrateManualEntry"; input: AnalyseRequest; result: AnalyseResponse | null }
+  | { type: "setCompareDraftInput"; property: ComparePropertyKey; input: AnalyseRequest }
+  | { type: "compareAnalyseStart"; property: ComparePropertyKey }
+  | { type: "compareAnalyseSuccess"; property: ComparePropertyKey; result: AnalyseResponse }
+  | { type: "compareAnalyseError"; property: ComparePropertyKey; error: string }
+  | { type: "compareAnalyseBothStart" }
+  | { type: "compareAnalyseBothSuccess"; results: CompareResultsState }
+  | { type: "compareAnalyseBothError"; error: string }
+  | { type: "resetCompareProperty"; property: ComparePropertyKey }
+
+function createInitialAnalysePageState({
+  storeInputA,
+  storeResultA,
+  storeInputB,
+  storeResultB,
+}: {
+  storeInputA: AnalyseRequest
+  storeResultA: AnalyseResponse | null
+  storeInputB: AnalyseRequest
+  storeResultB: AnalyseResponse | null
+}): AnalysePageState {
+  return {
+    analysisMode: "single",
+    singleDraftInput: storeInputA,
+    singleAnalysisResult: storeResultA,
+    singleResultTab: "overview",
+    singleLoading: false,
+    singleError: null,
+    compareDraftInputs: {
+      propertyA: storeInputA,
+      propertyB: storeInputB,
+    },
+    compareAnalysisResults: {
+      propertyA: storeResultA,
+      propertyB: storeResultB,
+    },
+    compareLoading: {
+      propertyA: false,
+      propertyB: false,
+    },
+    compareError: null,
+  }
+}
+
+function analysePageReducer(state: AnalysePageState, action: AnalysePageAction): AnalysePageState {
+  switch (action.type) {
+    case "setAnalysisMode":
+      return {
+        ...state,
+        analysisMode: action.mode,
+      }
+    case "setSingleDraftInput":
+      return {
+        ...state,
+        singleDraftInput: action.input,
+      }
+    case "setSingleResultTab":
+      return {
+        ...state,
+        singleResultTab: action.tab,
+      }
+    case "singleAnalyseStart":
+      return {
+        ...state,
+        singleLoading: true,
+        singleError: null,
+      }
+    case "singleAnalyseSuccess":
+      return {
+        ...state,
+        singleLoading: false,
+        singleAnalysisResult: action.result,
+      }
+    case "singleAnalyseError":
+      return {
+        ...state,
+        singleLoading: false,
+        singleError: action.error,
+      }
+    case "hydrateManualEntry":
+      return {
+        ...state,
+        analysisMode: "single",
+        singleDraftInput: action.input,
+        singleAnalysisResult: action.result,
+        singleResultTab: "overview",
+        singleError: null,
+        compareDraftInputs: {
+          ...state.compareDraftInputs,
+          propertyA: action.input,
+        },
+        compareAnalysisResults: {
+          ...state.compareAnalysisResults,
+          propertyA: action.result,
+        },
+      }
+    case "setCompareDraftInput":
+      return {
+        ...state,
+        compareDraftInputs: {
+          ...state.compareDraftInputs,
+          [action.property]: action.input,
+        },
+        compareAnalysisResults: {
+          ...state.compareAnalysisResults,
+          [action.property]: null,
+        },
+      }
+    case "compareAnalyseStart":
+      return {
+        ...state,
+        compareLoading: {
+          ...state.compareLoading,
+          [action.property]: true,
+        },
+        compareError: null,
+      }
+    case "compareAnalyseSuccess":
+      return {
+        ...state,
+        compareLoading: {
+          ...state.compareLoading,
+          [action.property]: false,
+        },
+        compareAnalysisResults: {
+          ...state.compareAnalysisResults,
+          [action.property]: action.result,
+        },
+      }
+    case "compareAnalyseError":
+      return {
+        ...state,
+        compareLoading: {
+          ...state.compareLoading,
+          [action.property]: false,
+        },
+        compareError: action.error,
+      }
+    case "compareAnalyseBothStart":
+      return {
+        ...state,
+        compareLoading: {
+          propertyA: true,
+          propertyB: true,
+        },
+        compareError: null,
+      }
+    case "compareAnalyseBothSuccess":
+      return {
+        ...state,
+        compareLoading: {
+          propertyA: false,
+          propertyB: false,
+        },
+        compareAnalysisResults: action.results,
+      }
+    case "compareAnalyseBothError":
+      return {
+        ...state,
+        compareLoading: {
+          propertyA: false,
+          propertyB: false,
+        },
+        compareError: action.error,
+      }
+    case "resetCompareProperty": {
+      const preset = action.property === "propertyA" ? PRESET_A : PRESET_B
+
+      return {
+        ...state,
+        compareDraftInputs: {
+          ...state.compareDraftInputs,
+          [action.property]: preset,
+        },
+        compareAnalysisResults: {
+          ...state.compareAnalysisResults,
+          [action.property]: null,
+        },
+      }
+    }
+    default:
+      return state
+  }
 }
 
 function ResultOverview({ input, result }: { input: AnalyseRequest; result: AnalyseResponse }) {
@@ -714,6 +966,7 @@ function CompareAnalysisWorkspace({
 
 export default function AnalysePage() {
   const { t } = useLocale()
+  const searchParams = useSearchParams()
   const {
     inputA: storeInputA,
     setInputA: setStoreInputA,
@@ -724,26 +977,33 @@ export default function AnalysePage() {
     resultB: storeResultB,
     setResultB: setStoreResultB,
   } = useAnalysisStore()
+  const [state, dispatch] = useReducer(
+    analysePageReducer,
+    {
+      storeInputA,
+      storeResultA,
+      storeInputB,
+      storeResultB,
+    },
+    createInitialAnalysePageState,
+  )
+  const manualEntryId = searchParams.get("manual")?.trim() ?? ""
 
-  const [analysisMode, setAnalysisMode] = useState<AnalysisMode>("single")
-  const [singleDraftInput, setSingleDraftInput] = useState<AnalyseRequest>(PRESET_A)
-  const [singleAnalysisResult, setSingleAnalysisResult] = useState<AnalyseResponse | null>(null)
-  const [singleResultTab, setSingleResultTab] = useState<ResultTab>("overview")
-  const [singleLoading, setSingleLoading] = useState(false)
-  const [singleError, setSingleError] = useState<string | null>(null)
-  const [compareDraftInputs, setCompareDraftInputs] = useState<CompareInputsState>({
-    propertyA: storeInputA,
-    propertyB: storeInputB,
-  })
-  const [compareAnalysisResults, setCompareAnalysisResults] = useState<CompareResultsState>({
-    propertyA: storeResultA,
-    propertyB: storeResultB,
-  })
-  const [compareLoading, setCompareLoading] = useState<CompareLoadingState>({
-    propertyA: false,
-    propertyB: false,
-  })
-  const [compareError, setCompareError] = useState<string | null>(null)
+  useEffect(() => {
+    if (!manualEntryId) return
+
+    const entry = getEntryById(manualEntryId)
+    if (!entry) return
+
+    const hydratedInput = hydrateAnalyseInput(entry.input)
+    const hydratedResult = isHydratableAnalyseResult(entry.result) ? entry.result : null
+
+    dispatch({
+      type: "hydrateManualEntry",
+      input: hydratedInput,
+      result: hydratedResult,
+    })
+  }, [manualEntryId])
 
   const analyseOne = useCallback(async (input: AnalyseRequest) => {
     const { data } = await analyseProperty(input)
@@ -751,91 +1011,66 @@ export default function AnalysePage() {
   }, [])
 
   const handleSingleAnalyse = useCallback(async () => {
-    setSingleLoading(true)
-    setSingleError(null)
+    dispatch({ type: "singleAnalyseStart" })
 
     try {
-      const result = await analyseOne(singleDraftInput)
-      setSingleAnalysisResult(result)
+      const result = await analyseOne(state.singleDraftInput)
+      dispatch({ type: "singleAnalyseSuccess", result })
     } catch {
-      setSingleError(t("analyse.error"))
-    } finally {
-      setSingleLoading(false)
+      dispatch({ type: "singleAnalyseError", error: t("analyse.error") })
     }
-  }, [analyseOne, singleDraftInput, t])
+  }, [analyseOne, state.singleDraftInput, t])
 
   const updateCompareInput = useCallback((property: ComparePropertyKey, value: AnalyseRequest) => {
-    setCompareDraftInputs((current) => ({
-      ...current,
-      [property]: value,
-    }))
-    setCompareAnalysisResults((current) => ({
-      ...current,
-      [property]: null,
-    }))
+    dispatch({ type: "setCompareDraftInput", property, input: value })
   }, [])
 
   const handleCompareAnalyse = useCallback(async (property: ComparePropertyKey) => {
-    setCompareLoading((current) => ({ ...current, [property]: true }))
-    setCompareError(null)
+    dispatch({ type: "compareAnalyseStart", property })
 
     try {
-      const result = await analyseOne(compareDraftInputs[property])
-      setCompareAnalysisResults((current) => ({
-        ...current,
-        [property]: result,
-      }))
+      const result = await analyseOne(state.compareDraftInputs[property])
+      dispatch({ type: "compareAnalyseSuccess", property, result })
     } catch {
-      setCompareError(t("analyse.error"))
-    } finally {
-      setCompareLoading((current) => ({ ...current, [property]: false }))
+      dispatch({ type: "compareAnalyseError", property, error: t("analyse.error") })
     }
-  }, [analyseOne, compareDraftInputs, t])
+  }, [analyseOne, state.compareDraftInputs, t])
 
   const handleAnalyseBoth = useCallback(async () => {
-    setCompareLoading({ propertyA: true, propertyB: true })
-    setCompareError(null)
+    dispatch({ type: "compareAnalyseBothStart" })
 
     try {
       const [propertyAResult, propertyBResult] = await Promise.all([
-        analyseOne(compareDraftInputs.propertyA),
-        analyseOne(compareDraftInputs.propertyB),
+        analyseOne(state.compareDraftInputs.propertyA),
+        analyseOne(state.compareDraftInputs.propertyB),
       ])
 
-      setCompareAnalysisResults({
-        propertyA: propertyAResult,
-        propertyB: propertyBResult,
+      dispatch({
+        type: "compareAnalyseBothSuccess",
+        results: {
+          propertyA: propertyAResult,
+          propertyB: propertyBResult,
+        },
       })
     } catch {
-      setCompareError(t("analyse.error"))
-    } finally {
-      setCompareLoading({ propertyA: false, propertyB: false })
+      dispatch({ type: "compareAnalyseBothError", error: t("analyse.error") })
     }
-  }, [analyseOne, compareDraftInputs, t])
+  }, [analyseOne, state.compareDraftInputs, t])
 
   const handleResetCompareProperty = useCallback((property: ComparePropertyKey) => {
-    const preset = property === "propertyA" ? PRESET_A : PRESET_B
-
-    setCompareDraftInputs((current) => ({
-      ...current,
-      [property]: preset,
-    }))
-    setCompareAnalysisResults((current) => ({
-      ...current,
-      [property]: null,
-    }))
+    dispatch({ type: "resetCompareProperty", property })
   }, [])
 
   useEffect(() => {
-    setStoreInputA(compareDraftInputs.propertyA)
-    setStoreInputB(compareDraftInputs.propertyB)
-    setStoreResultA(compareAnalysisResults.propertyA)
-    setStoreResultB(compareAnalysisResults.propertyB)
+    setStoreInputA(state.compareDraftInputs.propertyA)
+    setStoreInputB(state.compareDraftInputs.propertyB)
+    setStoreResultA(state.compareAnalysisResults.propertyA)
+    setStoreResultB(state.compareAnalysisResults.propertyB)
   }, [
-    compareAnalysisResults.propertyA,
-    compareAnalysisResults.propertyB,
-    compareDraftInputs.propertyA,
-    compareDraftInputs.propertyB,
+    state.compareAnalysisResults.propertyA,
+    state.compareAnalysisResults.propertyB,
+    state.compareDraftInputs.propertyA,
+    state.compareDraftInputs.propertyB,
     setStoreInputA,
     setStoreInputB,
     setStoreResultA,
@@ -852,25 +1087,28 @@ export default function AnalysePage() {
           </p>
         </header>
 
-        <ModeSwitcher mode={analysisMode} onChange={setAnalysisMode} />
+        <ModeSwitcher
+          mode={state.analysisMode}
+          onChange={(mode) => dispatch({ type: "setAnalysisMode", mode })}
+        />
 
-        {analysisMode === "single" ? (
+        {state.analysisMode === "single" ? (
           <SingleAnalysisWorkspace
-            input={singleDraftInput}
-            result={singleAnalysisResult}
-            loading={singleLoading}
-            error={singleError}
-            resultTab={singleResultTab}
-            onInputChange={setSingleDraftInput}
+            input={state.singleDraftInput}
+            result={state.singleAnalysisResult}
+            loading={state.singleLoading}
+            error={state.singleError}
+            resultTab={state.singleResultTab}
+            onInputChange={(input) => dispatch({ type: "setSingleDraftInput", input })}
             onAnalyse={handleSingleAnalyse}
-            onResultTabChange={setSingleResultTab}
+            onResultTabChange={(tab) => dispatch({ type: "setSingleResultTab", tab })}
           />
         ) : (
           <CompareAnalysisWorkspace
-            inputs={compareDraftInputs}
-            results={compareAnalysisResults}
-            loading={compareLoading}
-            error={compareError}
+            inputs={state.compareDraftInputs}
+            results={state.compareAnalysisResults}
+            loading={state.compareLoading}
+            error={state.compareError}
             onInputChange={updateCompareInput}
             onAnalyseProperty={handleCompareAnalyse}
             onAnalyseBoth={handleAnalyseBoth}
