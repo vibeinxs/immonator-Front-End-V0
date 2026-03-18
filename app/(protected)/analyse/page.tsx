@@ -1,6 +1,7 @@
 "use client"
 
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { type ReactNode, useCallback, useEffect, useMemo, useReducer, useRef } from "react"
+import { useSearchParams } from "next/navigation"
 import { Loader2, RotateCcw } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AnalysisInputPanel } from "@/features/analysis/AnalysisInputPanel"
@@ -15,6 +16,7 @@ import { LandShareBlock } from "@/components/analysis/LandShareBlock"
 import { FlagsSection } from "@/features/analysis/FlagsSection"
 import { analyseProperty } from "@/lib/analyseApi"
 import { formatEUR, formatPct, formatX } from "@/lib/format"
+import { getEntryById } from "@/lib/manualPortfolio"
 import { runLocalCompute } from "@/lib/localComputeBridge"
 import { useAnalysisStore } from "@/store/analysisStore"
 import { useLocale } from "@/lib/i18n/locale-context"
@@ -62,6 +64,256 @@ function compareMetricClass(delta: number, better: CompareMetricTone) {
 
   const isPositive = better === "higher" ? delta > 0 : delta < 0
   return isPositive ? "text-success" : "text-danger"
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+function mergeWithPreset<T extends Record<string, string | number | boolean>>(preset: T, candidate: unknown): T {
+  if (!isRecord(candidate)) return preset
+
+  const nextValue = { ...preset }
+
+  for (const key of Object.keys(preset) as Array<keyof T>) {
+    const presetValue = preset[key]
+    const savedValue = candidate[key]
+    const presetValueType = typeof presetValue
+
+    if (presetValueType !== typeof savedValue) continue
+    if (presetValueType === "number" && !Number.isFinite(savedValue)) continue
+
+    nextValue[key] = savedValue as T[keyof T]
+  }
+
+  return nextValue
+}
+
+function hydrateAnalyseInput(candidate: unknown): AnalyseRequest {
+  return mergeWithPreset(PRESET_A, candidate)
+}
+
+function isHydratableAnalyseResult(value: unknown): value is AnalyseResponse {
+  if (!isRecord(value)) return false
+
+  return (
+    typeof value.score === "number" &&
+    Number.isFinite(value.score) &&
+    typeof value.net_yield_pct === "number" &&
+    Number.isFinite(value.net_yield_pct) &&
+    typeof value.kpf === "number" &&
+    Number.isFinite(value.kpf) &&
+    typeof value.cash_flow_monthly_yr1 === "number" &&
+    Number.isFinite(value.cash_flow_monthly_yr1) &&
+    typeof value.irr_10 === "number" &&
+    Number.isFinite(value.irr_10) &&
+    Array.isArray(value.year_data)
+  )
+}
+
+interface AnalysePageState {
+  analysisMode: AnalysisMode
+  singleDraftInput: AnalyseRequest
+  singleAnalysisResult: AnalyseResponse | null
+  singleResultTab: ResultTab
+  singleLoading: boolean
+  singleError: string | null
+  compareDraftInputs: CompareInputsState
+  compareAnalysisResults: CompareResultsState
+  compareLoading: CompareLoadingState
+  compareError: string | null
+}
+
+type AnalysePageAction =
+  | { type: "setAnalysisMode"; mode: AnalysisMode }
+  | { type: "setSingleDraftInput"; input: AnalyseRequest }
+  | { type: "setSingleResultTab"; tab: ResultTab }
+  | { type: "singleAnalyseStart" }
+  | { type: "singleAnalyseSuccess"; result: AnalyseResponse }
+  | { type: "singleAnalyseError"; error: string }
+  | { type: "hydrateManualEntry"; input: AnalyseRequest; result: AnalyseResponse | null }
+  | { type: "setCompareDraftInput"; property: ComparePropertyKey; input: AnalyseRequest }
+  | { type: "compareAnalyseStart"; property: ComparePropertyKey }
+  | { type: "compareAnalyseSuccess"; property: ComparePropertyKey; result: AnalyseResponse }
+  | { type: "compareAnalyseError"; property: ComparePropertyKey; error: string }
+  | { type: "compareAnalyseBothStart" }
+  | { type: "compareAnalyseBothSuccess"; results: CompareResultsState }
+  | { type: "compareAnalyseBothError"; error: string }
+  | { type: "resetCompareProperty"; property: ComparePropertyKey }
+
+function createInitialAnalysePageState({
+  storeInputA,
+  storeResultA,
+  storeInputB,
+  storeResultB,
+}: {
+  storeInputA: AnalyseRequest
+  storeResultA: AnalyseResponse | null
+  storeInputB: AnalyseRequest
+  storeResultB: AnalyseResponse | null
+}): AnalysePageState {
+  return {
+    analysisMode: "single",
+    singleDraftInput: storeInputA,
+    singleAnalysisResult: storeResultA,
+    singleResultTab: "overview",
+    singleLoading: false,
+    singleError: null,
+    compareDraftInputs: {
+      propertyA: storeInputA,
+      propertyB: storeInputB,
+    },
+    compareAnalysisResults: {
+      propertyA: storeResultA,
+      propertyB: storeResultB,
+    },
+    compareLoading: {
+      propertyA: false,
+      propertyB: false,
+    },
+    compareError: null,
+  }
+}
+
+function analysePageReducer(state: AnalysePageState, action: AnalysePageAction): AnalysePageState {
+  switch (action.type) {
+    case "setAnalysisMode":
+      return {
+        ...state,
+        analysisMode: action.mode,
+      }
+    case "setSingleDraftInput":
+      return {
+        ...state,
+        singleDraftInput: action.input,
+      }
+    case "setSingleResultTab":
+      return {
+        ...state,
+        singleResultTab: action.tab,
+      }
+    case "singleAnalyseStart":
+      return {
+        ...state,
+        singleLoading: true,
+        singleError: null,
+      }
+    case "singleAnalyseSuccess":
+      return {
+        ...state,
+        singleLoading: false,
+        singleAnalysisResult: action.result,
+      }
+    case "singleAnalyseError":
+      return {
+        ...state,
+        singleLoading: false,
+        singleError: action.error,
+      }
+    case "hydrateManualEntry":
+      return {
+        ...state,
+        analysisMode: "single",
+        singleDraftInput: action.input,
+        singleAnalysisResult: action.result,
+        singleResultTab: "overview",
+        singleError: null,
+        compareDraftInputs: {
+          ...state.compareDraftInputs,
+          propertyA: action.input,
+        },
+        compareAnalysisResults: {
+          ...state.compareAnalysisResults,
+          propertyA: action.result,
+        },
+      }
+    case "setCompareDraftInput":
+      return {
+        ...state,
+        compareDraftInputs: {
+          ...state.compareDraftInputs,
+          [action.property]: action.input,
+        },
+        compareAnalysisResults: {
+          ...state.compareAnalysisResults,
+          [action.property]: null,
+        },
+      }
+    case "compareAnalyseStart":
+      return {
+        ...state,
+        compareLoading: {
+          ...state.compareLoading,
+          [action.property]: true,
+        },
+        compareError: null,
+      }
+    case "compareAnalyseSuccess":
+      return {
+        ...state,
+        compareLoading: {
+          ...state.compareLoading,
+          [action.property]: false,
+        },
+        compareAnalysisResults: {
+          ...state.compareAnalysisResults,
+          [action.property]: action.result,
+        },
+      }
+    case "compareAnalyseError":
+      return {
+        ...state,
+        compareLoading: {
+          ...state.compareLoading,
+          [action.property]: false,
+        },
+        compareError: action.error,
+      }
+    case "compareAnalyseBothStart":
+      return {
+        ...state,
+        compareLoading: {
+          propertyA: true,
+          propertyB: true,
+        },
+        compareError: null,
+      }
+    case "compareAnalyseBothSuccess":
+      return {
+        ...state,
+        compareLoading: {
+          propertyA: false,
+          propertyB: false,
+        },
+        compareAnalysisResults: action.results,
+      }
+    case "compareAnalyseBothError":
+      return {
+        ...state,
+        compareLoading: {
+          propertyA: false,
+          propertyB: false,
+        },
+        compareError: action.error,
+      }
+    case "resetCompareProperty": {
+      const preset = action.property === "propertyA" ? PRESET_A : PRESET_B
+
+      return {
+        ...state,
+        compareDraftInputs: {
+          ...state.compareDraftInputs,
+          [action.property]: preset,
+        },
+        compareAnalysisResults: {
+          ...state.compareAnalysisResults,
+          [action.property]: null,
+        },
+      }
+    }
+    default:
+      return state
+  }
 }
 
 function ResultOverview({ input, result }: { input: AnalyseRequest; result: AnalyseResponse }) {
@@ -288,7 +540,7 @@ function ComparePropertyCard({
   onReset: () => void
 }) {
   return (
-    <section className="overflow-hidden rounded-2xl border border-border-default bg-bg-surface">
+    <section className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-border-default bg-bg-surface">
       <div className="flex items-start justify-between gap-3 border-b border-border-default px-4 py-4 md:px-5">
         <div>
           <p className="text-sm font-semibold text-text-primary">{label}</p>
@@ -304,7 +556,7 @@ function ComparePropertyCard({
         </button>
       </div>
 
-      <div className="border-b border-border-default">
+      <div className="min-h-0 flex-1 border-b border-border-default">
         <AnalysisInputPanel
           value={input}
           onChange={onChange}
@@ -359,8 +611,19 @@ function negotiationCardTitle(id: NegotiationStrategyItem["id"], t: (k: string) 
   return t(`analyse.new.negotiation.cardTitle.${id}`)
 }
 
+function looksLikeBackendErrorNarrative(text: string): boolean {
+  const normalized = text.toLowerCase()
+  return (
+    normalized.includes("error code") ||
+    normalized.includes("authentication_error") ||
+    normalized.includes("invalid x-api-key") ||
+    normalized.includes("request_id") ||
+    normalized.includes("\"type\": \"error\"")
+  )
+}
+
 function aiNarrative(result: AnalyseResponse, input: AnalyseRequest, t: (k: string) => string): string[] {
-  if (result.ai_analysis && result.ai_analysis.trim().length > 0) {
+  if (result.ai_analysis && result.ai_analysis.trim().length > 0 && !looksLikeBackendErrorNarrative(result.ai_analysis)) {
     return result.ai_analysis
       .split("\n")
       .map((line) => line.trim())
@@ -396,11 +659,62 @@ function negotiationBullets(result: AnalyseResponse, t: (k: string) => string): 
   return finalAsks
 }
 
+function propertyTone(slot: PropertySlot): string {
+  return slot === "A" ? "bg-brand/10 text-brand" : "bg-success/10 text-success"
+}
+
+function propertyLabel(slot: PropertySlot): string {
+  return `Property ${slot}`
+}
+
+function pickCompareWinner(resultA: AnalyseResponse, resultB: AnalyseResponse): PropertySlot {
+  const scoreDelta = resultA.score - resultB.score
+  if (scoreDelta !== 0) return scoreDelta > 0 ? "A" : "B"
+
+  const netYieldDelta = resultA.net_yield_pct - resultB.net_yield_pct
+  if (netYieldDelta !== 0) return netYieldDelta > 0 ? "A" : "B"
+
+  const cashflowDelta = resultA.cash_flow_monthly_yr1 - resultB.cash_flow_monthly_yr1
+  if (cashflowDelta !== 0) return cashflowDelta > 0 ? "A" : "B"
+
+  return resultA.kpf <= resultB.kpf ? "A" : "B"
+}
+
+function compareRecommendationSummary(resultA: AnalyseResponse, resultB: AnalyseResponse, t: (k: string) => string) {
+  const winner = pickCompareWinner(resultA, resultB)
+  const winningResult = winner === "A" ? resultA : resultB
+  const runnerUp = winner === "A" ? resultB : resultA
+  const scoreDelta = Math.abs(resultA.score - resultB.score).toFixed(1)
+  const cashflowDelta = formatEUR(Math.abs(resultA.cash_flow_monthly_yr1 - resultB.cash_flow_monthly_yr1))
+  const yieldDelta = formatPct(Math.abs(resultA.net_yield_pct - resultB.net_yield_pct))
+
+  return {
+    winner,
+    eyebrow: `${propertyLabel(winner)} currently leads`,
+    headline: `${propertyLabel(winner)} looks stronger for a quick next-step decision.`,
+    body: `${t(`verdict.${winningResult.verdict}`)} vs ${t(`verdict.${runnerUp.verdict}`)} · Score Δ ${scoreDelta} · Net yield Δ ${yieldDelta} · Cashflow Δ ${cashflowDelta}.`,
+  }
+}
+
 function AskAiShell({ context, t }: { context: AskAiContextPayload; t: (k: string) => string }) {
   const messages = context.mockMessages
 
   return (
     <div className="rounded-xl border border-border-default bg-bg-base">
+      {context.promptHints.length > 0 ? (
+        <div className="flex flex-wrap gap-2 border-b border-border-default px-4 py-3">
+          {context.promptHints.map((hint) => (
+            <button
+              key={hint}
+              type="button"
+              disabled
+              className="rounded-full border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-medium text-text-secondary opacity-80"
+            >
+              {hint}
+            </button>
+          ))}
+        </div>
+      ) : null}
       <div className="max-h-64 space-y-3 overflow-y-auto border-b border-border-default p-4">
         {messages.map((message) => (
           <div key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
@@ -422,6 +736,248 @@ function AskAiShell({ context, t }: { context: AskAiContextPayload; t: (k: strin
         </button>
       </div>
     </div>
+  )
+}
+
+function CompareAiInsightSection({
+  resultA,
+  resultB,
+  t,
+}: {
+  resultA: AnalyseResponse
+  resultB: AnalyseResponse
+  t: (k: string) => string
+}) {
+  const recommendation = compareRecommendationSummary(resultA, resultB, t)
+  const rows = [
+    {
+      label: "Score Δ",
+      value: `${Math.abs(resultA.score - resultB.score).toFixed(1)} pts`,
+      winner: resultA.score === resultB.score ? "Tie" : propertyLabel(resultA.score > resultB.score ? "A" : "B"),
+    },
+    {
+      label: "Net Yield Δ",
+      value: formatPct(Math.abs(resultA.net_yield_pct - resultB.net_yield_pct)),
+      winner: resultA.net_yield_pct === resultB.net_yield_pct ? "Tie" : propertyLabel(resultA.net_yield_pct > resultB.net_yield_pct ? "A" : "B"),
+    },
+    {
+      label: "Cashflow Δ",
+      value: formatEUR(Math.abs(resultA.cash_flow_monthly_yr1 - resultB.cash_flow_monthly_yr1)),
+      winner: resultA.cash_flow_monthly_yr1 === resultB.cash_flow_monthly_yr1 ? "Tie" : propertyLabel(resultA.cash_flow_monthly_yr1 > resultB.cash_flow_monthly_yr1 ? "A" : "B"),
+    },
+    {
+      label: "Purchase Factor Δ",
+      value: formatX(Math.abs(resultA.kpf - resultB.kpf)),
+      winner: resultA.kpf === resultB.kpf ? "Tie" : propertyLabel(resultA.kpf < resultB.kpf ? "A" : "B"),
+    },
+  ]
+
+  const propertyCards: Array<{ slot: PropertySlot; result: AnalyseResponse }> = [
+    { slot: "A", result: resultA },
+    { slot: "B", result: resultB },
+  ]
+
+  return (
+    <SectionShell title={t("analyse.new.aiInsight.title")} description={t("analyse.new.aiInsight.description")}>
+      <div className="space-y-4">
+        <div className="rounded-2xl border border-brand/15 bg-gradient-to-br from-brand/10 via-bg-base to-bg-surface p-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full bg-brand px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-white">
+              {recommendation.eyebrow}
+            </span>
+            <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${propertyTone(recommendation.winner)}`}>
+              {propertyLabel(recommendation.winner)}
+            </span>
+          </div>
+          <p className="mt-3 text-xl font-semibold text-text-primary">{recommendation.headline}</p>
+          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-text-secondary">{recommendation.body}</p>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {rows.map((row) => (
+            <div key={row.label} className="rounded-xl border border-border-default bg-bg-base p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{row.label}</p>
+              <p className="mt-1 font-mono text-lg font-semibold text-text-primary">{row.value}</p>
+              <p className="mt-1 text-xs text-text-secondary">{row.winner} leads</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid gap-4 xl:grid-cols-2">
+          {propertyCards.map(({ slot, result }) => (
+            <article key={slot} className="rounded-2xl border border-border-default bg-bg-base p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${propertyTone(slot)}`}>
+                    {propertyLabel(slot)}
+                  </span>
+                  <p className="mt-3 text-lg font-semibold text-text-primary">{t(`verdict.${result.verdict}`)}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{t("analyse.new.aiInsight.scoreLabel")}</p>
+                  <p className="font-mono text-2xl font-semibold text-text-primary">{result.score.toFixed(1)}/10</p>
+                </div>
+              </div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <MetricMiniCard label={t("analyse.kpi.netYield")} value={formatPct(result.net_yield_pct)} />
+                <MetricMiniCard label={t("analyse.kpi.cashFlowYr1")} value={formatEUR(result.cash_flow_monthly_yr1)} />
+                <MetricMiniCard label={t("analyse.kpi.purchaseFactor")} value={formatX(result.kpf)} />
+              </div>
+              <p className="mt-4 text-sm text-text-secondary">{aiInsightText(result, t)}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+    </SectionShell>
+  )
+}
+
+function CompareAiAnalysisSection({
+  inputA,
+  inputB,
+  resultA,
+  resultB,
+  t,
+}: {
+  inputA: AnalyseRequest
+  inputB: AnalyseRequest
+  resultA: AnalyseResponse
+  resultB: AnalyseResponse
+  t: (k: string) => string
+}) {
+  const recommendation = compareRecommendationSummary(resultA, resultB, t)
+  const cards: Array<{ slot: PropertySlot; input: AnalyseRequest; result: AnalyseResponse }> = [
+    { slot: "A", input: inputA, result: resultA },
+    { slot: "B", input: inputB, result: resultB },
+  ]
+
+  return (
+    <SectionShell title={t("analyse.new.aiAnalysis.title")} description={t("analyse.new.aiAnalysis.description")}>
+      <div className="space-y-4">
+        <div className="rounded-2xl border border-border-default bg-bg-base p-4">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Recommendation</p>
+          <p className="mt-2 text-lg font-semibold text-text-primary">{recommendation.headline}</p>
+          <p className="mt-2 text-sm leading-relaxed text-text-secondary">{recommendation.body}</p>
+        </div>
+
+        <div className="grid gap-4 xl:grid-cols-2">
+          {cards.map(({ slot, input, result }) => (
+            <article key={slot} className="rounded-2xl border border-border-default bg-bg-base p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${propertyTone(slot)}`}>
+                    {propertyLabel(slot)}
+                  </span>
+                  <p className="mt-3 text-base font-semibold text-text-primary">{result.address_resolved || input.address}</p>
+                </div>
+                <div className="text-right text-sm text-text-secondary">
+                  <p>{formatPct(result.net_yield_pct)} net yield</p>
+                  <p>{formatEUR(result.cash_flow_monthly_yr1)} / mo Yr 1</p>
+                </div>
+              </div>
+              <div className="mt-4 space-y-2 text-sm leading-relaxed text-text-secondary">
+                {aiNarrative(result, input, t).map((line, idx) => (
+                  <p key={`${slot}-${idx}`}>{line}</p>
+                ))}
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
+    </SectionShell>
+  )
+}
+
+function CompareNegotiationSection({
+  resultA,
+  resultB,
+  t,
+}: {
+  resultA: AnalyseResponse
+  resultB: AnalyseResponse
+  t: (k: string) => string
+}) {
+  const cards: Array<{ slot: PropertySlot; items: NegotiationStrategyItem[] }> = [
+    { slot: "A", items: negotiationBullets(resultA, t) },
+    { slot: "B", items: negotiationBullets(resultB, t) },
+  ]
+
+  return (
+    <SectionShell title={t("analyse.new.negotiation.title")} description={t("analyse.new.negotiation.description")}>
+      <div className="grid gap-4 xl:grid-cols-2">
+        {cards.map(({ slot, items }) => (
+          <article key={slot} className="rounded-2xl border border-border-default bg-bg-base p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${propertyTone(slot)}`}>
+                  {propertyLabel(slot)}
+                </span>
+                <p className="mt-3 text-base font-semibold text-text-primary">Best tactical talking points</p>
+              </div>
+            </div>
+            <div className="mt-4 space-y-3">
+              {items.map((item) => (
+                <div key={`${slot}-${item.id}`} className="rounded-xl border border-border-default bg-bg-surface px-3 py-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{negotiationCardTitle(item.id, t)}</p>
+                  <p className="mt-1 text-sm leading-relaxed text-text-secondary">{item.text}</p>
+                </div>
+              ))}
+            </div>
+          </article>
+        ))}
+      </div>
+    </SectionShell>
+  )
+}
+
+function CompareAskAiSection({
+  inputs,
+  results,
+  t,
+}: {
+  inputs: CompareInputsState
+  results: CompareResultsState
+  t: (k: string) => string
+}) {
+  const selectedProperty = pickCompareWinner(results.propertyA as AnalyseResponse, results.propertyB as AnalyseResponse)
+  const recommendation = compareRecommendationSummary(results.propertyA as AnalyseResponse, results.propertyB as AnalyseResponse, t)
+  const context: AskAiContextPayload = {
+    mode: "compare",
+    selectedProperty,
+    propertyInputs: {
+      A: inputs.propertyA,
+      B: inputs.propertyB,
+    },
+    propertyResults: {
+      A: results.propertyA,
+      B: results.propertyB,
+    },
+    promptHints: [
+      "Which property is the better buy?",
+      "Where is the downside risk?",
+      "What should I negotiate on A vs B?",
+      t("analyse.new.askAi.shellCompareHint"),
+    ],
+    mockMessages: [
+      { id: "ca-1", role: "assistant", text: t("analyse.new.askAi.shellIntro") },
+      { id: "ca-2", role: "user", text: "Compare the key trade-offs." },
+      { id: "ca-3", role: "assistant", text: recommendation.body },
+    ],
+  }
+
+  return (
+    <SectionShell title={t("analyse.new.askAi.title")} description={t("analyse.new.askAi.description")}>
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border-default bg-bg-base px-4 py-3 text-sm text-text-secondary">
+          <span className="font-medium text-text-primary">Comparison context</span>
+          <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${propertyTone(selectedProperty)}`}>
+            {propertyLabel(selectedProperty)} leads
+          </span>
+          <span>{recommendation.body}</span>
+        </div>
+        <AskAiShell context={context} t={t} />
+      </div>
+    </SectionShell>
   )
 }
 
@@ -511,7 +1067,7 @@ function SingleAnalysisWorkspace({
         description="Focus on one property from underwriting input through verdict, projections, and market context."
       >
         <div className="grid gap-4 lg:grid-cols-[minmax(360px,42%)_1fr]">
-          <section className="overflow-hidden rounded-2xl border border-border-default bg-bg-base">
+          <section className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-border-default bg-bg-base">
             <div className="border-b border-border-default px-4 py-4 md:px-5">
               <p className="text-sm font-semibold text-text-primary">Property input</p>
               <p className="mt-1 text-sm text-text-secondary">Use the full underwriting form for a single-property analysis.</p>
@@ -625,6 +1181,7 @@ function CompareAnalysisWorkspace({
   onAnalyseBoth: () => void
   onResetProperty: (property: ComparePropertyKey) => void
 }) {
+  const { t } = useLocale()
   const compareReady = Boolean(results.propertyA && results.propertyB)
 
   return (
@@ -694,6 +1251,24 @@ function CompareAnalysisWorkspace({
           {compareReady ? (
             <div className="space-y-4">
               <CompactCompareSummary resultA={results.propertyA as AnalyseResponse} resultB={results.propertyB as AnalyseResponse} />
+              <CompareAiInsightSection
+                resultA={results.propertyA as AnalyseResponse}
+                resultB={results.propertyB as AnalyseResponse}
+                t={t}
+              />
+              <CompareAiAnalysisSection
+                inputA={inputs.propertyA}
+                inputB={inputs.propertyB}
+                resultA={results.propertyA as AnalyseResponse}
+                resultB={results.propertyB as AnalyseResponse}
+                t={t}
+              />
+              <CompareNegotiationSection
+                resultA={results.propertyA as AnalyseResponse}
+                resultB={results.propertyB as AnalyseResponse}
+                t={t}
+              />
+              <CompareAskAiSection inputs={inputs} results={results} t={t} />
               <CompareTable
                 resultA={results.propertyA as AnalyseResponse}
                 resultB={results.propertyB as AnalyseResponse}
@@ -714,6 +1289,7 @@ function CompareAnalysisWorkspace({
 
 export default function AnalysePage() {
   const { t } = useLocale()
+  const searchParams = useSearchParams()
   const {
     inputA: storeInputA,
     setInputA: setStoreInputA,
@@ -724,26 +1300,33 @@ export default function AnalysePage() {
     resultB: storeResultB,
     setResultB: setStoreResultB,
   } = useAnalysisStore()
+  const [state, dispatch] = useReducer(
+    analysePageReducer,
+    {
+      storeInputA,
+      storeResultA,
+      storeInputB,
+      storeResultB,
+    },
+    createInitialAnalysePageState,
+  )
+  const manualEntryId = searchParams.get("manual")?.trim() ?? ""
 
-  const [analysisMode, setAnalysisMode] = useState<AnalysisMode>("single")
-  const [singleDraftInput, setSingleDraftInput] = useState<AnalyseRequest>(PRESET_A)
-  const [singleAnalysisResult, setSingleAnalysisResult] = useState<AnalyseResponse | null>(null)
-  const [singleResultTab, setSingleResultTab] = useState<ResultTab>("overview")
-  const [singleLoading, setSingleLoading] = useState(false)
-  const [singleError, setSingleError] = useState<string | null>(null)
-  const [compareDraftInputs, setCompareDraftInputs] = useState<CompareInputsState>({
-    propertyA: storeInputA,
-    propertyB: storeInputB,
-  })
-  const [compareAnalysisResults, setCompareAnalysisResults] = useState<CompareResultsState>({
-    propertyA: storeResultA,
-    propertyB: storeResultB,
-  })
-  const [compareLoading, setCompareLoading] = useState<CompareLoadingState>({
-    propertyA: false,
-    propertyB: false,
-  })
-  const [compareError, setCompareError] = useState<string | null>(null)
+  useEffect(() => {
+    if (!manualEntryId) return
+
+    const entry = getEntryById(manualEntryId)
+    if (!entry) return
+
+    const hydratedInput = hydrateAnalyseInput(entry.input)
+    const hydratedResult = isHydratableAnalyseResult(entry.result) ? entry.result : null
+
+    dispatch({
+      type: "hydrateManualEntry",
+      input: hydratedInput,
+      result: hydratedResult,
+    })
+  }, [manualEntryId])
 
   const analyseOne = useCallback(async (input: AnalyseRequest) => {
     const { data } = await analyseProperty(input)
@@ -751,91 +1334,66 @@ export default function AnalysePage() {
   }, [])
 
   const handleSingleAnalyse = useCallback(async () => {
-    setSingleLoading(true)
-    setSingleError(null)
+    dispatch({ type: "singleAnalyseStart" })
 
     try {
-      const result = await analyseOne(singleDraftInput)
-      setSingleAnalysisResult(result)
+      const result = await analyseOne(state.singleDraftInput)
+      dispatch({ type: "singleAnalyseSuccess", result })
     } catch {
-      setSingleError(t("analyse.error"))
-    } finally {
-      setSingleLoading(false)
+      dispatch({ type: "singleAnalyseError", error: t("analyse.error") })
     }
-  }, [analyseOne, singleDraftInput, t])
+  }, [analyseOne, state.singleDraftInput, t])
 
   const updateCompareInput = useCallback((property: ComparePropertyKey, value: AnalyseRequest) => {
-    setCompareDraftInputs((current) => ({
-      ...current,
-      [property]: value,
-    }))
-    setCompareAnalysisResults((current) => ({
-      ...current,
-      [property]: null,
-    }))
+    dispatch({ type: "setCompareDraftInput", property, input: value })
   }, [])
 
   const handleCompareAnalyse = useCallback(async (property: ComparePropertyKey) => {
-    setCompareLoading((current) => ({ ...current, [property]: true }))
-    setCompareError(null)
+    dispatch({ type: "compareAnalyseStart", property })
 
     try {
-      const result = await analyseOne(compareDraftInputs[property])
-      setCompareAnalysisResults((current) => ({
-        ...current,
-        [property]: result,
-      }))
+      const result = await analyseOne(state.compareDraftInputs[property])
+      dispatch({ type: "compareAnalyseSuccess", property, result })
     } catch {
-      setCompareError(t("analyse.error"))
-    } finally {
-      setCompareLoading((current) => ({ ...current, [property]: false }))
+      dispatch({ type: "compareAnalyseError", property, error: t("analyse.error") })
     }
-  }, [analyseOne, compareDraftInputs, t])
+  }, [analyseOne, state.compareDraftInputs, t])
 
   const handleAnalyseBoth = useCallback(async () => {
-    setCompareLoading({ propertyA: true, propertyB: true })
-    setCompareError(null)
+    dispatch({ type: "compareAnalyseBothStart" })
 
     try {
       const [propertyAResult, propertyBResult] = await Promise.all([
-        analyseOne(compareDraftInputs.propertyA),
-        analyseOne(compareDraftInputs.propertyB),
+        analyseOne(state.compareDraftInputs.propertyA),
+        analyseOne(state.compareDraftInputs.propertyB),
       ])
 
-      setCompareAnalysisResults({
-        propertyA: propertyAResult,
-        propertyB: propertyBResult,
+      dispatch({
+        type: "compareAnalyseBothSuccess",
+        results: {
+          propertyA: propertyAResult,
+          propertyB: propertyBResult,
+        },
       })
     } catch {
-      setCompareError(t("analyse.error"))
-    } finally {
-      setCompareLoading({ propertyA: false, propertyB: false })
+      dispatch({ type: "compareAnalyseBothError", error: t("analyse.error") })
     }
-  }, [analyseOne, compareDraftInputs, t])
+  }, [analyseOne, state.compareDraftInputs, t])
 
   const handleResetCompareProperty = useCallback((property: ComparePropertyKey) => {
-    const preset = property === "propertyA" ? PRESET_A : PRESET_B
-
-    setCompareDraftInputs((current) => ({
-      ...current,
-      [property]: preset,
-    }))
-    setCompareAnalysisResults((current) => ({
-      ...current,
-      [property]: null,
-    }))
+    dispatch({ type: "resetCompareProperty", property })
   }, [])
 
   useEffect(() => {
-    setStoreInputA(compareDraftInputs.propertyA)
-    setStoreInputB(compareDraftInputs.propertyB)
-    setStoreResultA(compareAnalysisResults.propertyA)
-    setStoreResultB(compareAnalysisResults.propertyB)
+    setStoreInputA(state.compareDraftInputs.propertyA)
+    setStoreInputB(state.compareDraftInputs.propertyB)
+    setStoreResultA(state.compareAnalysisResults.propertyA)
+    setStoreResultB(state.compareAnalysisResults.propertyB)
   }, [
-    compareAnalysisResults.propertyA,
-    compareAnalysisResults.propertyB,
-    compareDraftInputs.propertyA,
-    compareDraftInputs.propertyB,
+    state.compareAnalysisResults.propertyA,
+    state.compareAnalysisResults.propertyB,
+    state.compareDraftInputs.propertyA,
+    state.compareDraftInputs.propertyB,
     setStoreInputA,
     setStoreInputB,
     setStoreResultA,
@@ -852,25 +1410,28 @@ export default function AnalysePage() {
           </p>
         </header>
 
-        <ModeSwitcher mode={analysisMode} onChange={setAnalysisMode} />
+        <ModeSwitcher
+          mode={state.analysisMode}
+          onChange={(mode) => dispatch({ type: "setAnalysisMode", mode })}
+        />
 
-        {analysisMode === "single" ? (
+        {state.analysisMode === "single" ? (
           <SingleAnalysisWorkspace
-            input={singleDraftInput}
-            result={singleAnalysisResult}
-            loading={singleLoading}
-            error={singleError}
-            resultTab={singleResultTab}
-            onInputChange={setSingleDraftInput}
+            input={state.singleDraftInput}
+            result={state.singleAnalysisResult}
+            loading={state.singleLoading}
+            error={state.singleError}
+            resultTab={state.singleResultTab}
+            onInputChange={(input) => dispatch({ type: "setSingleDraftInput", input })}
             onAnalyse={handleSingleAnalyse}
-            onResultTabChange={setSingleResultTab}
+            onResultTabChange={(tab) => dispatch({ type: "setSingleResultTab", tab })}
           />
         ) : (
           <CompareAnalysisWorkspace
-            inputs={compareDraftInputs}
-            results={compareAnalysisResults}
-            loading={compareLoading}
-            error={compareError}
+            inputs={state.compareDraftInputs}
+            results={state.compareAnalysisResults}
+            loading={state.compareLoading}
+            error={state.compareError}
             onInputChange={updateCompareInput}
             onAnalyseProperty={handleCompareAnalyse}
             onAnalyseBoth={handleAnalyseBoth}

@@ -102,8 +102,8 @@ export function ManualPortfolioSection({ activeTab, onCountChange }: ManualPortf
 
   const handleOpen = (entry: ManualPortfolioEntry) => {
     setInputA(entry.input)
-    setResultA(entry.result)
-    router.push("/analyse")
+    setResultA(entry.result ?? null)
+    router.push(`/analyse?manual=${encodeURIComponent(entry.id)}`)
   }
 
   const filteredEntries = entries.filter((entry) => activeTab === "all" || entry.status === activeTab)
