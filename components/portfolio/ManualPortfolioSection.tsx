@@ -47,8 +47,12 @@ function formatMultiple(value: unknown): string {
   return typeof value === "number" && Number.isFinite(value) ? `${value.toFixed(2)}×` : "—"
 }
 
-function isPositiveNumber(value: unknown): boolean {
+function isNonNegativeNumber(value: unknown): boolean {
   return typeof value === "number" && Number.isFinite(value) && value >= 0
+}
+
+function isStrongIrr(value: unknown): boolean {
+  return typeof value === "number" && Number.isFinite(value) && value >= 5
 }
 
 function formatSavedAt(value: string): string {
@@ -82,12 +86,18 @@ export function ManualPortfolioSection({ activeTab, onCountChange }: ManualPortf
 
   const handleDelete = (id: string) => {
     deleteEntry(id)
-    refreshEntries()
+    setEntries((currentEntries) => {
+      const nextEntries = currentEntries.filter((entry) => entry.id !== id)
+      onCountChange?.(nextEntries.length)
+      return nextEntries
+    })
   }
 
   const handleStatusChange = (id: string, status: ManualPortfolioStatus) => {
     updateStatus(id, status)
-    refreshEntries()
+    setEntries((currentEntries) =>
+      currentEntries.map((entry) => (entry.id === id ? { ...entry, status } : entry))
+    )
   }
 
   const handleOpen = (entry: ManualPortfolioEntry) => {
@@ -164,13 +174,13 @@ export function ManualPortfolioSection({ activeTab, onCountChange }: ManualPortf
                 <div className="flex flex-wrap gap-3 text-sm">
                   <span className="font-mono">
                     <span className="mr-1 text-[10px] uppercase tracking-wide text-text-muted">IRR 10yr</span>
-                    <span className={isPositiveNumber(irr) ? "text-success" : "text-warning"}>
+                    <span className={isStrongIrr(irr) ? "text-success" : "text-warning"}>
                       {formatPercent(irr)}
                     </span>
                   </span>
                   <span className="font-mono">
                     <span className="mr-1 text-[10px] uppercase tracking-wide text-text-muted">CF/mo Y1</span>
-                    <span className={isPositiveNumber(monthlyCashFlow) ? "text-success" : "text-danger"}>
+                    <span className={isNonNegativeNumber(monthlyCashFlow) ? "text-success" : "text-danger"}>
                       {formatCurrency(monthlyCashFlow)}
                     </span>
                   </span>
