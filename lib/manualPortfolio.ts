@@ -39,6 +39,7 @@ function isValidEntry(v: unknown): v is ManualPortfolioEntry {
     e.id.length > 0 &&
     typeof e.name === "string" &&
     typeof e.savedAt === "string" &&
+    !isNaN(new Date(e.savedAt as string).getTime()) &&
     VALID_STATUSES.has(e.status as ManualPortfolioStatus) &&
     isObject(e.input) &&
     isObject(e.result) &&
@@ -58,7 +59,11 @@ function load(): ManualPortfolioEntry[] {
     if (!raw) return []
     const parsed: unknown = JSON.parse(raw)
     if (!Array.isArray(parsed)) return []
-    return parsed.filter(isValidEntry)
+    // Migrate v0 entries (no version field) by adding version: 1 before validation.
+    const migrated = parsed.map((item: unknown) =>
+      isObject(item) && item.version === undefined ? { ...item, version: 1 } : item
+    )
+    return migrated.filter(isValidEntry)
   } catch {
     return []
   }
@@ -114,12 +119,17 @@ export function saveEntry(
  * Remove the entry with the given id. No-op if the id is not found.
  */
 export function deleteEntry(id: string): void {
-  persist(load().filter((e) => e.id !== id))
+  const entries = load()
+  const filtered = entries.filter((e) => e.id !== id)
+  if (filtered.length !== entries.length) persist(filtered)
 }
 
 /**
  * Update the status of the entry with the given id. No-op if not found.
  */
 export function updateStatus(id: string, status: ManualPortfolioStatus): void {
-  persist(load().map((e) => (e.id === id ? { ...e, status } : e)))
+  const entries = load()
+  const target = entries.find((e) => e.id === id)
+  if (!target || target.status === status) return
+  persist(entries.map((e) => (e.id === id ? { ...e, status } : e)))
 }
