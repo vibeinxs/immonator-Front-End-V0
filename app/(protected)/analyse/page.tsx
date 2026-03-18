@@ -1,6 +1,7 @@
 "use client"
 
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { Loader2, RotateCcw } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AnalysisInputPanel } from "@/features/analysis/AnalysisInputPanel"
@@ -15,6 +16,7 @@ import { LandShareBlock } from "@/components/analysis/LandShareBlock"
 import { FlagsSection } from "@/features/analysis/FlagsSection"
 import { analyseProperty } from "@/lib/analyseApi"
 import { formatEUR, formatPct, formatX } from "@/lib/format"
+import { getEntryById } from "@/lib/manualPortfolio"
 import { runLocalCompute } from "@/lib/localComputeBridge"
 import { useAnalysisStore } from "@/store/analysisStore"
 import { useLocale } from "@/lib/i18n/locale-context"
@@ -62,6 +64,63 @@ function compareMetricClass(delta: number, better: CompareMetricTone) {
 
   const isPositive = better === "higher" ? delta > 0 : delta < 0
   return isPositive ? "text-success" : "text-danger"
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+function mergeWithPreset<T extends Record<string, string | number | boolean>>(preset: T, candidate: unknown): T {
+  if (!isRecord(candidate)) return preset
+
+  const nextValue = { ...preset }
+
+  for (const key of Object.keys(preset) as Array<keyof T>) {
+    const presetValue = preset[key]
+    const savedValue = candidate[key]
+
+    if (typeof presetValue === "number") {
+      if (typeof savedValue === "number" && Number.isFinite(savedValue)) {
+        nextValue[key] = savedValue as T[keyof T]
+      }
+      continue
+    }
+
+    if (typeof presetValue === "string") {
+      if (typeof savedValue === "string") {
+        nextValue[key] = savedValue as T[keyof T]
+      }
+      continue
+    }
+
+    if (typeof presetValue === "boolean" && typeof savedValue === "boolean") {
+      nextValue[key] = savedValue as T[keyof T]
+    }
+  }
+
+  return nextValue
+}
+
+function hydrateAnalyseInput(candidate: unknown): AnalyseRequest {
+  return mergeWithPreset(PRESET_A, candidate)
+}
+
+function isHydratableAnalyseResult(value: unknown): value is AnalyseResponse {
+  if (!isRecord(value)) return false
+
+  return (
+    typeof value.score === "number" &&
+    Number.isFinite(value.score) &&
+    typeof value.net_yield_pct === "number" &&
+    Number.isFinite(value.net_yield_pct) &&
+    typeof value.kpf === "number" &&
+    Number.isFinite(value.kpf) &&
+    typeof value.cash_flow_monthly_yr1 === "number" &&
+    Number.isFinite(value.cash_flow_monthly_yr1) &&
+    typeof value.irr_10 === "number" &&
+    Number.isFinite(value.irr_10) &&
+    Array.isArray(value.year_data)
+  )
 }
 
 function ResultOverview({ input, result }: { input: AnalyseRequest; result: AnalyseResponse }) {
@@ -714,6 +773,7 @@ function CompareAnalysisWorkspace({
 
 export default function AnalysePage() {
   const { t } = useLocale()
+  const searchParams = useSearchParams()
   const {
     inputA: storeInputA,
     setInputA: setStoreInputA,
@@ -726,8 +786,8 @@ export default function AnalysePage() {
   } = useAnalysisStore()
 
   const [analysisMode, setAnalysisMode] = useState<AnalysisMode>("single")
-  const [singleDraftInput, setSingleDraftInput] = useState<AnalyseRequest>(PRESET_A)
-  const [singleAnalysisResult, setSingleAnalysisResult] = useState<AnalyseResponse | null>(null)
+  const [singleDraftInput, setSingleDraftInput] = useState<AnalyseRequest>(storeInputA)
+  const [singleAnalysisResult, setSingleAnalysisResult] = useState<AnalyseResponse | null>(storeResultA)
   const [singleResultTab, setSingleResultTab] = useState<ResultTab>("overview")
   const [singleLoading, setSingleLoading] = useState(false)
   const [singleError, setSingleError] = useState<string | null>(null)
@@ -739,11 +799,37 @@ export default function AnalysePage() {
     propertyA: storeResultA,
     propertyB: storeResultB,
   })
+  const manualEntryId = searchParams.get("manual")?.trim() ?? ""
   const [compareLoading, setCompareLoading] = useState<CompareLoadingState>({
     propertyA: false,
     propertyB: false,
   })
   const [compareError, setCompareError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!manualEntryId) return
+
+    const entry = getEntryById(manualEntryId)
+    if (!entry) return
+
+    const hydratedInput = hydrateAnalyseInput(entry.input)
+    const hydratedResult = isHydratableAnalyseResult(entry.result) ? entry.result : null
+
+    setAnalysisMode("single")
+    setSingleDraftInput(hydratedInput)
+    setSingleAnalysisResult(hydratedResult)
+    setSingleResultTab("overview")
+    setSingleError(null)
+
+    setCompareDraftInputs((current) => ({
+      ...current,
+      propertyA: hydratedInput,
+    }))
+    setCompareAnalysisResults((current) => ({
+      ...current,
+      propertyA: hydratedResult,
+    }))
+  }, [manualEntryId])
 
   const analyseOne = useCallback(async (input: AnalyseRequest) => {
     const { data } = await analyseProperty(input)
