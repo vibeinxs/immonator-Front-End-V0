@@ -73,12 +73,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
-function mergeWithPreset<T extends Record<string, unknown>>(preset: T, candidate: unknown): T {
+function mergeWithPreset(preset: AnalyseRequest, candidate: unknown): AnalyseRequest {
   if (!isRecord(candidate)) return preset
 
   const nextValue = { ...preset }
 
-  for (const key of Object.keys(preset) as Array<keyof T>) {
+  for (const key of Object.keys(preset) as Array<keyof AnalyseRequest>) {
     const presetValue = preset[key]
     const savedValue = candidate[String(key)]
 
@@ -89,16 +89,14 @@ function mergeWithPreset<T extends Record<string, unknown>>(preset: T, candidate
     if (presetValueType !== typeof savedValue) continue
     if (presetValueType === "number" && !Number.isFinite(savedValue)) continue
 
-    // `T` is intentionally constrained to flat preset shapes here, so once the
-    // runtime type matches the preset value we can safely copy it across.
-    nextValue[key] = savedValue as T[keyof T]
+    Object.assign(nextValue, { [key]: savedValue })
   }
 
   return nextValue
 }
 
 function hydrateAnalyseInput(candidate: unknown): AnalyseRequest {
-  return mergeWithPreset(PRESET_A as unknown as Record<string, unknown>, candidate) as unknown as AnalyseRequest
+  return mergeWithPreset(PRESET_A, candidate)
 }
 
 function isHydratableAnalyseResult(value: unknown): value is AnalyseResponse {

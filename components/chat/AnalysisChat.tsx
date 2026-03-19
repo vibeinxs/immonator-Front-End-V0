@@ -38,15 +38,26 @@ export function AnalysisChat({
     setMessages([])
     immoApi
       .getChatHistory(contextType, contextId)
-      .then(({ data }) => {
-        if (!cancelled && data?.messages) setMessages(data.messages)
+      .then(({ data, error }) => {
+        if (!cancelled && data?.messages) {
+          setMessages(data.messages)
+          return
+        }
+
+        if (!cancelled && error) {
+          toast({ title: copy.chat.errorGeneric, variant: "destructive" })
+        }
       })
-      .catch(() => {})
+      .catch(() => {
+        if (!cancelled) {
+          toast({ title: copy.chat.errorNetwork, variant: "destructive" })
+        }
+      })
 
     return () => {
       cancelled = true
     }
-  }, [contextType, contextId])
+  }, [contextType, contextId, toast])
 
   // Cancel any in-flight stream on unmount
   useEffect(() => {
