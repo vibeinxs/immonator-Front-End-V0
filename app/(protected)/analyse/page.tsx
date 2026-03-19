@@ -83,6 +83,10 @@ function mergeWithPreset<T extends Record<string, string | number | boolean>>(pr
     if (presetValueType !== typeof savedValue) continue
     if (presetValueType === "number" && !Number.isFinite(savedValue)) continue
 
+    // `T` is intentionally constrained to primitive preset shapes here, so once
+    // the runtime type matches the preset value we can safely copy it across.
+    // If this helper ever needs to support nested objects, add a richer guard
+    // instead of extending this cast.
     nextValue[key] = savedValue as T[keyof T]
   }
 
@@ -96,6 +100,11 @@ function hydrateAnalyseInput(candidate: unknown): AnalyseRequest {
 function isHydratableAnalyseResult(value: unknown): value is AnalyseResponse {
   if (!isRecord(value)) return false
 
+  // This is a deliberately minimal hydration check. We only restore a saved
+  // result when the fields required by the existing compare/single result UI are
+  // present, and otherwise fall back to `null` so the user can rerun analysis.
+  // If new UI surfaces start depending on more AnalyseResponse fields during
+  // reopen, expand this guard at the same time.
   return (
     typeof value.score === "number" &&
     Number.isFinite(value.score) &&
@@ -613,6 +622,9 @@ function negotiationCardTitle(id: NegotiationStrategyItem["id"], t: (k: string) 
 
 function looksLikeBackendErrorNarrative(text: string): boolean {
   const normalized = text.toLowerCase()
+  // This matcher depends on current backend error wording. Keep it narrow so we
+  // don't hide legitimate analysis text, but update these signatures if backend
+  // error payloads change shape in the future.
   return (
     normalized.includes("error code") ||
     normalized.includes("authentication_error") ||
