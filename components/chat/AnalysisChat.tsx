@@ -3,13 +3,11 @@
 import { useEffect, useState, useRef, useCallback } from "react"
 import { ChevronDown, ArrowRight } from "lucide-react"
 import { immoApi } from "@/lib/immonatorApi"
+import type { ChatRequest, ConversationMessage } from "@/types/api"
 import { copy } from "@/lib/copy"
 import { useToast } from "@/hooks/use-toast"
 
-interface ChatMessage {
-  role: "user" | "assistant"
-  message: string
-}
+type ChatMessage = Pick<ConversationMessage, "role" | "message">
 
 const SUGGESTION_CHIPS = copy.chat.suggestions
 
@@ -17,32 +15,38 @@ export function AnalysisChat({
   contextType,
   contextId,
   title,
+  promptHints = [],
 }: {
   contextType: string
   contextId?: string
   title: string
+  promptHints?: string[]
 }) {
   const { toast } = useToast()
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState("")
   const [streaming, setStreaming] = useState(false)
-  const [didLoadHistory, setDidLoadHistory] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const readerRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null)
   const abortedRef = useRef(false)
 
-  // Load history on mount
+  // Load history for the active context without blocking initial render.
   useEffect(() => {
-    if (didLoadHistory) return
-    setDidLoadHistory(true)
+    let cancelled = false
+
+    setMessages([])
     immoApi
       .getChatHistory(contextType, contextId)
       .then(({ data }) => {
-        if (data?.messages) setMessages(data.messages as ChatMessage[])
+        if (!cancelled && data?.messages) setMessages(data.messages)
       })
       .catch(() => {})
-  }, [contextType, contextId, didLoadHistory])
+
+    return () => {
+      cancelled = true
+    }
+  }, [contextType, contextId])
 
   // Cancel any in-flight stream on unmount
   useEffect(() => {
@@ -75,11 +79,13 @@ export function AnalysisChat({
       setMessages((prev) => [...prev, { role: "assistant", message: "" }])
 
       try {
-        const res = await immoApi.sendChatMessage({
+        const chatRequest: ChatRequest = {
           message: text.trim(),
           context_type: contextType,
           context_id: contextId,
-        })
+        }
+
+        const res = await immoApi.sendChatMessage(chatRequest)
 
         if (!res) {
           popLastMessage()
@@ -160,6 +166,18 @@ export function AnalysisChat({
       {/* Expanded panel */}
       {open && (
         <div>
+          {promptHints.length > 0 ? (
+            <div className="flex flex-wrap gap-2 border-b border-border bg-white px-4 py-3">
+              {promptHints.map((hint) => (
+                <span
+                  key={hint}
+                  className="rounded-full border border-border bg-bg-elevated px-3.5 py-1.5 text-xs text-text-secondary"
+                >
+                  {hint}
+                </span>
+              ))}
+            </div>
+          ) : null}
           {/* Message area */}
           <div
             ref={scrollRef}

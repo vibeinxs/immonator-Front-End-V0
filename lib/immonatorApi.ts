@@ -21,6 +21,8 @@ import type {
   AnalyseResponse,
   ScenarioParams,
   ScenarioResult,
+  ChatHistoryResponse,
+  ChatRequest,
 } from "@/types/api"
 
 // ─── Local types not yet in @/types/api ───────────────────────────────────────
@@ -46,11 +48,6 @@ interface MeResponse {
   email: string
 }
 
-interface ChatRequest {
-  message: string
-  context_type: string
-  context_id?: string
-}
 
 interface FeedbackRequest {
   type?: string
@@ -502,10 +499,10 @@ export function sendChatMessage(body: ChatRequest): Promise<Response | null> {
 export function getChatHistory(
   contextType: string,
   contextId?: string
-): Promise<ApiResult<{ messages: unknown[]; total: number }>> {
+): Promise<ApiResult<ChatHistoryResponse>> {
   const params = new URLSearchParams({ context_type: contextType })
   if (contextId) params.set("context_id", contextId)
-  return apiCall<{ messages: unknown[]; total: number }>(`/api/chat/history?${params}`, {
+  return apiCall<ChatHistoryResponse>(`/api/chat/history?${params}`, {
     method: "GET",
   })
 }
