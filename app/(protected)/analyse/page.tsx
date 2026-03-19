@@ -83,6 +83,10 @@ function mergeWithPreset<T extends Record<string, string | number | boolean>>(pr
     if (presetValueType !== typeof savedValue) continue
     if (presetValueType === "number" && !Number.isFinite(savedValue)) continue
 
+    // `T` is intentionally constrained to primitive preset shapes here, so once
+    // the runtime type matches the preset value we can safely copy it across.
+    // If this helper ever needs to support nested objects, add a richer guard
+    // instead of extending this cast.
     nextValue[key] = savedValue as T[keyof T]
   }
 
@@ -96,6 +100,11 @@ function hydrateAnalyseInput(candidate: unknown): AnalyseRequest {
 function isHydratableAnalyseResult(value: unknown): value is AnalyseResponse {
   if (!isRecord(value)) return false
 
+  // This is a deliberately minimal hydration check. We only restore a saved
+  // result when the fields required by the existing compare/single result UI are
+  // present, and otherwise fall back to `null` so the user can rerun analysis.
+  // If new UI surfaces start depending on more AnalyseResponse fields during
+  // reopen, expand this guard at the same time.
   return (
     typeof value.score === "number" &&
     Number.isFinite(value.score) &&
@@ -611,8 +620,22 @@ function negotiationCardTitle(id: NegotiationStrategyItem["id"], t: (k: string) 
   return t(`analyse.new.negotiation.cardTitle.${id}`)
 }
 
+function looksLikeBackendErrorNarrative(text: string): boolean {
+  const normalized = text.toLowerCase()
+  // This matcher depends on current backend error wording. Keep it narrow so we
+  // don't hide legitimate analysis text, but update these signatures if backend
+  // error payloads change shape in the future.
+  return (
+    normalized.includes("error code") ||
+    normalized.includes("authentication_error") ||
+    normalized.includes("invalid x-api-key") ||
+    normalized.includes("request_id") ||
+    normalized.includes("\"type\": \"error\"")
+  )
+}
+
 function aiNarrative(result: AnalyseResponse, input: AnalyseRequest, t: (k: string) => string): string[] {
-  if (result.ai_analysis && result.ai_analysis.trim().length > 0) {
+  if (result.ai_analysis && result.ai_analysis.trim().length > 0 && !looksLikeBackendErrorNarrative(result.ai_analysis)) {
     return result.ai_analysis
       .split("\n")
       .map((line) => line.trim())
@@ -648,11 +671,62 @@ function negotiationBullets(result: AnalyseResponse, t: (k: string) => string): 
   return finalAsks
 }
 
+function propertyTone(slot: PropertySlot): string {
+  return slot === "A" ? "bg-brand/10 text-brand" : "bg-success/10 text-success"
+}
+
+function propertyLabel(slot: PropertySlot): string {
+  return `Property ${slot}`
+}
+
+function pickCompareWinner(resultA: AnalyseResponse, resultB: AnalyseResponse): PropertySlot {
+  const scoreDelta = resultA.score - resultB.score
+  if (scoreDelta !== 0) return scoreDelta > 0 ? "A" : "B"
+
+  const netYieldDelta = resultA.net_yield_pct - resultB.net_yield_pct
+  if (netYieldDelta !== 0) return netYieldDelta > 0 ? "A" : "B"
+
+  const cashflowDelta = resultA.cash_flow_monthly_yr1 - resultB.cash_flow_monthly_yr1
+  if (cashflowDelta !== 0) return cashflowDelta > 0 ? "A" : "B"
+
+  return resultA.kpf <= resultB.kpf ? "A" : "B"
+}
+
+function compareRecommendationSummary(resultA: AnalyseResponse, resultB: AnalyseResponse, t: (k: string) => string) {
+  const winner = pickCompareWinner(resultA, resultB)
+  const winningResult = winner === "A" ? resultA : resultB
+  const runnerUp = winner === "A" ? resultB : resultA
+  const scoreDelta = Math.abs(resultA.score - resultB.score).toFixed(1)
+  const cashflowDelta = formatEUR(Math.abs(resultA.cash_flow_monthly_yr1 - resultB.cash_flow_monthly_yr1))
+  const yieldDelta = formatPct(Math.abs(resultA.net_yield_pct - resultB.net_yield_pct))
+
+  return {
+    winner,
+    eyebrow: `${propertyLabel(winner)} currently leads`,
+    headline: `${propertyLabel(winner)} looks stronger for a quick next-step decision.`,
+    body: `${t(`verdict.${winningResult.verdict}`)} vs ${t(`verdict.${runnerUp.verdict}`)} · Score Δ ${scoreDelta} · Net yield Δ ${yieldDelta} · Cashflow Δ ${cashflowDelta}.`,
+  }
+}
+
 function AskAiShell({ context, t }: { context: AskAiContextPayload; t: (k: string) => string }) {
   const messages = context.mockMessages
 
   return (
     <div className="rounded-xl border border-border-default bg-bg-base">
+      {context.promptHints.length > 0 ? (
+        <div className="flex flex-wrap gap-2 border-b border-border-default px-4 py-3">
+          {context.promptHints.map((hint) => (
+            <button
+              key={hint}
+              type="button"
+              disabled
+              className="rounded-full border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-medium text-text-secondary opacity-80"
+            >
+              {hint}
+            </button>
+          ))}
+        </div>
+      ) : null}
       <div className="max-h-64 space-y-3 overflow-y-auto border-b border-border-default p-4">
         {messages.map((message) => (
           <div key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
@@ -674,6 +748,248 @@ function AskAiShell({ context, t }: { context: AskAiContextPayload; t: (k: strin
         </button>
       </div>
     </div>
+  )
+}
+
+function CompareAiInsightSection({
+  resultA,
+  resultB,
+  t,
+}: {
+  resultA: AnalyseResponse
+  resultB: AnalyseResponse
+  t: (k: string) => string
+}) {
+  const recommendation = compareRecommendationSummary(resultA, resultB, t)
+  const rows = [
+    {
+      label: "Score Δ",
+      value: `${Math.abs(resultA.score - resultB.score).toFixed(1)} pts`,
+      winner: resultA.score === resultB.score ? "Tie" : propertyLabel(resultA.score > resultB.score ? "A" : "B"),
+    },
+    {
+      label: "Net Yield Δ",
+      value: formatPct(Math.abs(resultA.net_yield_pct - resultB.net_yield_pct)),
+      winner: resultA.net_yield_pct === resultB.net_yield_pct ? "Tie" : propertyLabel(resultA.net_yield_pct > resultB.net_yield_pct ? "A" : "B"),
+    },
+    {
+      label: "Cashflow Δ",
+      value: formatEUR(Math.abs(resultA.cash_flow_monthly_yr1 - resultB.cash_flow_monthly_yr1)),
+      winner: resultA.cash_flow_monthly_yr1 === resultB.cash_flow_monthly_yr1 ? "Tie" : propertyLabel(resultA.cash_flow_monthly_yr1 > resultB.cash_flow_monthly_yr1 ? "A" : "B"),
+    },
+    {
+      label: "Purchase Factor Δ",
+      value: formatX(Math.abs(resultA.kpf - resultB.kpf)),
+      winner: resultA.kpf === resultB.kpf ? "Tie" : propertyLabel(resultA.kpf < resultB.kpf ? "A" : "B"),
+    },
+  ]
+
+  const propertyCards: Array<{ slot: PropertySlot; result: AnalyseResponse }> = [
+    { slot: "A", result: resultA },
+    { slot: "B", result: resultB },
+  ]
+
+  return (
+    <SectionShell title={t("analyse.new.aiInsight.title")} description={t("analyse.new.aiInsight.description")}>
+      <div className="space-y-4">
+        <div className="rounded-2xl border border-brand/15 bg-gradient-to-br from-brand/10 via-bg-base to-bg-surface p-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full bg-brand px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-white">
+              {recommendation.eyebrow}
+            </span>
+            <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${propertyTone(recommendation.winner)}`}>
+              {propertyLabel(recommendation.winner)}
+            </span>
+          </div>
+          <p className="mt-3 text-xl font-semibold text-text-primary">{recommendation.headline}</p>
+          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-text-secondary">{recommendation.body}</p>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {rows.map((row) => (
+            <div key={row.label} className="rounded-xl border border-border-default bg-bg-base p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{row.label}</p>
+              <p className="mt-1 font-mono text-lg font-semibold text-text-primary">{row.value}</p>
+              <p className="mt-1 text-xs text-text-secondary">{row.winner} leads</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid gap-4 xl:grid-cols-2">
+          {propertyCards.map(({ slot, result }) => (
+            <article key={slot} className="rounded-2xl border border-border-default bg-bg-base p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${propertyTone(slot)}`}>
+                    {propertyLabel(slot)}
+                  </span>
+                  <p className="mt-3 text-lg font-semibold text-text-primary">{t(`verdict.${result.verdict}`)}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{t("analyse.new.aiInsight.scoreLabel")}</p>
+                  <p className="font-mono text-2xl font-semibold text-text-primary">{result.score.toFixed(1)}/10</p>
+                </div>
+              </div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <MetricMiniCard label={t("analyse.kpi.netYield")} value={formatPct(result.net_yield_pct)} />
+                <MetricMiniCard label={t("analyse.kpi.cashFlowYr1")} value={formatEUR(result.cash_flow_monthly_yr1)} />
+                <MetricMiniCard label={t("analyse.kpi.purchaseFactor")} value={formatX(result.kpf)} />
+              </div>
+              <p className="mt-4 text-sm text-text-secondary">{aiInsightText(result, t)}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+    </SectionShell>
+  )
+}
+
+function CompareAiAnalysisSection({
+  inputA,
+  inputB,
+  resultA,
+  resultB,
+  t,
+}: {
+  inputA: AnalyseRequest
+  inputB: AnalyseRequest
+  resultA: AnalyseResponse
+  resultB: AnalyseResponse
+  t: (k: string) => string
+}) {
+  const recommendation = compareRecommendationSummary(resultA, resultB, t)
+  const cards: Array<{ slot: PropertySlot; input: AnalyseRequest; result: AnalyseResponse }> = [
+    { slot: "A", input: inputA, result: resultA },
+    { slot: "B", input: inputB, result: resultB },
+  ]
+
+  return (
+    <SectionShell title={t("analyse.new.aiAnalysis.title")} description={t("analyse.new.aiAnalysis.description")}>
+      <div className="space-y-4">
+        <div className="rounded-2xl border border-border-default bg-bg-base p-4">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Recommendation</p>
+          <p className="mt-2 text-lg font-semibold text-text-primary">{recommendation.headline}</p>
+          <p className="mt-2 text-sm leading-relaxed text-text-secondary">{recommendation.body}</p>
+        </div>
+
+        <div className="grid gap-4 xl:grid-cols-2">
+          {cards.map(({ slot, input, result }) => (
+            <article key={slot} className="rounded-2xl border border-border-default bg-bg-base p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${propertyTone(slot)}`}>
+                    {propertyLabel(slot)}
+                  </span>
+                  <p className="mt-3 text-base font-semibold text-text-primary">{result.address_resolved || input.address}</p>
+                </div>
+                <div className="text-right text-sm text-text-secondary">
+                  <p>{formatPct(result.net_yield_pct)} net yield</p>
+                  <p>{formatEUR(result.cash_flow_monthly_yr1)} / mo Yr 1</p>
+                </div>
+              </div>
+              <div className="mt-4 space-y-2 text-sm leading-relaxed text-text-secondary">
+                {aiNarrative(result, input, t).map((line, idx) => (
+                  <p key={`${slot}-${idx}`}>{line}</p>
+                ))}
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
+    </SectionShell>
+  )
+}
+
+function CompareNegotiationSection({
+  resultA,
+  resultB,
+  t,
+}: {
+  resultA: AnalyseResponse
+  resultB: AnalyseResponse
+  t: (k: string) => string
+}) {
+  const cards: Array<{ slot: PropertySlot; items: NegotiationStrategyItem[] }> = [
+    { slot: "A", items: negotiationBullets(resultA, t) },
+    { slot: "B", items: negotiationBullets(resultB, t) },
+  ]
+
+  return (
+    <SectionShell title={t("analyse.new.negotiation.title")} description={t("analyse.new.negotiation.description")}>
+      <div className="grid gap-4 xl:grid-cols-2">
+        {cards.map(({ slot, items }) => (
+          <article key={slot} className="rounded-2xl border border-border-default bg-bg-base p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${propertyTone(slot)}`}>
+                  {propertyLabel(slot)}
+                </span>
+                <p className="mt-3 text-base font-semibold text-text-primary">Best tactical talking points</p>
+              </div>
+            </div>
+            <div className="mt-4 space-y-3">
+              {items.map((item) => (
+                <div key={`${slot}-${item.id}`} className="rounded-xl border border-border-default bg-bg-surface px-3 py-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{negotiationCardTitle(item.id, t)}</p>
+                  <p className="mt-1 text-sm leading-relaxed text-text-secondary">{item.text}</p>
+                </div>
+              ))}
+            </div>
+          </article>
+        ))}
+      </div>
+    </SectionShell>
+  )
+}
+
+function CompareAskAiSection({
+  inputs,
+  results,
+  t,
+}: {
+  inputs: CompareInputsState
+  results: CompareResultsState
+  t: (k: string) => string
+}) {
+  const selectedProperty = pickCompareWinner(results.propertyA as AnalyseResponse, results.propertyB as AnalyseResponse)
+  const recommendation = compareRecommendationSummary(results.propertyA as AnalyseResponse, results.propertyB as AnalyseResponse, t)
+  const context: AskAiContextPayload = {
+    mode: "compare",
+    selectedProperty,
+    propertyInputs: {
+      A: inputs.propertyA,
+      B: inputs.propertyB,
+    },
+    propertyResults: {
+      A: results.propertyA,
+      B: results.propertyB,
+    },
+    promptHints: [
+      "Which property is the better buy?",
+      "Where is the downside risk?",
+      "What should I negotiate on A vs B?",
+      t("analyse.new.askAi.shellCompareHint"),
+    ],
+    mockMessages: [
+      { id: "ca-1", role: "assistant", text: t("analyse.new.askAi.shellIntro") },
+      { id: "ca-2", role: "user", text: "Compare the key trade-offs." },
+      { id: "ca-3", role: "assistant", text: recommendation.body },
+    ],
+  }
+
+  return (
+    <SectionShell title={t("analyse.new.askAi.title")} description={t("analyse.new.askAi.description")}>
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border-default bg-bg-base px-4 py-3 text-sm text-text-secondary">
+          <span className="font-medium text-text-primary">Comparison context</span>
+          <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${propertyTone(selectedProperty)}`}>
+            {propertyLabel(selectedProperty)} leads
+          </span>
+          <span>{recommendation.body}</span>
+        </div>
+        <AskAiShell context={context} t={t} />
+      </div>
+    </SectionShell>
   )
 }
 
@@ -877,6 +1193,7 @@ function CompareAnalysisWorkspace({
   onAnalyseBoth: () => void
   onResetProperty: (property: ComparePropertyKey) => void
 }) {
+  const { t } = useLocale()
   const compareReady = Boolean(results.propertyA && results.propertyB)
 
   return (
@@ -946,6 +1263,24 @@ function CompareAnalysisWorkspace({
           {compareReady ? (
             <div className="space-y-4">
               <CompactCompareSummary resultA={results.propertyA as AnalyseResponse} resultB={results.propertyB as AnalyseResponse} />
+              <CompareAiInsightSection
+                resultA={results.propertyA as AnalyseResponse}
+                resultB={results.propertyB as AnalyseResponse}
+                t={t}
+              />
+              <CompareAiAnalysisSection
+                inputA={inputs.propertyA}
+                inputB={inputs.propertyB}
+                resultA={results.propertyA as AnalyseResponse}
+                resultB={results.propertyB as AnalyseResponse}
+                t={t}
+              />
+              <CompareNegotiationSection
+                resultA={results.propertyA as AnalyseResponse}
+                resultB={results.propertyB as AnalyseResponse}
+                t={t}
+              />
+              <CompareAskAiSection inputs={inputs} results={results} t={t} />
               <CompareTable
                 resultA={results.propertyA as AnalyseResponse}
                 resultB={results.propertyB as AnalyseResponse}
