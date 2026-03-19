@@ -60,6 +60,7 @@ export interface NegotiationStrategyPayload {
 }
 
 export interface AskAiContextPayload {
+  contextId?: string
   mode: AnalysisMode
   selectedProperty: PropertySlot
   propertyInputs: Record<PropertySlot, AnalyseRequest>

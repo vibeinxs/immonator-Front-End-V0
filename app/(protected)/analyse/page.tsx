@@ -15,10 +15,12 @@ import { YearByYearTable } from "@/components/analysis/YearByYearTable"
 import { LandShareBlock } from "@/components/analysis/LandShareBlock"
 import { FlagsSection } from "@/features/analysis/FlagsSection"
 import { analyseProperty } from "@/lib/analyseApi"
+import { buildAnalysisChatContextId, getAiAnalysisLines } from "@/lib/analysisAi"
 import { formatEUR, formatPct, formatX } from "@/lib/format"
 import { getEntryById } from "@/lib/manualPortfolio"
 import { runLocalCompute } from "@/lib/localComputeBridge"
 import { useAnalysisStore } from "@/store/analysisStore"
+import { AnalysisChat } from "@/components/chat/AnalysisChat"
 import { useLocale } from "@/lib/i18n/locale-context"
 import type { AnalyseRequest, AnalyseResponse } from "@/types/api"
 import type {
@@ -26,6 +28,7 @@ import type {
   AskAiContextPayload,
   NegotiationStrategyItem,
   NegotiationStrategyPayload,
+  PropertySlot,
 } from "@/types/analyseView"
 
 const NEGOTIATION_SCORE_THRESHOLD = 6
@@ -70,24 +73,23 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
-function mergeWithPreset<T extends Record<string, string | number | boolean>>(preset: T, candidate: unknown): T {
+function mergeWithPreset(preset: AnalyseRequest, candidate: unknown): AnalyseRequest {
   if (!isRecord(candidate)) return preset
 
   const nextValue = { ...preset }
 
-  for (const key of Object.keys(preset) as Array<keyof T>) {
+  for (const key of Object.keys(preset) as Array<keyof AnalyseRequest>) {
     const presetValue = preset[key]
-    const savedValue = candidate[key]
-    const presetValueType = typeof presetValue
+    const savedValue = candidate[String(key)]
 
+    if (presetValue == null || savedValue == null) continue
+
+    const presetValueType = typeof presetValue
+    if (!["string", "number", "boolean"].includes(presetValueType)) continue
     if (presetValueType !== typeof savedValue) continue
     if (presetValueType === "number" && !Number.isFinite(savedValue)) continue
 
-    // `T` is intentionally constrained to primitive preset shapes here, so once
-    // the runtime type matches the preset value we can safely copy it across.
-    // If this helper ever needs to support nested objects, add a richer guard
-    // instead of extending this cast.
-    nextValue[key] = savedValue as T[keyof T]
+    Object.assign(nextValue, { [key]: savedValue })
   }
 
   return nextValue
@@ -635,18 +637,21 @@ function looksLikeBackendErrorNarrative(text: string): boolean {
 }
 
 function aiNarrative(result: AnalyseResponse, input: AnalyseRequest, t: (k: string) => string): string[] {
-  if (result.ai_analysis && result.ai_analysis.trim().length > 0 && !looksLikeBackendErrorNarrative(result.ai_analysis)) {
-    return result.ai_analysis
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean)
+  const rawAiAnalysis = result.ai_analysis
+
+  if (typeof rawAiAnalysis === "string" && rawAiAnalysis.trim().length > 0 && looksLikeBackendErrorNarrative(rawAiAnalysis)) {
+    return [
+      `${t("analyse.results.verdictTitle")}: ${t(`verdict.${result.verdict}`)} (${result.score.toFixed(1)}/10).`,
+      `${t("analyse.kpi.netYield")}: ${result.net_yield_pct.toFixed(1)}% · ${t("analyse.kpi.purchaseFactor")}: ${result.kpf.toFixed(1)}× · IRR 10y: ${result.irr_10.toFixed(1)}%.`,
+      `${t("analyse.kpi.cashFlowYr1")}: ${result.cash_flow_monthly_yr1.toFixed(0)}€/mo · ${t("analyse.market.address")}: ${result.address_resolved || input.address}.`,
+    ]
   }
 
-  return [
+  return getAiAnalysisLines(result, [
     `${t("analyse.results.verdictTitle")}: ${t(`verdict.${result.verdict}`)} (${result.score.toFixed(1)}/10).`,
     `${t("analyse.kpi.netYield")}: ${result.net_yield_pct.toFixed(1)}% · ${t("analyse.kpi.purchaseFactor")}: ${result.kpf.toFixed(1)}× · IRR 10y: ${result.irr_10.toFixed(1)}%.`,
     `${t("analyse.kpi.cashFlowYr1")}: ${result.cash_flow_monthly_yr1.toFixed(0)}€/mo · ${t("analyse.market.address")}: ${result.address_resolved || input.address}.`,
-  ]
+  ])
 }
 
 function negotiationBullets(result: AnalyseResponse, t: (k: string) => string): NegotiationStrategyItem[] {
@@ -708,45 +713,23 @@ function compareRecommendationSummary(resultA: AnalyseResponse, resultB: Analyse
   }
 }
 
-function AskAiShell({ context, t }: { context: AskAiContextPayload; t: (k: string) => string }) {
-  const messages = context.mockMessages
-
+function AskAiShell({ context }: { context: AskAiContextPayload }) {
   return (
-    <div className="rounded-xl border border-border-default bg-bg-base">
-      {context.promptHints.length > 0 ? (
-        <div className="flex flex-wrap gap-2 border-b border-border-default px-4 py-3">
-          {context.promptHints.map((hint) => (
-            <button
-              key={hint}
-              type="button"
-              disabled
-              className="rounded-full border border-border-default bg-bg-surface px-3 py-1.5 text-xs font-medium text-text-secondary opacity-80"
-            >
-              {hint}
-            </button>
-          ))}
+    <div className="space-y-3">
+      {context.contextId ? (
+        <div className="rounded-2xl border border-border-default bg-bg-base px-4 py-3 text-sm text-text-secondary">
+          <span className="font-medium text-text-primary">Analysis chat context ready.</span>{" "}
+          {context.mode === "compare"
+            ? "Messages will stay grouped to this comparison state while numeric analysis remains fully usable on its own."
+            : "Messages will stay grouped to this underwriting state while numeric analysis remains fully usable on its own."}
         </div>
       ) : null}
-      <div className="max-h-64 space-y-3 overflow-y-auto border-b border-border-default p-4">
-        {messages.map((message) => (
-          <div key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
-            <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm ${message.role === "user" ? "rounded-br-sm bg-brand text-white" : "rounded-bl-sm border border-border-default bg-bg-surface text-text-secondary"}`}>
-              {message.text}
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="flex gap-2 p-3">
-        <input
-          type="text"
-          disabled
-          placeholder={t("analyse.new.askAi.inputPlaceholder")}
-          className="flex-1 rounded-xl border border-border-default bg-bg-elevated px-4 py-2.5 text-sm text-text-muted"
-        />
-        <button disabled className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white opacity-50">
-          {t("analyse.new.askAi.send")}
-        </button>
-      </div>
+      <AnalysisChat
+        contextType="general"
+        contextId={context.contextId}
+        title={context.mode === "compare" ? "comparison" : "analysis"}
+        promptHints={context.promptHints}
+      />
     </div>
   )
 }
@@ -964,17 +947,21 @@ function CompareAskAiSection({
       A: results.propertyA,
       B: results.propertyB,
     },
+    contextId: buildAnalysisChatContextId({
+      mode: "compare",
+      selectedProperty,
+      propertyInputs: { A: inputs.propertyA, B: inputs.propertyB },
+      propertyResults: { A: results.propertyA, B: results.propertyB },
+      promptHints: [],
+      mockMessages: [],
+    }),
     promptHints: [
+      recommendation.body,
       "Which property is the better buy?",
       "Where is the downside risk?",
       "What should I negotiate on A vs B?",
-      t("analyse.new.askAi.shellCompareHint"),
     ],
-    mockMessages: [
-      { id: "ca-1", role: "assistant", text: t("analyse.new.askAi.shellIntro") },
-      { id: "ca-2", role: "user", text: "Compare the key trade-offs." },
-      { id: "ca-3", role: "assistant", text: recommendation.body },
-    ],
+    mockMessages: [],
   }
 
   return (
@@ -987,7 +974,7 @@ function CompareAskAiSection({
           </span>
           <span>{recommendation.body}</span>
         </div>
-        <AskAiShell context={context} t={t} />
+        <AskAiShell context={context} />
       </div>
     </SectionShell>
   )
@@ -1053,12 +1040,19 @@ function SingleAnalysisWorkspace({
         A: result,
         B: result,
       },
-      promptHints: [],
-      mockMessages: [
-        { id: "a1", role: "assistant", text: t("analyse.new.askAi.shellIntro") },
-        { id: "u1", role: "user", text: t("analyse.new.askAi.inputPlaceholder") },
-        { id: "a2", role: "assistant", text: aiInsightText(result, t) },
+      contextId: buildAnalysisChatContextId({
+        mode: "single",
+        selectedProperty: "A",
+        propertyInputs: { A: input, B: input },
+        propertyResults: { A: result, B: result },
+        promptHints: [],
+        mockMessages: [],
+      }),
+      promptHints: [
+        aiInsightText(result, t),
+        `${t("analyse.kpi.purchaseFactor")}: ${formatX(result.kpf)}`,
       ],
+      mockMessages: [],
     }
   }, [input, result, t])
 
@@ -1163,7 +1157,7 @@ function SingleAnalysisWorkspace({
                 </SectionShell>
 
                 <SectionShell title={t("analyse.new.askAi.title")} description={t("analyse.new.askAi.description")}>
-                  {askAiContext ? <AskAiShell context={askAiContext} t={t} /> : null}
+                  {askAiContext ? <AskAiShell context={askAiContext} /> : null}
                 </SectionShell>
               </div>
             )}

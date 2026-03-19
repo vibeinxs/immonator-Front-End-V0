@@ -148,6 +148,21 @@ export interface AnalyseRequest {
   energy_class?: string
 }
 
+export interface StructuredAiAnalysisSection {
+  title?: string | null
+  body?: string | null
+  content?: string | null
+  bullets?: string[] | null
+}
+
+export interface StructuredAiAnalysis {
+  summary?: string | null
+  raw_text?: string | null
+  sections?: StructuredAiAnalysisSection[] | null
+}
+
+export type AnalyseAiAnalysis = string | StructuredAiAnalysis | null
+
 export interface AnalyseYearData {
   year: number
   cash_flow?: number          // annual after-tax cashflow
@@ -194,7 +209,7 @@ export interface AnalyseResponse {
   // Year-by-year
   year_data: AnalyseYearData[]
   // Optional market/enrichment data
-  ai_analysis?: string
+  ai_analysis?: AnalyseAiAnalysis
   address_resolved?: string
   market_rent_m2?: number | null
   bodenrichtwert_m2?: number | null
@@ -267,6 +282,26 @@ export interface ScenarioAiCommentary {
 export interface ScenarioResult {
   calculated_metrics: Record<string, unknown>
   ai_commentary: ScenarioAiCommentary
+}
+
+export interface ConversationMessage {
+  id: string
+  role: string
+  message: string
+  context_type: string
+  context_id: string | null
+  created_at: string
+}
+
+export interface ChatRequest {
+  message: string
+  context_type?: string
+  context_id?: string
+}
+
+export interface ChatHistoryResponse {
+  messages: ConversationMessage[]
+  total: number
 }
 
 // ─── Portfolio ────────────────────────────────────────────────────────────────
