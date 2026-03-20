@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { isLoggedIn, saveSession } from "@/lib/auth"
+import { getPostLoginPath, isLoggedIn, saveSession } from "@/lib/auth"
 import { immoApi } from "@/lib/immonatorApi"
 import { LocaleSwitcher } from "@/components/locale-switcher"
 import { useLocale } from "@/lib/i18n/locale-context"
@@ -17,7 +17,7 @@ export default function BetaLoginPage() {
 
   useEffect(() => {
     if (isLoggedIn()) {
-      router.push("/properties")
+      router.replace(getPostLoginPath())
     }
   }, [router])
 
@@ -38,7 +38,7 @@ export default function BetaLoginPage() {
     }
 
     saveSession(data.session_token, data.user_id, name || "Investor", data.is_new_user)
-    router.push("/properties")
+    router.replace(getPostLoginPath())
   }
 
   // Preview card KPI data
