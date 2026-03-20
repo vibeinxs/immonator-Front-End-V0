@@ -34,6 +34,10 @@ export function isLoggedIn(): boolean {
   return !!getToken()
 }
 
+export function getPostLoginPath(): "/home" | "/properties" {
+  return isNewUser() ? "/properties" : "/home"
+}
+
 export function saveSession(
   token: string,
   userId: string,

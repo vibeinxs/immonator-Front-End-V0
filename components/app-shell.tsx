@@ -5,6 +5,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
   BarChart3,
+  Building2,
   Briefcase,
   Sparkles,
   Link2,
@@ -25,6 +26,7 @@ import { getUserName, getInitials, logout } from "@/lib/auth"
 import { useLocale } from "@/lib/i18n/locale-context"
 
 const NAV_ITEMS = [
+  { key: "nav.properties", href: "/properties", icon: Building2 },
   { key: "nav.analyse", href: "/analyse", icon: BarChart3 },
   { key: "nav.portfolio", href: "/portfolio", icon: Briefcase },
   { key: "nav.aiInsights", href: "/ai-insights", icon: Sparkles },
