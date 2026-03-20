@@ -56,7 +56,7 @@ export default function LandingPage() {
   useEffect(() => {
     setMounted(true)
     if (isLoggedIn()) {
-      router.push("/properties")
+      router.replace("/home")
     }
   }, [router])
 

@@ -17,7 +17,7 @@ export default function BetaLoginPage() {
 
   useEffect(() => {
     if (isLoggedIn()) {
-      router.push("/properties")
+      router.replace("/home")
     }
   }, [router])
 
@@ -38,7 +38,7 @@ export default function BetaLoginPage() {
     }
 
     saveSession(data.session_token, data.user_id, name || "Investor", data.is_new_user)
-    router.push("/properties")
+    router.replace("/home")
   }
 
   // Preview card KPI data

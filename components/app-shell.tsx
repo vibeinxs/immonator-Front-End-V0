@@ -48,7 +48,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <header className="glass sticky top-0 z-40 flex h-[58px] items-center">
         <div className="mx-auto flex w-full max-w-[1280px] items-center justify-between px-4 md:px-8">
           {/* Left: Logo */}
-          <Link href="/analyse" className="flex items-center gap-2">
+          <Link href="/home" className="flex items-center gap-2">
             <span className="font-serif text-[22px] text-text-primary">
               Immonator
             </span>
