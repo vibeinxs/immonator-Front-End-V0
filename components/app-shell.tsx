@@ -5,6 +5,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
   BarChart3,
+  Building2,
   Briefcase,
   Sparkles,
   Link2,
@@ -25,6 +26,7 @@ import { getUserName, getInitials, logout } from "@/lib/auth"
 import { useLocale } from "@/lib/i18n/locale-context"
 
 const NAV_ITEMS = [
+  { key: "nav.properties", href: "/properties", icon: Building2 },
   { key: "nav.analyse", href: "/analyse", icon: BarChart3 },
   { key: "nav.portfolio", href: "/portfolio", icon: Briefcase },
   { key: "nav.aiInsights", href: "/ai-insights", icon: Sparkles },
@@ -48,7 +50,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <header className="glass sticky top-0 z-40 flex h-[58px] items-center">
         <div className="mx-auto flex w-full max-w-[1280px] items-center justify-between px-4 md:px-8">
           {/* Left: Logo */}
-          <Link href="/analyse" className="flex items-center gap-2">
+          <Link href="/home" className="flex items-center gap-2">
             <span className="font-serif text-[22px] text-text-primary">
               Immonator
             </span>

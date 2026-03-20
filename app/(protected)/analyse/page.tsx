@@ -1318,6 +1318,13 @@ export default function AnalysePage() {
     createInitialAnalysePageState,
   )
   const manualEntryId = searchParams.get("manual")?.trim() ?? ""
+  const requestedMode = searchParams.get("mode")?.trim()
+
+  useEffect(() => {
+    if (requestedMode === "single" || requestedMode === "compare") {
+      dispatch({ type: "setAnalysisMode", mode: requestedMode })
+    }
+  }, [requestedMode])
 
   useEffect(() => {
     if (!manualEntryId) return
