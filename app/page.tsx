@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { isLoggedIn } from "@/lib/auth"
+import { getPostLoginPath, isLoggedIn } from "@/lib/auth"
 import { VerdictBadge } from "@/components/verdict-badge"
 import { LocaleSwitcher } from "@/components/locale-switcher"
 import { useLocale } from "@/lib/i18n/locale-context"
@@ -56,7 +56,7 @@ export default function LandingPage() {
   useEffect(() => {
     setMounted(true)
     if (isLoggedIn()) {
-      router.push("/properties")
+      router.replace(getPostLoginPath())
     }
   }, [router])
 

@@ -7,6 +7,7 @@ const B = String.fromCharCode(178) // Superscript 2
 export const translations: Record<Locale, Record<string, string>> = {
   en: {
     // Nav
+    "nav.home": "Home",
     "nav.properties": "Properties",
     "nav.compare": "Compare",
     "nav.portfolio": "Portfolio",
@@ -406,6 +407,7 @@ export const translations: Record<Locale, Record<string, string>> = {
 
   de: {
     // Nav
+    "nav.home": "Home",
     "nav.properties": "Immobilien",
     "nav.compare": "Vergleichen",
     "nav.portfolio": "Portfolio",
