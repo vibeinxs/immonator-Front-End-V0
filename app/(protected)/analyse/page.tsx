@@ -1321,9 +1321,10 @@ export default function AnalysePage() {
   const requestedMode = searchParams.get("mode")?.trim()
 
   useEffect(() => {
-    if (requestedMode === "single" || requestedMode === "compare") {
-      dispatch({ type: "setAnalysisMode", mode: requestedMode })
-    }
+    dispatch({
+      type: "setAnalysisMode",
+      mode: requestedMode === "compare" ? "compare" : "single",
+    })
   }, [requestedMode])
 
   useEffect(() => {
