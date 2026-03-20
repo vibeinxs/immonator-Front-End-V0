@@ -27,6 +27,13 @@ export type Verdict =
   | "proceed_with_caution"
   | "avoid"
 
+/**
+ * Valid EPC / energy class values accepted by the backend.
+ * Matches backend Literal["A+", "A", "B", "C", "D", "E", "F", "G", "H"].
+ * Using a value outside this set causes a 422 from /analyse.
+ */
+export type EnergyClass = "A+" | "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H"
+
 // ─── Properties ───────────────────────────────────────────────────────────────
 
 /**
@@ -65,14 +72,6 @@ export interface PropertyListItem {
 /**
  * Matches GET /api/properties/{id} (PropertyDetailResponse schema).
  * Field names match exactly what the backend sends.
- *
- *   Backend name        Task-spec alias (ignored per instructions)
- *   asking_price        price
- *   living_area_sqm     size_sqm
- *   images_urls         images
- *   source_url          listing_url
- *   days_on_market      days_listed
- *   monthly_rent        estimated_rent
  */
 export interface Property {
   id: string
@@ -142,40 +141,55 @@ export interface AnalyseRequest {
   tax_rate?: number
   vacancy_rate?: number
   holding_years?: number
+  // Sonder-AfA (§7b EStG) — V0 UI fields.
+  // These are mapped to afa_method="sonder" + afa_rate_input before the
+  // backend call (see analyseProperty in lib/immonatorApi.ts).
+  // localCompute() handles them directly via FormParams.
   special_afa_enabled?: boolean
   special_afa_rate_input?: number
   special_afa_years?: number
-  energy_class?: string
+  // Must be one of the EnergyClass values — invalid values cause a 422
+  energy_class?: EnergyClass
 }
 
-export interface StructuredAiAnalysisSection {
-  title?: string | null
-  body?: string | null
-  content?: string | null
-  bullets?: string[] | null
+// ─── AI response shapes returned inside AnalyseResponse ───────────────────────
+
+/** Quick-scan AI verdict — always present in /analyse responses. */
+export interface AIInsight {
+  summary: string
+  verdict: string
+  confidence: "low" | "medium" | "high"
+  positives: string[]
+  risks: string[]
+  recommended_action: string
 }
 
-export interface StructuredAiAnalysis {
-  summary?: string | null
-  raw_text?: string | null
-  sections?: StructuredAiAnalysisSection[] | null
+/** Deep narrative AI block — always present in /analyse responses. */
+export interface AIDeepAnalysis {
+  summary: string
+  pricing: string
+  cashflow: string
+  market: string
+  tax_and_structure: string
+  key_risks: string[]
+  next_steps: string[]
 }
-
-export type AnalyseAiAnalysis = string | StructuredAiAnalysis | null
 
 export interface AnalyseYearData {
   year: number
-  cash_flow?: number          // annual after-tax cashflow
-  cash_flow_monthly?: number  // monthly after-tax cashflow
-  equity_multiple?: number
+  // Fields present in both backend /analyse and local compute responses
+  cash_flow?: number          // annual after-tax cash flow
+  tax_impact?: number
+  afa?: number
+  property_value?: number
   net_worth?: number
   rent_gross?: number
   interest?: number
-  afa?: number
-  afa_sonder?: number | null
+  // Local-compute-only fields (never sent by the backend /analyse endpoint)
+  cash_flow_monthly?: number  // derived: cash_flow / 12
+  afa_sonder?: number | null  // Sonder-AfA amount (non-null for yr <= special_afa_years)
   taxable_income?: number
-  tax_impact?: number
-  property_value?: number
+  equity_multiple?: number
 }
 
 export interface AnalyseResponse {
@@ -208,8 +222,11 @@ export interface AnalyseResponse {
   equity_multiple_20: number
   // Year-by-year
   year_data: AnalyseYearData[]
-  // Optional market/enrichment data
-  ai_analysis?: AnalyseAiAnalysis
+  // AI fields — always present in backend /analyse responses; absent from local compute
+  ai_analysis?: string | null
+  ai_insight?: AIInsight
+  ai_deep_analysis?: AIDeepAnalysis
+  // Optional enrichment / meta
   address_resolved?: string
   market_rent_m2?: number | null
   bodenrichtwert_m2?: number | null
@@ -239,9 +256,6 @@ export type CompactAnalysisStatus = "not_generated" | "generated"
 
 /**
  * Response shape of GET /api/analysis/compact/{id}.
- * Mirrors CompactAnalysisStatusResponse from the OpenAPI schema:
- * { status, analysis? } — consumers must read result.analysis.verdict,
- * not result.verdict, to match what the backend actually sends.
  */
 export interface CompactAnalysis {
   status: CompactAnalysisStatus
@@ -257,15 +271,14 @@ export interface ScenarioParams {
   vacancy_rate_pct?: number
   management_cost_pct?: number
   maintenance_cost_annual?: number
-  /** AfA (straight-line depreciation) flag — not yet in OpenAPI spec. */
+  /** AfA (straight-line depreciation) flag */
   use_afa?: boolean
-  /** Sonder-AfA (accelerated depreciation) flag — not yet in OpenAPI spec. */
+  /** Sonder-AfA (accelerated depreciation) flag */
   use_sonder_afa?: boolean
 }
 
 /**
  * AI commentary block within a scenario response.
- * Field names and structure confirmed from ScenarioModeller.tsx usage.
  */
 export interface ScenarioAiCommentary {
   verdict: Verdict
@@ -276,13 +289,13 @@ export interface ScenarioAiCommentary {
 
 /**
  * Mirrors RunScenarioResponse from the OpenAPI schema.
- * Consumers must read result.ai_commentary.verdict — not result.scenario_verdict —
- * and result.calculated_metrics for the numeric outputs.
  */
 export interface ScenarioResult {
   calculated_metrics: Record<string, unknown>
   ai_commentary: ScenarioAiCommentary
 }
+
+// ─── Chat ─────────────────────────────────────────────────────────────────────
 
 export interface ConversationMessage {
   id: string
@@ -293,10 +306,77 @@ export interface ConversationMessage {
   created_at: string
 }
 
+/**
+ * Compact property + metrics snapshot sent inside analysis chat requests.
+ * Matches backend PropertyMetricsInput (immonator/ai_payloads.py).
+ * The backend normaliser also accepts nested { input, result } shapes and
+ * camelCase aliases (livingAreaSqm, etc.) — sending flat is preferred.
+ */
+export interface PropertyMetricsInput {
+  address?: string
+  purchase_price?: number
+  sqm?: number
+  year_built?: number
+  condition?: string
+  energy_class?: EnergyClass
+  score?: number
+  verdict?: string
+  gross_yield_pct?: number
+  net_yield_pct?: number
+  kpf?: number
+  cash_flow_monthly_yr1?: number
+  annuity_monthly?: number
+  equity?: number
+  loan?: number
+  ltv_pct?: number
+  afa_tax_saving_yr1?: number
+  irr_10?: number
+  irr_15?: number
+  irr_20?: number
+  equity_multiple_10?: number
+  bodenrichtwert_m2?: number | null
+  market_rent_m2?: number | null
+  location_score?: number | null
+  population_trend?: string | null
+  /** Trimmed to [1,5,10,15,20] by the backend — sending the full array is fine. */
+  year_data?: Array<{
+    year: number
+    cash_flow?: number
+    tax_impact?: number
+    afa?: number
+    property_value?: number
+    net_worth?: number
+  }>
+}
+
+/**
+ * Inline analysis context sent alongside analysis chat messages.
+ * Matches backend AnalysisContextPayload (immonator/ai_payloads.py).
+ *
+ * context_type + context_id rules:
+ *   "analysis_single"  → context_id: "manual:<entryId>" | "transient:<uuid>"
+ *   "analysis_compare" → context_id: "compare:<uuid>"
+ * Backend also accepts "analysis" as a legacy alias (normalised server-side).
+ * analysis_context is required on EVERY turn — it is not persisted by the backend.
+ */
+export interface AnalysisContextPayload {
+  mode: "single" | "compare"
+  /** "A" | "B" — which slot the user is currently focused on */
+  selected_slot?: "A" | "B" | null
+  property_a?: PropertyMetricsInput | null
+  property_b?: PropertyMetricsInput | null
+}
+
 export interface ChatRequest {
   message: string
   context_type?: string
   context_id?: string
+  /**
+   * Required when context_type is "analysis", "analysis_single", or "analysis_compare".
+   * Must include a PropertyMetricsInput snapshot for the current session.
+   * Sent on every turn — the backend does not persist it between messages.
+   */
+  analysis_context?: AnalysisContextPayload
 }
 
 export interface ChatHistoryResponse {
@@ -315,7 +395,6 @@ export type PortfolioStatus =
 
 /**
  * Full compact-analysis object stored on portfolio items.
- * Uses the portfolio router's CompactAnalysisOut shape.
  */
 export interface PortfolioCompactAnalysis {
   id: string
@@ -331,9 +410,6 @@ export interface PortfolioCompactAnalysis {
 
 /**
  * Portfolio item as returned by GET /api/portfolio.
- * The backend flattens property fields into the item — there is no
- * nested `property` object. Shared fields are derived from PropertyListItem
- * via Pick so any rename in the list schema is automatically reflected here.
  */
 export type PortfolioItem = Pick<
   PropertyListItem,
@@ -393,7 +469,7 @@ export interface RawNegotiationBrief {
   counter_offer_strategy?: Record<string, unknown>
   due_diligence_demands?: string[]
   scripts?: { opening_line?: string; key_phrase?: string }
-  // Top-level flat fields (newly added; also used by legacy/inline endpoints)
+  // Top-level flat fields (promoted by normalize_brief_data on the backend)
   talking_points_de?: string[]
   talking_points_en?: string[]
   offer_letter_draft?: string | null
