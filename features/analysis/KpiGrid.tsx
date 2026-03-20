@@ -70,11 +70,11 @@ const STATUS_CLASSES: Record<string, string> = {
   neutral: "text-text-primary",
 }
 
-const STATUS_BADGE: Record<string, string> = {
-  ok: "bg-success/10 border-success/20",
-  warn: "bg-warning/10 border-warning/20",
-  bad: "bg-danger/10 border-danger/20",
-  neutral: "bg-bg-surface border-border-default",
+const STRIPE_CLASSES: Record<string, string> = {
+  ok: "bg-success",
+  warn: "bg-warning",
+  bad: "bg-danger",
+  neutral: "bg-border",
 }
 
 interface KpiGridProps {
@@ -90,15 +90,19 @@ export function KpiGrid({ result, defaultExpanded = false }: KpiGridProps) {
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 stagger-children">
         {kpis.map((kpi) => {
           const st = kpi.status(result)
           return (
-            <div key={kpi.key} className={`rounded-lg border p-3 ${STATUS_BADGE[st]}`}>
-              <p className="text-[10px] font-medium uppercase tracking-wide text-text-muted">
+            <div
+              key={kpi.key}
+              className="relative overflow-hidden rounded-xl border border-border bg-bg-surface p-4 shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5"
+            >
+              <div className={`absolute left-0 top-0 h-full w-[3px] rounded-l-xl ${STRIPE_CLASSES[st]}`} />
+              <p className="pl-2 text-[10px] font-medium uppercase tracking-wide text-text-muted">
                 {t(`analyse.kpi.${kpi.key}`)}
               </p>
-              <p className={`mt-1 font-mono text-base font-bold ${STATUS_CLASSES[st]}`}>
+              <p className={`mt-1.5 pl-2 font-mono text-xl font-bold leading-none ${STATUS_CLASSES[st]}`}>
                 {kpi.format(result)}
               </p>
             </div>
