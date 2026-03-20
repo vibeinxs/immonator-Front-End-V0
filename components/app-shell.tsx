@@ -26,7 +26,7 @@ import { getUserName, getInitials, logout } from "@/lib/auth"
 import { useLocale } from "@/lib/i18n/locale-context"
 
 const NAV_ITEMS = [
-  { key: "nav.properties", href: "/properties", icon: Building2 },
+  { key: "nav.home", href: "/home", icon: Building2 },
   { key: "nav.analyse", href: "/analyse", icon: BarChart3 },
   { key: "nav.portfolio", href: "/portfolio", icon: Briefcase },
   { key: "nav.aiInsights", href: "/ai-insights", icon: Sparkles },
