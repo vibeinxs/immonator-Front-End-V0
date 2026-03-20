@@ -220,9 +220,19 @@ export function getDeepAnalysis(id: string): Promise<ApiResult<Record<string, un
 export async function analyseProperty(
   body: AnalyseRequest
 ): Promise<ApiResult<AnalyseResponse>> {
+  // M4: Map V0 Sonder-AfA UI fields to the backend contract.
+  // The backend uses afa_method="sonder" + afa_rate_input; it does not know
+  // special_afa_enabled / special_afa_rate_input / special_afa_years.
+  const backendBody: AnalyseRequest = body.special_afa_enabled
+    ? {
+        ...body,
+        afa_method: "sonder",
+        afa_rate_input: body.special_afa_rate_input ?? body.afa_rate_input,
+      }
+    : body
   const res = await apiCall<AnalyseResponse>("/analyse", {
     method: "POST",
-    body: JSON.stringify(body),
+    body: JSON.stringify(backendBody),
   })
 
   if (!res.data) return { data: null, error: res.error }
