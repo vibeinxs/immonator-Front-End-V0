@@ -182,25 +182,6 @@ export default function HomePage() {
 
       <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
         <section className="rounded-2xl border border-border-default bg-bg-surface p-6 md:p-8">
-          <h2 className="text-xl font-semibold text-text-primary">{copy.capabilities.heading}</h2>
-          <p className="mt-1 text-sm text-text-secondary">{copy.capabilities.subheading}</p>
-          <div className="mt-5 grid gap-4 md:grid-cols-2">
-            {copy.capabilities.items.map((item) => {
-              const Icon = item.icon
-              return (
-                <div key={item.id} className="rounded-2xl border border-border-default bg-bg-base p-5">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-bg-elevated text-text-primary">
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <h3 className="mt-4 text-base font-semibold text-text-primary">{item.title}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-text-secondary">{item.body}</p>
-                </div>
-              )
-            })}
-          </div>
-        </section>
-
-        <section className="rounded-2xl border border-border-default bg-bg-surface p-6 md:p-8">
           <h2 className="text-xl font-semibold text-text-primary">{copy.recent.heading}</h2>
           <p className="mt-1 text-sm text-text-secondary">{copy.recent.subheading}</p>
 
@@ -214,7 +195,7 @@ export default function HomePage() {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-text-primary">{entry.name || copy.recent.untitled}</p>
+                      <p className="break-words text-sm font-semibold text-text-primary">{entry.name || copy.recent.untitled}</p>
                       <p className="mt-1 text-xs text-text-muted">
                         {formatSavedAt(entry.savedAt, locale) ?? copy.recent.savedFallback}
                       </p>
@@ -232,33 +213,52 @@ export default function HomePage() {
             </div>
           )}
         </section>
+
+        <section className="rounded-2xl border border-border-default bg-bg-surface p-6 md:p-8">
+          <h2 className="text-xl font-semibold text-text-primary">{copy.guidance.heading}</h2>
+          <p className="mt-1 text-sm text-text-secondary">{copy.guidance.subheading}</p>
+          <div className="mt-5 space-y-3">
+            {copy.guidance.items.map((step) => (
+              <div key={step.id} className="rounded-2xl border border-border-default bg-bg-base p-4">
+                <h3 className="text-base font-semibold text-text-primary">{step.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-text-secondary">{step.body}</p>
+                <Link
+                  href={step.href}
+                  className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-brand hover:text-brand-hover"
+                >
+                  {step.cta}
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
+            ))}
+          </div>
+          <Link
+            href="/properties"
+            className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-brand hover:text-brand-hover"
+          >
+            {copy.guidance.browseLabel}
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </section>
       </div>
 
       <section className="rounded-2xl border border-border-default bg-bg-surface p-6 md:p-8">
-        <h2 className="text-xl font-semibold text-text-primary">{copy.guidance.heading}</h2>
-        <p className="mt-1 text-sm text-text-secondary">{copy.guidance.subheading}</p>
-        <div className="mt-5 grid gap-4 md:grid-cols-3">
-          {copy.guidance.items.map((step) => (
-            <div key={step.id} className="rounded-2xl border border-border-default bg-bg-base p-5">
-              <h3 className="text-base font-semibold text-text-primary">{step.title}</h3>
-              <p className="mt-2 min-h-20 text-sm leading-relaxed text-text-secondary">{step.body}</p>
-              <Link
-                href={step.href}
-                className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-brand hover:text-brand-hover"
-              >
-                {step.cta}
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-            </div>
-          ))}
+        <h2 className="text-xl font-semibold text-text-primary">{copy.capabilities.heading}</h2>
+        <p className="mt-1 text-sm text-text-secondary">{copy.capabilities.subheading}</p>
+        <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          {copy.capabilities.items.map((item) => {
+            const Icon = item.icon
+            return (
+              <div key={item.id} className="rounded-2xl border border-border-default bg-bg-base p-5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-bg-elevated text-text-primary">
+                  <Icon className="h-5 w-5" />
+                </div>
+                <h3 className="mt-4 text-base font-semibold text-text-primary">{item.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-text-secondary">{item.body}</p>
+              </div>
+            )
+          })}
         </div>
-        <Link
-          href="/properties"
-          className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-brand hover:text-brand-hover"
-        >
-          {copy.guidance.browseLabel}
-          <ArrowRight className="h-4 w-4" />
-        </Link>
       </section>
     </div>
   )
