@@ -15,7 +15,7 @@ import { YearByYearTable } from "@/components/analysis/YearByYearTable"
 import { LandShareBlock } from "@/components/analysis/LandShareBlock"
 import { FlagsSection } from "@/features/analysis/FlagsSection"
 import { analyseProperty } from "@/lib/analyseApi"
-import { buildAnalysisChatContextId, getAiAnalysisLines } from "@/lib/analysisAi"
+import { buildAnalysisChatContextId, buildAnalysisContextPayload, getAiAnalysisLines } from "@/lib/analysisAi"
 import { formatEUR, formatPct, formatX } from "@/lib/format"
 import { getEntryById } from "@/lib/manualPortfolio"
 import { runLocalCompute } from "@/lib/localComputeBridge"
@@ -725,8 +725,9 @@ function AskAiShell({ context }: { context: AskAiContextPayload }) {
         </div>
       ) : null}
       <AnalysisChat
-        contextType="general"
+        contextType={context.mode === "compare" ? "analysis_compare" : "analysis_single"}
         contextId={context.contextId}
+        analysisContext={buildAnalysisContextPayload(context)}
         title={context.mode === "compare" ? "comparison" : "analysis"}
         promptHints={context.promptHints}
       />
