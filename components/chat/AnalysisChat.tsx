@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from "react"
 import { ChevronDown, ArrowRight } from "lucide-react"
 import { immoApi } from "@/lib/immonatorApi"
-import type { ChatRequest, ConversationMessage } from "@/types/api"
+import type { AnalysisContextPayload, ChatRequest, ConversationMessage } from "@/types/api"
 import { copy } from "@/lib/copy"
 import { useToast } from "@/hooks/use-toast"
 
@@ -14,11 +14,18 @@ const SUGGESTION_CHIPS = copy.chat.suggestions
 export function AnalysisChat({
   contextType,
   contextId,
+  analysisContext,
   title,
   promptHints = [],
 }: {
   contextType: string
   contextId?: string
+  /**
+   * Required when contextType is "analysis_single" or "analysis_compare".
+   * Forwarded as analysis_context on every chat turn so the backend AI agent
+   * has the current property snapshot. Must not be persisted between renders.
+   */
+  analysisContext?: AnalysisContextPayload
   title: string
   promptHints?: string[]
 }) {
@@ -94,6 +101,8 @@ export function AnalysisChat({
           message: text.trim(),
           context_type: contextType,
           context_id: contextId,
+          // Required by backend for analysis context types — sent on every turn
+          ...(analysisContext !== undefined ? { analysis_context: analysisContext } : {}),
         }
 
         const res = await immoApi.sendChatMessage(chatRequest)
@@ -156,7 +165,7 @@ export function AnalysisChat({
       if (!abortedRef.current) setStreaming(false)
       readerRef.current = null
     },
-    [streaming, contextType, contextId, toast, popLastMessage]
+    [streaming, contextType, contextId, analysisContext, toast, popLastMessage]
   )
 
   return (
