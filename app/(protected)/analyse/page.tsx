@@ -697,9 +697,11 @@ function ReviewResultPanel({
   result: ReviewResult
   onRefresh: () => void
 }) {
-  const sections: Array<{ title: string; items: string[]; tone: "success" | "danger" }> = [
-    { title: "Strengths", items: result.strengths, tone: "success" },
-    { title: "Risks", items: result.risks, tone: "danger" },
+  const sections: Array<{ title: string; items: string[]; tone: "success" | "danger"; emptyMessage: string }> = [
+    { title: "Strengths", items: result.strengths, tone: "success", emptyMessage: "No strengths were returned for this investment review." },
+    { title: "Risks", items: result.risks, tone: "danger", emptyMessage: "No risks were returned for this investment review." },
+    { title: "Missing Inputs", items: result.missing_inputs, tone: "danger", emptyMessage: "No additional missing inputs were flagged for this review." },
+    { title: "Sensitivity Points", items: result.sensitivity_points, tone: "success", emptyMessage: "No scenario sensitivities were returned for this review." },
   ]
 
   return (
@@ -737,22 +739,9 @@ function ReviewResultPanel({
               <SnapshotEmptyState
                 key={section.title}
                 title={section.title}
-                message={`No ${section.title.toLowerCase()} were returned for this investment review.`}
+                message={section.emptyMessage}
               />
             ),
-          )}
-        </div>
-
-        <div className="grid gap-4 xl:grid-cols-2">
-          {result.missing_inputs.length > 0 ? (
-            <SnapshotBulletList title="Missing Inputs" items={result.missing_inputs} tone="danger" />
-          ) : (
-            <SnapshotEmptyState title="Missing Inputs" message="No additional missing inputs were flagged for this review." />
-          )}
-          {result.sensitivity_points.length > 0 ? (
-            <SnapshotBulletList title="Sensitivity Points" items={result.sensitivity_points} tone="success" />
-          ) : (
-            <SnapshotEmptyState title="Sensitivity Points" message="No scenario sensitivities were returned for this review." />
           )}
         </div>
       </div>

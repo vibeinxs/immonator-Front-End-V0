@@ -72,21 +72,7 @@ function normalizeReviewResult(raw: unknown): ReviewResult | null {
   const finalVerdict = asString(candidate.final_verdict) || asString(candidate.verdict)
   const rawOutput = asString(candidate.raw)
 
-  if (
-    !propertySummary &&
-    !locationAnalysis &&
-    !dealEconomics &&
-    strengths.length === 0 &&
-    risks.length === 0 &&
-    missingInputs.length === 0 &&
-    sensitivityPoints.length === 0 &&
-    !finalVerdict &&
-    !rawOutput
-  ) {
-    return null
-  }
-
-  return {
+  const result: ReviewResult = {
     property_summary: propertySummary || null,
     location_analysis: locationAnalysis || null,
     deal_economics: dealEconomics || null,
@@ -97,6 +83,13 @@ function normalizeReviewResult(raw: unknown): ReviewResult | null {
     final_verdict: finalVerdict || null,
     raw: rawOutput,
   }
+
+  const hasContent = Object.values(result).some((value) => {
+    if (Array.isArray(value)) return value.length > 0
+    return Boolean(value)
+  })
+
+  return hasContent ? result : null
 }
 
 export async function runPropertySnapshot(
