@@ -149,11 +149,11 @@ export function AnalysisChat({
 
         setHistoryLoading(false)
 
-        if (!cancelled && data?.messages) {
+        if (data?.messages) {
           setMessages(data.messages)
           return
         }
-        if (!cancelled && error) {
+        if (error) {
           setHistoryError(error)
           toast({ title: copy.chat.errorGeneric, variant: "destructive" })
         }
