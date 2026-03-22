@@ -1,9 +1,14 @@
 "use client"
 
 import { useEffect, useState, useRef, useCallback } from "react"
-import { ChevronDown, Brain, Send } from "lucide-react"
+import { ChevronDown, Brain, Loader2, Send } from "lucide-react"
 import { immoApi } from "@/lib/immonatorApi"
-import type { AnalysisContextPayload, ChatRequest, ConversationMessage } from "@/types/api"
+import type {
+  AnalysisContextPayload,
+  ChatRequest,
+  ConversationMessage,
+  PropertySkillContextPayload,
+} from "@/types/api"
 import { copy } from "@/lib/copy"
 import { useToast } from "@/hooks/use-toast"
 
@@ -93,6 +98,7 @@ export function AnalysisChat({
   contextType,
   contextId,
   analysisContext,
+  propertySkillContext,
   title,
   promptHints = [],
   advisorMode = "full",
@@ -106,6 +112,7 @@ export function AnalysisChat({
    * has the current property snapshot.
    */
   analysisContext?: AnalysisContextPayload
+  propertySkillContext?: Omit<PropertySkillContextPayload, "mode" | "history">
   title: string
   promptHints?: string[]
   advisorMode?: "light" | "full"
@@ -116,6 +123,9 @@ export function AnalysisChat({
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState("")
   const [streaming, setStreaming] = useState(false)
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [historyError, setHistoryError] = useState<string | null>(null)
+  const [historyReloadKey, setHistoryReloadKey] = useState(0)
   const containerRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -128,27 +138,37 @@ export function AnalysisChat({
   // Load history for the active context
   useEffect(() => {
     let cancelled = false
+    setHistoryLoading(true)
+    setHistoryError(null)
     setMessages([])
+
     immoApi
       .getChatHistory(contextType, contextId)
       .then(({ data, error }) => {
-        if (!cancelled && data?.messages) {
+        if (cancelled) return
+
+        setHistoryLoading(false)
+
+        if (data?.messages) {
           setMessages(data.messages)
           return
         }
-        if (!cancelled && error) {
+        if (error) {
+          setHistoryError(error)
           toast({ title: copy.chat.errorGeneric, variant: "destructive" })
         }
       })
       .catch(() => {
         if (!cancelled) {
+          setHistoryLoading(false)
+          setHistoryError(copy.chat.errorNetwork)
           toast({ title: copy.chat.errorNetwork, variant: "destructive" })
         }
       })
     return () => {
       cancelled = true
     }
-  }, [contextType, contextId, toast])
+  }, [contextType, contextId, toast, historyReloadKey])
 
   // Cancel in-flight stream on unmount
   useEffect(() => {
@@ -179,6 +199,10 @@ export function AnalysisChat({
     return () => window.cancelAnimationFrame(frameId)
   }, [activationKey])
 
+  const retryLoadHistory = useCallback(() => {
+    setHistoryReloadKey((value) => value + 1)
+  }, [])
+
   const popLastMessage = useCallback(() => setMessages((prev) => prev.slice(0, -1)), [])
 
   const send = useCallback(
@@ -191,11 +215,21 @@ export function AnalysisChat({
       setMessages((prev) => [...prev, { role: "assistant", message: "" }])
 
       try {
+        const nextHistory = [...messages, { role: "user", message: text.trim() }]
         const chatRequest: ChatRequest = {
           message: text.trim(),
           context_type: contextType,
           context_id: contextId,
           ...(analysisContext !== undefined ? { analysis_context: analysisContext } : {}),
+          ...(propertySkillContext
+            ? {
+                property_skill_context: {
+                  ...propertySkillContext,
+                  mode: advisorMode,
+                  history: nextHistory,
+                },
+              }
+            : {}),
         }
 
         const res = await immoApi.sendChatMessage(chatRequest)
@@ -258,7 +292,17 @@ export function AnalysisChat({
       if (!abortedRef.current) setStreaming(false)
       readerRef.current = null
     },
-    [streaming, contextType, contextId, analysisContext, toast, popLastMessage],
+    [
+      streaming,
+      messages,
+      contextType,
+      contextId,
+      analysisContext,
+      propertySkillContext,
+      advisorMode,
+      toast,
+      popLastMessage,
+    ],
   )
 
   const handleSendInput = useCallback(() => send(input), [send, input])
@@ -266,6 +310,8 @@ export function AnalysisChat({
   const isEmpty = messages.length === 0
   const isTyping =
     streaming && messages.length > 0 && messages[messages.length - 1].message === ""
+  const requiresPropertySkillContext = propertySkillContext !== undefined
+  const hasContextData = Boolean(propertySkillContext?.property)
   const advisorCopy = copy.chat.advisor[advisorMode]
 
   return (
@@ -323,7 +369,28 @@ export function AnalysisChat({
             className="max-h-80 overflow-y-auto p-4"
             style={{ background: "var(--color-bg-base, #F8FAFC)" }}
           >
-            {isEmpty ? (
+            {historyLoading ? (
+              <div className="flex min-h-40 items-center justify-center">
+                <div className="flex items-center gap-2 rounded-xl border border-border-default bg-bg-surface px-4 py-3 text-sm text-text-secondary">
+                  <Loader2 className="h-4 w-4 animate-spin text-brand" />
+                  <span>Loading conversation…</span>
+                </div>
+              </div>
+            ) : historyError ? (
+              <div className="flex min-h-40 items-center justify-center">
+                <div className="max-w-md rounded-2xl border border-warning/30 bg-warning/10 px-4 py-4 text-sm text-warning">
+                  <p className="font-semibold text-text-primary">Couldn&apos;t load this chat yet.</p>
+                  <p className="mt-1">{historyError}</p>
+                  <button
+                    type="button"
+                    onClick={retryLoadHistory}
+                    className="mt-3 inline-flex rounded-lg border border-warning/30 bg-bg-surface px-3 py-1.5 text-xs font-medium text-text-primary transition-colors hover:bg-bg-base"
+                  >
+                    Retry
+                  </button>
+                </div>
+              </div>
+            ) : isEmpty ? (
               <div className="flex flex-col gap-4">
                 <div
                   className="flex items-start gap-3 rounded-2xl rounded-bl-sm p-4"
@@ -337,12 +404,20 @@ export function AnalysisChat({
                   <div>
                     <p className="text-sm font-semibold text-text-primary">{advisorCopy.emptyStateTitle}</p>
                     <p className="mt-1 text-xs leading-relaxed text-text-secondary">
-                      {advisorCopy.emptyStateDescription}
+                      {!requiresPropertySkillContext || hasContextData
+                        ? advisorCopy.emptyStateDescription
+                        : "Run the property analysis first to load advisor context for this chat."}
                     </p>
                   </div>
                 </div>
 
-                <EmptyState allChips={allChips} onChipClick={send} streaming={streaming} />
+                {!requiresPropertySkillContext || hasContextData ? (
+                  <EmptyState allChips={allChips} onChipClick={send} streaming={streaming} />
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-border-default bg-bg-surface px-4 py-5 text-sm text-text-secondary">
+                    The advisor is ready, but it does not have property skill context yet.
+                  </div>
+                )}
               </div>
             ) : (
               <div className="space-y-4">
@@ -406,13 +481,13 @@ export function AnalysisChat({
                   handleSendInput()
                 }
               }}
-              disabled={streaming}
+              disabled={streaming || historyLoading || Boolean(historyError)}
               placeholder={advisorCopy.inputPlaceholder}
               className="flex-1 rounded-xl border border-border-default bg-bg-base px-4 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10 disabled:opacity-50"
             />
             <button
               onClick={handleSendInput}
-              disabled={streaming || !input.trim()}
+              disabled={streaming || historyLoading || Boolean(historyError) || !input.trim()}
               className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-brand text-white transition-colors hover:bg-brand-hover disabled:opacity-40"
               aria-label="Send message"
             >

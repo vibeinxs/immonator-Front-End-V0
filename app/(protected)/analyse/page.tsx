@@ -24,7 +24,7 @@ import { useAnalysisStore } from "@/store/analysisStore"
 import { AnalysisChat } from "@/components/chat/AnalysisChat"
 import { useLocale } from "@/lib/i18n/locale-context"
 import { runBuyingStrategy, runInvestmentReview, runPropertySnapshot } from "@/lib/skillsApi"
-import type { AnalyseRequest, AnalyseResponse } from "@/types/api"
+import type { AnalyseRequest, AnalyseResponse, PropertySkillContextPayload } from "@/types/api"
 import type { SnapshotResult, ReviewResult, StrategyResult } from "@/types/skills"
 import type {
   AIInsightPayload,
@@ -1623,6 +1623,16 @@ function SingleAnalysisWorkspace({
     }
   }, [input, result, reviewResult, strategyResult, t])
 
+  const propertySkillContext = useMemo<Omit<PropertySkillContextPayload, "mode" | "history"> | null>(() => {
+    if (!result) return null
+
+    return {
+      property: buildPropertyMetricsInput(input, result),
+      analysis_result: reviewResult ? { ...reviewResult } : null,
+      strategy_result: strategyResult ? { ...strategyResult } : null,
+    }
+  }, [input, result, reviewResult, strategyResult])
+
   useEffect(() => {
     if (!result) return
 
@@ -1807,6 +1817,7 @@ function SingleAnalysisWorkspace({
                         contextType="analysis_single"
                         contextId={askAiContext.contextId}
                         analysisContext={buildAnalysisContextPayload(askAiContext)}
+                        propertySkillContext={propertySkillContext ?? undefined}
                         title="analysis"
                         promptHints={askAiContext.promptHints}
                         advisorMode={advisorMode}
