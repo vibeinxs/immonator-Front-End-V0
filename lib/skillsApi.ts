@@ -1,6 +1,17 @@
-import { apiCall } from "@/lib/api"
-import type { PropertyMetricsInput, ApiResult } from "@/types/api"
+import { apiCall, apiStream } from "@/lib/api"
+import type {
+  ApiResult,
+  ChatRequest,
+  PropertyMetricsInput,
+  PropertySkillContextPayload,
+} from "@/types/api"
 import type { ReviewResult, SnapshotResult, StrategyResult } from "@/types/skills"
+
+export type AnalysisRunMode = "compact" | "full"
+
+export interface AdvisorChatPayload extends ChatRequest {
+  property_skill_context: PropertySkillContextPayload
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
@@ -141,58 +152,92 @@ function normalizeStrategyResult(raw: unknown): StrategyResult | null {
   return hasContent ? result : null
 }
 
-export async function runPropertySnapshot(
+async function postSkillResult<T>(
+  endpoint: string,
+  body: unknown,
+  normalize: (raw: unknown) => T | null,
+  missingFieldsMessage: string
+): Promise<ApiResult<T>> {
+  const response = await apiCall<unknown>(endpoint, {
+    method: "POST",
+    body: JSON.stringify(body),
+  })
+
+  if (!response.data) return { data: null, error: response.error }
+
+  const normalized = normalize(response.data)
+  if (!normalized) {
+    return { data: null, error: missingFieldsMessage }
+  }
+
+  return { data: normalized, error: null }
+}
+
+export function runAnalysis(
+  property: PropertyMetricsInput,
+  mode: "compact"
+): Promise<ApiResult<SnapshotResult>>
+export function runAnalysis(
+  property: PropertyMetricsInput,
+  mode: "full"
+): Promise<ApiResult<ReviewResult>>
+export function runAnalysis(
+  property: PropertyMetricsInput,
+  mode: AnalysisRunMode
+): Promise<ApiResult<SnapshotResult | ReviewResult>> {
+  if (mode === "compact") {
+    return postSkillResult(
+      "/analysis/run",
+      { property, mode },
+      normalizeSnapshotResult,
+      "Snapshot response was missing the expected fields."
+    )
+  }
+
+  return postSkillResult(
+    "/analysis/run",
+    { property, mode },
+    normalizeReviewResult,
+    "Investment review response was missing the expected fields."
+  )
+}
+
+export function runPropertySnapshot(
   property: PropertyMetricsInput
 ): Promise<ApiResult<SnapshotResult>> {
-  const response = await apiCall<unknown>("/analysis/run", {
-    method: "POST",
-    body: JSON.stringify({ property, mode: "compact" }),
-  })
-
-  if (!response.data) return { data: null, error: response.error }
-
-  const normalized = normalizeSnapshotResult(response.data)
-  if (!normalized) {
-    return { data: null, error: "Snapshot response was missing the expected fields." }
-  }
-
-  return { data: normalized, error: null }
+  return runAnalysis(property, "compact")
 }
 
-export async function runInvestmentReview(
+export function runInvestmentReview(
   property: PropertyMetricsInput
 ): Promise<ApiResult<ReviewResult>> {
-  const response = await apiCall<unknown>("/analysis/run", {
-    method: "POST",
-    body: JSON.stringify({ property, mode: "full" }),
-  })
-
-  if (!response.data) return { data: null, error: response.error }
-
-  const normalized = normalizeReviewResult(response.data)
-  if (!normalized) {
-    return { data: null, error: "Investment review response was missing the expected fields." }
-  }
-
-  return { data: normalized, error: null }
+  return runAnalysis(property, "full")
 }
 
-
-export async function runBuyingStrategy(
+export function runStrategy(
   property: PropertyMetricsInput,
   analysisResult: ReviewResult
 ): Promise<ApiResult<StrategyResult>> {
-  const response = await apiCall<unknown>("/strategy/run", {
-    method: "POST",
-    body: JSON.stringify({ property, analysis_result: analysisResult }),
-  })
+  return postSkillResult(
+    "/strategy/run",
+    { property, analysis_result: analysisResult },
+    normalizeStrategyResult,
+    "Buying strategy response was missing the expected fields."
+  )
+}
 
-  if (!response.data) return { data: null, error: response.error }
+/**
+ * @deprecated Use `runStrategy` instead. This is a backward-compatible alias.
+ */
+export function runBuyingStrategy(
+  property: PropertyMetricsInput,
+  analysisResult: ReviewResult
+): Promise<ApiResult<StrategyResult>> {
+  return runStrategy(property, analysisResult)
+}
 
-  const normalized = normalizeStrategyResult(response.data)
-  if (!normalized) {
-    return { data: null, error: "Buying strategy response was missing the expected fields." }
-  }
-
-  return { data: normalized, error: null }
+export function streamAdvisorChat(
+  payload: AdvisorChatPayload
+): Promise<Response | null> {
+  return apiStream("/api/chat", payload)
 }
