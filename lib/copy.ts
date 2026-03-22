@@ -117,6 +117,24 @@ export const copy = {
     errorGeneric: "Sorry, something went wrong. Please try again.",
     errorNetwork: "Connection error. Please try again.",
     aiLabel: "Immonator AI",
+    advisor: {
+      light: {
+        badge: "Light mode",
+        subtitle: "Short answers and quick decision support",
+        emptyStateTitle: "Need a quick take?",
+        emptyStateDescription:
+          "Ask for a concise explanation, a next step, or a fast clarification on the current analysis.",
+        inputPlaceholder: "Ask for a quick answer about this analysis…",
+      },
+      full: {
+        badge: "Full mode",
+        subtitle: "Deep conversational analysis for this property",
+        emptyStateTitle: "How can I help?",
+        emptyStateDescription:
+          "I have full context on this property — financials, yield projections, risks, and market position. Ask me anything.",
+        inputPlaceholder: "Ask anything...",
+      },
+    },
     suggestions: [
       "Is this a good investment?",
       "What's a fair offer price?",

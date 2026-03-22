@@ -1788,9 +1788,9 @@ function SingleAnalysisWorkspace({
                   <div className="space-y-3">
                     <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border-default bg-bg-base px-4 py-3">
                       <div>
-                        <p className="text-sm font-medium text-text-primary">Shared advisor chat</p>
+                        <p className="text-sm font-medium text-text-primary">{t("analyse.new.askAi.sharedTitle")}</p>
                         <p className="mt-1 text-xs text-text-secondary">
-                          Both advisor entry points open this same chat panel. Switch between light and full guidance as needed.
+                          {t("analyse.new.askAi.sharedDescription")}
                         </p>
                       </div>
                       <button
@@ -1798,7 +1798,7 @@ function SingleAnalysisWorkspace({
                         onClick={() => onOpenAdvisor("full")}
                         className="inline-flex items-center gap-2 rounded-lg border border-brand/30 bg-brand/5 px-3 py-2 text-sm font-medium text-brand transition-colors hover:bg-brand/10"
                       >
-                        Ask the Property Advisor
+                        {t("analyse.new.askAi.openFull")}
                       </button>
                     </div>
 

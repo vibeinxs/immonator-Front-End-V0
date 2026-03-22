@@ -266,20 +266,7 @@ export function AnalysisChat({
   const isEmpty = messages.length === 0
   const isTyping =
     streaming && messages.length > 0 && messages[messages.length - 1].message === ""
-  const modeBadge = advisorMode === "light" ? "Light mode" : "Full mode"
-  const modeSubtitle =
-    advisorMode === "light"
-      ? "Short answers and quick decision support"
-      : "Deep conversational analysis for this property"
-  const emptyStateTitle = advisorMode === "light" ? "Need a quick take?" : "How can I help?"
-  const emptyStateDescription =
-    advisorMode === "light"
-      ? "Ask for a concise explanation, a next step, or a fast clarification on the current analysis."
-      : "I have full context on this property — financials, yield projections, risks, and market position. Ask me anything."
-  const inputPlaceholder =
-    advisorMode === "light"
-      ? "Ask for a quick answer about this analysis…"
-      : copy.chat.inputPlaceholder
+  const advisorCopy = copy.chat.advisor[advisorMode]
 
   return (
     <div
@@ -299,10 +286,10 @@ export function AnalysisChat({
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-[11px] text-text-muted capitalize">{title}</p>
               <span className="rounded-full border border-brand/20 bg-brand/5 px-2 py-0.5 text-[10px] font-medium text-brand">
-                {modeBadge}
+                {advisorCopy.badge}
               </span>
             </div>
-            <p className="mt-1 text-[11px] text-text-muted">{modeSubtitle}</p>
+            <p className="mt-1 text-[11px] text-text-muted">{advisorCopy.subtitle}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -348,9 +335,9 @@ export function AnalysisChat({
                 >
                   <AiAvatar size={32} />
                   <div>
-                    <p className="text-sm font-semibold text-text-primary">{emptyStateTitle}</p>
+                    <p className="text-sm font-semibold text-text-primary">{advisorCopy.emptyStateTitle}</p>
                     <p className="mt-1 text-xs leading-relaxed text-text-secondary">
-                      {emptyStateDescription}
+                      {advisorCopy.emptyStateDescription}
                     </p>
                   </div>
                 </div>
@@ -420,7 +407,7 @@ export function AnalysisChat({
                 }
               }}
               disabled={streaming}
-              placeholder={inputPlaceholder}
+              placeholder={advisorCopy.inputPlaceholder}
               className="flex-1 rounded-xl border border-border-default bg-bg-base px-4 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10 disabled:opacity-50"
             />
             <button
