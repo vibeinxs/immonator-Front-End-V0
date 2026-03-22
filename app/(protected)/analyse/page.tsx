@@ -1052,18 +1052,53 @@ function DependencyStatusPill({
   label: string
   tone?: "success" | "warning" | "neutral"
 }) {
-  const toneClassName =
-    tone === "success"
-      ? "border-success/20 bg-success/10 text-success"
-      : tone === "warning"
-        ? "border-warning/30 bg-warning/10 text-warning"
-        : "border-border-default bg-bg-base text-text-secondary"
+  const statusToneClassName = getDependencyStatusToneClassName(tone)
 
   return (
-    <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium ${toneClassName}`}>
+    <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium ${statusToneClassName}`}>
       {label}
     </span>
   )
+}
+
+function getDependencyStatusToneClassName(tone: "success" | "warning" | "neutral") {
+  switch (tone) {
+    case "success":
+      return "border-success/20 bg-success/10 text-success"
+    case "warning":
+      return "border-warning/30 bg-warning/10 text-warning"
+    default:
+      return "border-border-default bg-bg-base text-text-secondary"
+  }
+}
+
+function getAdvisorNextStep({
+  hasReview,
+  hasStrategy,
+  onRunReview,
+  onRunStrategy,
+}: {
+  hasReview: boolean
+  hasStrategy: boolean
+  onRunReview: () => void
+  onRunStrategy: () => void
+}) {
+  switch (true) {
+    case !hasReview:
+      return {
+        message: "Run Investment Review to give the advisor full underwriting context before you ask deeper questions.",
+        ctaLabel: "Run Investment Review",
+        onClick: onRunReview,
+      }
+    case !hasStrategy:
+      return {
+        message: "The advisor already has your investment review. Run Buying Strategy Insight if you also want negotiation context in the chat.",
+        ctaLabel: "Run Buying Strategy Insight",
+        onClick: onRunStrategy,
+      }
+    default:
+      return null
+  }
 }
 
 function AdvisorContextGuide({
@@ -1079,19 +1114,12 @@ function AdvisorContextGuide({
   onRunReview: () => void
   onRunStrategy: () => void
 }) {
-  const nextStep = !hasReview
-    ? {
-        message: "Run Investment Review to give the advisor full underwriting context before you ask deeper questions.",
-        ctaLabel: "Run Investment Review",
-        onClick: onRunReview,
-      }
-    : !hasStrategy
-      ? {
-          message: "The advisor already has your investment review. Run Buying Strategy Insight if you also want negotiation context in the chat.",
-          ctaLabel: "Run Buying Strategy Insight",
-          onClick: onRunStrategy,
-        }
-      : null
+  const nextStep = getAdvisorNextStep({
+    hasReview,
+    hasStrategy,
+    onRunReview,
+    onRunStrategy,
+  })
 
   return (
     <div className="rounded-2xl border border-border-default bg-bg-base p-4">
@@ -1106,7 +1134,7 @@ function AdvisorContextGuide({
         <div className="flex flex-wrap gap-2">
           <DependencyStatusPill label="Core analysis ready" tone="success" />
           <DependencyStatusPill label={hasSnapshot ? "Snapshot available" : "Snapshot optional"} tone={hasSnapshot ? "success" : "neutral"} />
-          <DependencyStatusPill label={hasReview ? "Investment review attached" : "Investment review not run yet"} tone={hasReview ? "success" : "warning"} />
+          <DependencyStatusPill label={hasReview ? "Investment review attached" : "Investment review pending"} tone={hasReview ? "success" : "warning"} />
           <DependencyStatusPill label={hasStrategy ? "Buying strategy attached" : "Buying strategy not run yet"} tone={hasStrategy ? "success" : "neutral"} />
         </div>
 
