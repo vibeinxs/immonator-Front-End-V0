@@ -2353,37 +2353,37 @@ export default function AnalysePage() {
 
   useEffect(() => {
     const nextInputA = state.analysisMode === "single" ? state.singleDraftInput : state.compareDraftInputs.propertyA
-    const nextResultA = state.analysisMode === "single" ? state.singleAnalysisResult : state.compareAnalysisResults.propertyA
-
     setStoreInputA(nextInputA)
-    setStoreInputB(state.compareDraftInputs.propertyB)
+  }, [state.analysisMode, state.compareDraftInputs.propertyA, state.singleDraftInput, setStoreInputA])
+
+  useEffect(() => {
+    const nextResultA = state.analysisMode === "single" ? state.singleAnalysisResult : state.compareAnalysisResults.propertyA
     setStoreResultA(nextResultA)
+  }, [state.analysisMode, state.compareAnalysisResults.propertyA, state.singleAnalysisResult, setStoreResultA])
+
+  useEffect(() => {
+    setStoreInputB(state.compareDraftInputs.propertyB)
+  }, [state.compareDraftInputs.propertyB, setStoreInputB])
+
+  useEffect(() => {
     setStoreResultB(state.compareAnalysisResults.propertyB)
+  }, [state.compareAnalysisResults.propertyB, setStoreResultB])
+
+  useEffect(() => {
     setStoreSnapshotResult(state.snapshotResult)
+  }, [state.snapshotResult, setStoreSnapshotResult])
+
+  useEffect(() => {
     setStoreReviewResult(state.reviewResult)
+  }, [state.reviewResult, setStoreReviewResult])
+
+  useEffect(() => {
     setStoreStrategyResult(state.strategyResult)
+  }, [state.strategyResult, setStoreStrategyResult])
+
+  useEffect(() => {
     setStoreAdvisorMode(state.advisorMode)
-  }, [
-    state.advisorMode,
-    state.analysisMode,
-    state.compareAnalysisResults.propertyA,
-    state.compareAnalysisResults.propertyB,
-    state.compareDraftInputs.propertyA,
-    state.compareDraftInputs.propertyB,
-    state.reviewResult,
-    state.singleAnalysisResult,
-    state.singleDraftInput,
-    state.snapshotResult,
-    state.strategyResult,
-    setStoreAdvisorMode,
-    setStoreInputA,
-    setStoreInputB,
-    setStoreResultA,
-    setStoreResultB,
-    setStoreReviewResult,
-    setStoreSnapshotResult,
-    setStoreStrategyResult,
-  ])
+  }, [state.advisorMode, setStoreAdvisorMode])
 
   return (
     <div className="h-full overflow-y-auto bg-bg-base p-4 md:p-6">
