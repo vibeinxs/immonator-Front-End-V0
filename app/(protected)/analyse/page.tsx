@@ -1,6 +1,6 @@
 "use client"
 
-import { type ReactNode, useCallback, useEffect, useMemo, useReducer, useRef } from "react"
+import { type ReactNode, useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { AlertCircle, Loader2, RotateCcw } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -1526,12 +1526,15 @@ function SingleAnalysisWorkspace({
   strategyResult,
   strategyLoading,
   strategyError,
+  advisorMode,
+  advisorActivationKey,
   onInputChange,
   onAnalyse,
   onRunSnapshot,
   onRunReview,
   onRunStrategy,
   onResultTabChange,
+  onOpenAdvisor,
 }: {
   input: AnalyseRequest
   result: AnalyseResponse | null
@@ -1547,12 +1550,15 @@ function SingleAnalysisWorkspace({
   strategyResult: StrategyResult | null
   strategyLoading: boolean
   strategyError: string | null
+  advisorMode: "light" | "full"
+  advisorActivationKey: number
   onInputChange: (value: AnalyseRequest) => void
   onAnalyse: () => void
   onRunSnapshot: () => void
   onRunReview: () => void
   onRunStrategy: () => void
   onResultTabChange: (tab: ResultTab) => void
+  onOpenAdvisor: (mode: "light" | "full") => void
 }) {
   const { t } = useLocale()
   const resultTopRef = useRef<HTMLDivElement | null>(null)
@@ -1771,6 +1777,7 @@ function SingleAnalysisWorkspace({
                   featureDescription="Ask a focused question and get a direct, concise answer. Lighter than the full chat — designed for quick clarifications and decision checkpoints."
                   ctaLabel="Open Advisor"
                   badge="AI · Light mode"
+                  onRun={() => onOpenAdvisor("light")}
                 />
 
                 {/* ⑤ Ask the Property Advisor — full conversational AI */}
@@ -1778,7 +1785,35 @@ function SingleAnalysisWorkspace({
                   title="Ask the Property Advisor"
                   description="Deep conversational AI — test scenarios, challenge assumptions and explore the numbers."
                 >
-                  {askAiContext ? <AskAiShell context={askAiContext} /> : null}
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border-default bg-bg-base px-4 py-3">
+                      <div>
+                        <p className="text-sm font-medium text-text-primary">Shared advisor chat</p>
+                        <p className="mt-1 text-xs text-text-secondary">
+                          Both advisor entry points open this same chat panel. Switch between light and full guidance as needed.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => onOpenAdvisor("full")}
+                        className="inline-flex items-center gap-2 rounded-lg border border-brand/30 bg-brand/5 px-3 py-2 text-sm font-medium text-brand transition-colors hover:bg-brand/10"
+                      >
+                        Ask the Property Advisor
+                      </button>
+                    </div>
+
+                    {askAiContext ? (
+                      <AnalysisChat
+                        contextType="analysis_single"
+                        contextId={askAiContext.contextId}
+                        analysisContext={buildAnalysisContextPayload(askAiContext)}
+                        title="analysis"
+                        promptHints={askAiContext.promptHints}
+                        advisorMode={advisorMode}
+                        activationKey={advisorActivationKey}
+                      />
+                    ) : null}
+                  </div>
                 </SectionShell>
               </div>
             )}
@@ -1937,6 +1972,7 @@ export default function AnalysePage() {
     },
     createInitialAnalysePageState,
   )
+  const [advisorActivationKey, setAdvisorActivationKey] = useState(0)
   const manualEntryId = searchParams.get("manual")?.trim() ?? ""
   const requestedMode = searchParams.get("mode")?.trim()
 
@@ -2081,6 +2117,11 @@ export default function AnalysePage() {
     dispatch({ type: "resetCompareProperty", property })
   }, [])
 
+  const handleOpenAdvisor = useCallback((mode: "light" | "full") => {
+    dispatch({ type: "setAdvisorMode", mode })
+    setAdvisorActivationKey((current) => current + 1)
+  }, [])
+
   useEffect(() => {
     setStoreInputA(state.compareDraftInputs.propertyA)
     setStoreInputB(state.compareDraftInputs.propertyB)
@@ -2128,12 +2169,15 @@ export default function AnalysePage() {
             strategyResult={state.strategyResult}
             strategyLoading={state.strategyLoading}
             strategyError={state.strategyError}
+            advisorMode={state.advisorMode}
+            advisorActivationKey={advisorActivationKey}
             onInputChange={(input) => dispatch({ type: "setSingleDraftInput", input })}
             onAnalyse={handleSingleAnalyse}
             onRunSnapshot={handleRunSnapshot}
             onRunReview={handleRunReview}
             onRunStrategy={handleRunStrategy}
             onResultTabChange={(tab) => dispatch({ type: "setSingleResultTab", tab })}
+            onOpenAdvisor={handleOpenAdvisor}
           />
         ) : (
           <CompareAnalysisWorkspace
