@@ -24,6 +24,7 @@ import { useAnalysisStore } from "@/store/analysisStore"
 import { AnalysisChat } from "@/components/chat/AnalysisChat"
 import { useLocale } from "@/lib/i18n/locale-context"
 import type { AnalyseRequest, AnalyseResponse } from "@/types/api"
+import type { SnapshotResult, ReviewResult, StrategyResult } from "@/types/skills"
 import type {
   AIInsightPayload,
   AskAiContextPayload,
@@ -134,6 +135,20 @@ interface AnalysePageState {
   compareAnalysisResults: CompareResultsState
   compareLoading: CompareLoadingState
   compareError: string | null
+  // ── Skill results ─────────────────────────────────────────────────────────
+  snapshotResult: SnapshotResult | null
+  reviewResult: ReviewResult | null
+  strategyResult: StrategyResult | null
+  // ── Skill loading states ──────────────────────────────────────────────────
+  snapshotLoading: boolean
+  reviewLoading: boolean
+  strategyLoading: boolean
+  // ── Skill error states ────────────────────────────────────────────────────
+  snapshotError: string | null
+  reviewError: string | null
+  strategyError: string | null
+  // ── Advisor mode ──────────────────────────────────────────────────────────
+  advisorMode: "light" | "full"
 }
 
 type AnalysePageAction =
@@ -152,6 +167,20 @@ type AnalysePageAction =
   | { type: "compareAnalyseBothSuccess"; results: CompareResultsState }
   | { type: "compareAnalyseBothError"; error: string }
   | { type: "resetCompareProperty"; property: ComparePropertyKey }
+  // ── Skill actions ─────────────────────────────────────────────────────────
+  | { type: "snapshotStart" }
+  | { type: "snapshotSuccess"; result: SnapshotResult }
+  | { type: "snapshotError"; error: string }
+  | { type: "snapshotReset" }
+  | { type: "reviewStart" }
+  | { type: "reviewSuccess"; result: ReviewResult }
+  | { type: "reviewError"; error: string }
+  | { type: "reviewReset" }
+  | { type: "strategyStart" }
+  | { type: "strategySuccess"; result: StrategyResult }
+  | { type: "strategyError"; error: string }
+  | { type: "strategyReset" }
+  | { type: "setAdvisorMode"; mode: "light" | "full" }
 
 function createInitialAnalysePageState({
   storeInputA,
@@ -184,6 +213,17 @@ function createInitialAnalysePageState({
       propertyB: false,
     },
     compareError: null,
+    // Skill state defaults
+    snapshotResult: null,
+    reviewResult: null,
+    strategyResult: null,
+    snapshotLoading: false,
+    reviewLoading: false,
+    strategyLoading: false,
+    snapshotError: null,
+    reviewError: null,
+    strategyError: null,
+    advisorMode: "light",
   }
 }
 
@@ -209,6 +249,13 @@ function analysePageReducer(state: AnalysePageState, action: AnalysePageAction):
         ...state,
         singleLoading: true,
         singleError: null,
+        // Clear all skill results when a new base analysis starts
+        snapshotResult: null,
+        snapshotError: null,
+        reviewResult: null,
+        reviewError: null,
+        strategyResult: null,
+        strategyError: null,
       }
     case "singleAnalyseSuccess":
       return {
@@ -323,6 +370,36 @@ function analysePageReducer(state: AnalysePageState, action: AnalysePageAction):
         },
       }
     }
+    // ── Snapshot ────────────────────────────────────────────────────────────
+    case "snapshotStart":
+      return { ...state, snapshotLoading: true, snapshotError: null }
+    case "snapshotSuccess":
+      return { ...state, snapshotLoading: false, snapshotResult: action.result }
+    case "snapshotError":
+      return { ...state, snapshotLoading: false, snapshotError: action.error }
+    case "snapshotReset":
+      return { ...state, snapshotResult: null, snapshotError: null }
+    // ── Investment Review ────────────────────────────────────────────────────
+    case "reviewStart":
+      return { ...state, reviewLoading: true, reviewError: null }
+    case "reviewSuccess":
+      return { ...state, reviewLoading: false, reviewResult: action.result }
+    case "reviewError":
+      return { ...state, reviewLoading: false, reviewError: action.error }
+    case "reviewReset":
+      return { ...state, reviewResult: null, reviewError: null }
+    // ── Buying Strategy ──────────────────────────────────────────────────────
+    case "strategyStart":
+      return { ...state, strategyLoading: true, strategyError: null }
+    case "strategySuccess":
+      return { ...state, strategyLoading: false, strategyResult: action.result }
+    case "strategyError":
+      return { ...state, strategyLoading: false, strategyError: action.error }
+    case "strategyReset":
+      return { ...state, strategyResult: null, strategyError: null }
+    // ── Advisor mode ─────────────────────────────────────────────────────────
+    case "setAdvisorMode":
+      return { ...state, advisorMode: action.mode }
     default:
       return state
   }
