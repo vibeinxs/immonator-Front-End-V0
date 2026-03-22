@@ -13,6 +13,7 @@ import { ExitHorizonsTable } from "@/components/analysis/ExitHorizonsTable"
 import { SaveToPortfolioButton } from "@/components/analysis/SaveToPortfolioButton"
 import { YearByYearTable } from "@/components/analysis/YearByYearTable"
 import { LandShareBlock } from "@/components/analysis/LandShareBlock"
+import { SkillCardPlaceholder } from "@/components/analysis/SkillCardPlaceholder"
 import { FlagsSection } from "@/features/analysis/FlagsSection"
 import { analyseProperty } from "@/lib/analyseApi"
 import { buildAnalysisChatContextId, buildAnalysisContextPayload, getAiAnalysisLines } from "@/lib/analysisAi"
@@ -1086,6 +1087,15 @@ function SingleAnalysisWorkspace({
               </div>
             ) : (
               <div className="space-y-4">
+                {/* ① Intelligent Property Snapshot */}
+                <SkillCardPlaceholder
+                  title="Intelligent Property Snapshot"
+                  description="Quick AI-powered first impression of the deal."
+                  featureDescription="Grade, verdict, location rating, top 2 strengths and top 2 risks — generated from your analysis results in seconds."
+                  ctaLabel="Run Snapshot"
+                  badge="AI · Compact"
+                />
+
                 <SectionShell title={t("analyse.new.analysis.title")} description={t("analyse.new.analysis.description")}>
                   <Tabs value={resultTab} onValueChange={(value) => onResultTabChange(value as ResultTab)}>
                     <div className="mb-4 flex flex-col gap-3 border-b border-border-default pb-2 sm:flex-row sm:items-center sm:justify-between">
@@ -1136,6 +1146,15 @@ function SingleAnalysisWorkspace({
                   </div>
                 </SectionShell>
 
+                {/* ② Investment Review */}
+                <SkillCardPlaceholder
+                  title="Investment Review"
+                  description="Full structured AI analysis of this property as an investment."
+                  featureDescription="Property facts, derived metrics, location analysis, deal economics, strengths, risks, sensitivity points and a final AI verdict."
+                  ctaLabel="Run Investment Review"
+                  badge="AI · Full analysis"
+                />
+
                 <SectionShell title={t("analyse.new.negotiation.title")} description={t("analyse.new.negotiation.description")}>
                   <div className="grid gap-2 md:grid-cols-2">
                     {negotiationPayload?.items.map((item) => (
@@ -1147,7 +1166,29 @@ function SingleAnalysisWorkspace({
                   </div>
                 </SectionShell>
 
-                <SectionShell title={t("analyse.new.askAi.title")} description={t("analyse.new.askAi.description")}>
+                {/* ③ Buying Strategy Insight */}
+                <SkillCardPlaceholder
+                  title="Buying Strategy Insight"
+                  description="How to approach this deal — anchor price, leverage and walk-away logic."
+                  featureDescription="Recommended offer price, walk-away ceiling, leverage points, due diligence priorities and red flags to raise with the seller."
+                  ctaLabel="Generate Strategy"
+                  badge="AI · Negotiation"
+                />
+
+                {/* ④ Intelligent Property Advisor */}
+                <SkillCardPlaceholder
+                  title="Intelligent Property Advisor"
+                  description="Guided analysis with short answers and next-step prompts."
+                  featureDescription="Ask a focused question and get a direct, concise answer. Lighter than the full chat — designed for quick clarifications and decision checkpoints."
+                  ctaLabel="Open Advisor"
+                  badge="AI · Light mode"
+                />
+
+                {/* ⑤ Ask the Property Advisor — full conversational AI */}
+                <SectionShell
+                  title="Ask the Property Advisor"
+                  description="Deep conversational AI — test scenarios, challenge assumptions and explore the numbers."
+                >
                   {askAiContext ? <AskAiShell context={askAiContext} /> : null}
                 </SectionShell>
               </div>
