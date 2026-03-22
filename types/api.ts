@@ -367,6 +367,24 @@ export interface AnalysisContextPayload {
   property_b?: PropertyMetricsInput | null
 }
 
+export interface PropertySkillHistoryMessage {
+  role: string
+  message: string
+}
+
+/**
+ * Inline property skill context sent alongside advisor chat turns.
+ * Keeps the existing SSE flow intact while giving the backend access to the
+ * latest property-analysis skill outputs for the active chat session.
+ */
+export interface PropertySkillContextPayload {
+  mode: "light" | "full"
+  property: PropertyMetricsInput
+  analysis_result?: Record<string, unknown> | null
+  strategy_result?: Record<string, unknown> | null
+  history: PropertySkillHistoryMessage[]
+}
+
 export interface ChatRequest {
   message: string
   context_type?: string
@@ -377,6 +395,8 @@ export interface ChatRequest {
    * Sent on every turn — the backend does not persist it between messages.
    */
   analysis_context?: AnalysisContextPayload
+  /** Additional transient context for the property advisor skill. */
+  property_skill_context?: PropertySkillContextPayload
 }
 
 export interface ChatHistoryResponse {
