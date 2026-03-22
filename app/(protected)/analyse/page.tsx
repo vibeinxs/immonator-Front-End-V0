@@ -540,10 +540,31 @@ function SnapshotBulletList({
   )
 }
 
-function SnapshotResultPanel({ result }: { result: SnapshotResult }) {
+function SnapshotEmptyState({
+  title,
+  message,
+}: {
+  title: string
+  message: string
+}) {
+  return (
+    <div className="rounded-xl border border-dashed border-border-default bg-bg-base p-4">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{title}</p>
+      <p className="mt-2 text-sm text-text-secondary">{message}</p>
+    </div>
+  )
+}
+
+function SnapshotResultPanel({
+  result,
+  onRefresh,
+}: {
+  result: SnapshotResult
+  onRefresh: () => void
+}) {
   const summary = result.summary ?? result.one_line_summary
-  const strengths = result.strengths.length > 0 ? result.strengths : ["No strengths returned yet."]
-  const risks = result.risks.length > 0 ? result.risks : ["No risks returned yet."]
+  const strengths = result.strengths
+  const risks = result.risks
   const metrics = [
     { label: "Verdict", value: result.verdict || "—" },
     { label: "Location Rating", value: result.location_rating || "—" },
@@ -556,6 +577,20 @@ function SnapshotResultPanel({ result }: { result: SnapshotResult }) {
       description="Compact AI readout generated from the current property metrics and analysis data."
     >
       <div className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="inline-flex items-center gap-2 rounded-full border border-success/20 bg-success/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-success">
+            Snapshot ready
+          </div>
+          <button
+            type="button"
+            onClick={onRefresh}
+            className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-bg-base px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Refresh Snapshot
+          </button>
+        </div>
+
         <div className="grid gap-3 md:grid-cols-[minmax(0,1.3fr)_minmax(220px,0.7fr)]">
           <div className="rounded-2xl border border-brand/15 bg-gradient-to-br from-brand/10 via-bg-base to-bg-surface p-4">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Summary</p>
@@ -571,8 +606,61 @@ function SnapshotResultPanel({ result }: { result: SnapshotResult }) {
         </div>
 
         <div className="grid gap-4 xl:grid-cols-2">
-          <SnapshotBulletList title="Strengths" items={strengths} tone="success" />
-          <SnapshotBulletList title="Risks" items={risks} tone="danger" />
+          {strengths.length > 0 ? (
+            <SnapshotBulletList title="Strengths" items={strengths} tone="success" />
+          ) : (
+            <SnapshotEmptyState title="Strengths" message="No strengths were returned for this snapshot." />
+          )}
+          {risks.length > 0 ? (
+            <SnapshotBulletList title="Risks" items={risks} tone="danger" />
+          ) : (
+            <SnapshotEmptyState title="Risks" message="No risks were returned for this snapshot." />
+          )}
+        </div>
+      </div>
+    </SectionShell>
+  )
+}
+
+function SnapshotStatusPanel({
+  loading,
+  error,
+  onRetry,
+}: {
+  loading?: boolean
+  error?: string | null
+  onRetry: () => void
+}) {
+  if (loading) {
+    return (
+      <SectionShell title="Intelligent Property Snapshot" description="Compact AI readout generated from the current property metrics and analysis data.">
+        <div className="flex items-center gap-3 rounded-xl border border-border-default bg-bg-base px-4 py-4 text-sm text-text-secondary">
+          <Loader2 className="h-4 w-4 animate-spin text-brand" />
+          Generating property snapshot…
+        </div>
+      </SectionShell>
+    )
+  }
+
+  return (
+    <SectionShell title="Intelligent Property Snapshot" description="Compact AI readout generated from the current property metrics and analysis data.">
+      <div className="space-y-4">
+        <div className="flex items-start gap-3 rounded-xl border border-danger/30 bg-danger/10 px-4 py-4 text-sm text-danger">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          <div>
+            <p className="font-medium">Snapshot could not be generated.</p>
+            <p className="mt-1 text-danger/90">{error}</p>
+          </div>
+        </div>
+        <div>
+          <button
+            type="button"
+            onClick={onRetry}
+            className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-bg-base px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Try Again
+          </button>
         </div>
       </div>
     </SectionShell>
@@ -1247,40 +1335,22 @@ function SingleAnalysisWorkspace({
             ) : (
               <div className="space-y-4">
                 {/* ① Intelligent Property Snapshot */}
-                <SkillCardPlaceholder
-                  title="Intelligent Property Snapshot"
-                  description="Quick AI-powered first impression of the deal."
-                  featureDescription="Grade, verdict, location rating, top strengths and top risks — generated from your current property metrics in seconds."
-                  ctaLabel="Run Snapshot"
-                  badge="AI · Compact"
-                  loading={snapshotLoading}
-                  error={snapshotError}
-                  hasResult={!!snapshotResult}
-                  onRun={onRunSnapshot}
-                />
-
                 {snapshotLoading ? (
-                  <SectionShell title="Intelligent Property Snapshot" description="Compact AI readout generated from the current property metrics and analysis data.">
-                    <div className="flex items-center gap-3 rounded-xl border border-border-default bg-bg-base px-4 py-4 text-sm text-text-secondary">
-                      <Loader2 className="h-4 w-4 animate-spin text-brand" />
-                      Generating property snapshot…
-                    </div>
-                  </SectionShell>
-                ) : null}
-
-                {!snapshotLoading && snapshotError ? (
-                  <SectionShell title="Intelligent Property Snapshot" description="Compact AI readout generated from the current property metrics and analysis data.">
-                    <div className="flex items-start gap-3 rounded-xl border border-danger/30 bg-danger/10 px-4 py-4 text-sm text-danger">
-                      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                      <div>
-                        <p className="font-medium">Snapshot could not be generated.</p>
-                        <p className="mt-1 text-danger/90">{snapshotError}</p>
-                      </div>
-                    </div>
-                  </SectionShell>
-                ) : null}
-
-                {!snapshotLoading && snapshotResult ? <SnapshotResultPanel result={snapshotResult} /> : null}
+                  <SnapshotStatusPanel loading onRetry={onRunSnapshot} />
+                ) : snapshotError ? (
+                  <SnapshotStatusPanel error={snapshotError} onRetry={onRunSnapshot} />
+                ) : snapshotResult ? (
+                  <SnapshotResultPanel result={snapshotResult} onRefresh={onRunSnapshot} />
+                ) : (
+                  <SkillCardPlaceholder
+                    title="Intelligent Property Snapshot"
+                    description="Quick AI-powered first impression of the deal."
+                    featureDescription="Grade, verdict, location rating, top strengths and top risks — generated from your current property metrics in seconds."
+                    ctaLabel="Run Snapshot"
+                    badge="AI · Compact"
+                    onRun={onRunSnapshot}
+                  />
+                )}
 
                 <SectionShell title={t("analyse.new.analysis.title")} description={t("analyse.new.analysis.description")}>
                   <Tabs value={resultTab} onValueChange={(value) => onResultTabChange(value as ResultTab)}>
