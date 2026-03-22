@@ -63,26 +63,7 @@ function EmptyState({
   streaming: boolean
 }) {
   return (
-    <div className="flex flex-col gap-4">
-      {/* Welcome card */}
-      <div
-        className="flex items-start gap-3 rounded-2xl rounded-bl-sm p-4"
-        style={{
-          background:
-            "linear-gradient(135deg, rgba(59,123,245,0.07) 0%, rgba(59,123,245,0.03) 100%)",
-          border: "1px solid rgba(59,123,245,0.14)",
-        }}
-      >
-        <AiAvatar size={32} />
-        <div>
-          <p className="text-sm font-semibold text-text-primary">How can I help?</p>
-          <p className="mt-1 text-xs leading-relaxed text-text-secondary">
-            I have full context on this property — financials, yield projections, risks, and
-            market position. Ask me anything.
-          </p>
-        </div>
-      </div>
-
+    <div>
       {/* Quick-start chips */}
       {allChips.length > 0 && (
         <div>
@@ -114,6 +95,8 @@ export function AnalysisChat({
   analysisContext,
   title,
   promptHints = [],
+  advisorMode = "full",
+  activationKey = 0,
 }: {
   contextType: string
   contextId?: string
@@ -125,12 +108,15 @@ export function AnalysisChat({
   analysisContext?: AnalysisContextPayload
   title: string
   promptHints?: string[]
+  advisorMode?: "light" | "full"
+  activationKey?: number
 }) {
   const { toast } = useToast()
   const [open, setOpen] = useState(true) // Start open so users discover the chat
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState("")
   const [streaming, setStreaming] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const readerRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null)
@@ -179,6 +165,19 @@ export function AnalysisChat({
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
   }, [messages])
+
+  useEffect(() => {
+    if (activationKey === 0) return
+
+    setOpen(true)
+    containerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+
+    const frameId = window.requestAnimationFrame(() => {
+      inputRef.current?.focus()
+    })
+
+    return () => window.cancelAnimationFrame(frameId)
+  }, [activationKey])
 
   const popLastMessage = useCallback(() => setMessages((prev) => prev.slice(0, -1)), [])
 
@@ -267,9 +266,11 @@ export function AnalysisChat({
   const isEmpty = messages.length === 0
   const isTyping =
     streaming && messages.length > 0 && messages[messages.length - 1].message === ""
+  const advisorCopy = copy.chat.advisor[advisorMode]
 
   return (
     <div
+      ref={containerRef}
       className="overflow-hidden rounded-xl border border-border-default bg-bg-surface"
       style={{ boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}
     >
@@ -282,7 +283,13 @@ export function AnalysisChat({
           <AiAvatar size={30} />
           <div className="text-left">
             <p className="text-sm font-semibold text-text-primary">AI Property Advisor</p>
-            <p className="text-[11px] text-text-muted capitalize">{title}</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-[11px] text-text-muted capitalize">{title}</p>
+              <span className="rounded-full border border-brand/20 bg-brand/5 px-2 py-0.5 text-[10px] font-medium text-brand">
+                {advisorCopy.badge}
+              </span>
+            </div>
+            <p className="mt-1 text-[11px] text-text-muted">{advisorCopy.subtitle}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -317,11 +324,26 @@ export function AnalysisChat({
             style={{ background: "var(--color-bg-base, #F8FAFC)" }}
           >
             {isEmpty ? (
-              <EmptyState
-                allChips={allChips}
-                onChipClick={send}
-                streaming={streaming}
-              />
+              <div className="flex flex-col gap-4">
+                <div
+                  className="flex items-start gap-3 rounded-2xl rounded-bl-sm p-4"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, rgba(59,123,245,0.07) 0%, rgba(59,123,245,0.03) 100%)",
+                    border: "1px solid rgba(59,123,245,0.14)",
+                  }}
+                >
+                  <AiAvatar size={32} />
+                  <div>
+                    <p className="text-sm font-semibold text-text-primary">{advisorCopy.emptyStateTitle}</p>
+                    <p className="mt-1 text-xs leading-relaxed text-text-secondary">
+                      {advisorCopy.emptyStateDescription}
+                    </p>
+                  </div>
+                </div>
+
+                <EmptyState allChips={allChips} onChipClick={send} streaming={streaming} />
+              </div>
             ) : (
               <div className="space-y-4">
                 {messages.map((msg, i) => (
@@ -385,7 +407,7 @@ export function AnalysisChat({
                 }
               }}
               disabled={streaming}
-              placeholder={copy.chat.inputPlaceholder}
+              placeholder={advisorCopy.inputPlaceholder}
               className="flex-1 rounded-xl border border-border-default bg-bg-base px-4 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10 disabled:opacity-50"
             />
             <button
