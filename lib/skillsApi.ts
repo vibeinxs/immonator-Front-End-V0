@@ -226,6 +226,9 @@ export function runStrategy(
   )
 }
 
+/**
+ * @deprecated Use `runStrategy` instead. This is a backward-compatible alias.
+ */
 export function runBuyingStrategy(
   property: PropertyMetricsInput,
   analysisResult: ReviewResult
