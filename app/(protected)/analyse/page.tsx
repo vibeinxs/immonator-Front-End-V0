@@ -1045,6 +1045,120 @@ function StrategyPrerequisitePanel({
   )
 }
 
+function DependencyStatusPill({
+  label,
+  tone = "neutral",
+}: {
+  label: string
+  tone?: "success" | "warning" | "neutral"
+}) {
+  const statusToneClassName = getDependencyStatusToneClassName(tone)
+
+  return (
+    <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium ${statusToneClassName}`}>
+      {label}
+    </span>
+  )
+}
+
+function getDependencyStatusToneClassName(tone: "success" | "warning" | "neutral") {
+  switch (tone) {
+    case "success":
+      return "border-success/20 bg-success/10 text-success"
+    case "warning":
+      return "border-warning/30 bg-warning/10 text-warning"
+    default:
+      return "border-border-default bg-bg-base text-text-secondary"
+  }
+}
+
+function getAdvisorNextStep({
+  hasReview,
+  hasStrategy,
+  onRunReview,
+  onRunStrategy,
+}: {
+  hasReview: boolean
+  hasStrategy: boolean
+  onRunReview: () => void
+  onRunStrategy: () => void
+}) {
+  switch (true) {
+    case !hasReview:
+      return {
+        message: "Run Investment Review to give the advisor full underwriting context before you ask deeper questions.",
+        ctaLabel: "Run Investment Review",
+        onClick: onRunReview,
+      }
+    case !hasStrategy:
+      return {
+        message: "The advisor already has your investment review. Run Buying Strategy Insight if you also want negotiation context in the chat.",
+        ctaLabel: "Run Buying Strategy Insight",
+        onClick: onRunStrategy,
+      }
+    default:
+      return null
+  }
+}
+
+function AdvisorContextGuide({
+  hasSnapshot,
+  hasReview,
+  hasStrategy,
+  onRunReview,
+  onRunStrategy,
+}: {
+  hasSnapshot: boolean
+  hasReview: boolean
+  hasStrategy: boolean
+  onRunReview: () => void
+  onRunStrategy: () => void
+}) {
+  const nextStep = getAdvisorNextStep({
+    hasReview,
+    hasStrategy,
+    onRunReview,
+    onRunStrategy,
+  })
+
+  return (
+    <div className="rounded-2xl border border-border-default bg-bg-base p-4">
+      <div className="flex flex-col gap-3">
+        <div>
+          <p className="text-sm font-medium text-text-primary">Context the advisor can use</p>
+          <p className="mt-1 text-sm text-text-secondary">
+            The advisor always works from the current property analysis. When available, it automatically adds investment review and buying strategy context. Snapshot remains optional and never blocks the flow.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <DependencyStatusPill label="Core analysis ready" tone="success" />
+          <DependencyStatusPill label={hasSnapshot ? "Snapshot available" : "Snapshot optional"} tone={hasSnapshot ? "success" : "neutral"} />
+          <DependencyStatusPill label={hasReview ? "Investment review attached" : "Investment review pending"} tone={hasReview ? "success" : "warning"} />
+          <DependencyStatusPill label={hasStrategy ? "Buying strategy attached" : "Buying strategy not run yet"} tone={hasStrategy ? "success" : "neutral"} />
+        </div>
+
+        {nextStep ? (
+          <div className="flex flex-col gap-3 rounded-xl border border-dashed border-border-default bg-bg-surface px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-text-secondary">{nextStep.message}</p>
+            <button
+              type="button"
+              onClick={nextStep.onClick}
+              className="inline-flex items-center justify-center rounded-lg border border-brand/30 bg-brand/5 px-3 py-2 text-sm font-medium text-brand transition-colors hover:bg-brand/10"
+            >
+              {nextStep.ctaLabel}
+            </button>
+          </div>
+        ) : (
+          <div className="rounded-xl border border-brand/20 bg-brand/5 px-4 py-3 text-sm text-text-secondary">
+            Review and strategy context are already available, so the advisor will answer with both underwriting and negotiation context in view.
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function CompactPropertyResult({ result }: { result: AnalyseResponse | null }) {
   if (!result) {
     return (
@@ -1711,6 +1825,10 @@ function SingleAnalysisWorkspace({
     }
   }, [input, result, reviewResult, strategyResult])
 
+  const hasSnapshotContext = Boolean(snapshotResult)
+  const hasReviewContext = Boolean(reviewResult)
+  const hasStrategyContext = Boolean(strategyResult)
+
   useEffect(() => {
     if (!result) return
 
@@ -1862,7 +1980,7 @@ function SingleAnalysisWorkspace({
                 <SkillCardPlaceholder
                   title="Intelligent Property Advisor"
                   description="Guided analysis with short answers and next-step prompts."
-                  featureDescription="Ask a focused question and get a direct, concise answer. Lighter than the full chat — designed for quick clarifications and decision checkpoints."
+                  featureDescription="Ask a focused question and get a direct, concise answer. Lighter than the full chat — designed for quick clarifications and decision checkpoints. Investment review and buying strategy context are added automatically when available."
                   ctaLabel="Open Advisor"
                   badge="AI · Light mode"
                   onRun={() => onOpenAdvisor("light")}
@@ -1874,6 +1992,14 @@ function SingleAnalysisWorkspace({
                   description="Deep conversational AI — test scenarios, challenge assumptions and explore the numbers."
                 >
                   <div className="space-y-3">
+                    <AdvisorContextGuide
+                      hasSnapshot={hasSnapshotContext}
+                      hasReview={hasReviewContext}
+                      hasStrategy={hasStrategyContext}
+                      onRunReview={onRunReview}
+                      onRunStrategy={onRunStrategy}
+                    />
+
                     <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border-default bg-bg-base px-4 py-3">
                       <div>
                         <p className="text-sm font-medium text-text-primary">{t("analyse.new.askAi.sharedTitle")}</p>
