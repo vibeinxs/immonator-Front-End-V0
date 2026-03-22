@@ -89,7 +89,7 @@ export function buildAnalysisChatContextId(context: AskAiContextPayload): string
  * Maps AnalyseRequest + AnalyseResponse → compact backend snapshot.
  * Only includes fields defined in the stable PropertyMetricsInput contract.
  */
-function toPropertyMetricsInput(
+export function buildPropertyMetricsInput(
   input: AnalyseRequest,
   result: AnalyseResponse | null | undefined
 ): PropertyMetricsInput {
@@ -140,13 +140,13 @@ function toPropertyMetricsInput(
 export function buildAnalysisContextPayload(
   context: AskAiContextPayload
 ): AnalysisContextPayload {
-  const propertyA = toPropertyMetricsInput(
+  const propertyA = buildPropertyMetricsInput(
     context.propertyInputs.A,
     context.propertyResults.A ?? null
   )
   const propertyB =
     context.mode === "compare"
-      ? toPropertyMetricsInput(
+      ? buildPropertyMetricsInput(
           context.propertyInputs.B,
           context.propertyResults.B ?? null
         )
