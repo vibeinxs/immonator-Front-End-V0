@@ -37,6 +37,11 @@ import type {
 const NEGOTIATION_SCORE_THRESHOLD = 6
 const NEGOTIATION_NEGATIVE_CASHFLOW_THRESHOLD = 0
 const NEGOTIATION_DYNAMIC_POINTS_LIMIT = 2
+const SENTENCE_TERMINATORS = [". ", "! ", "? "] as const
+const MIN_SENTENCE_BREAK_RATIO = 0.55
+const SNAPSHOT_SUMMARY_MAX_LENGTH = 190
+const SNAPSHOT_HIGHLIGHTS_COUNT = 2
+const STRATEGY_NEXT_MOVE_MAX_LENGTH = 260
 
 type CompareMetricTone = "higher" | "lower"
 type AnalysisMode = "single" | "compare"
@@ -524,6 +529,31 @@ function MetricMiniCard({ label, value }: { label: string; value: string }) {
   )
 }
 
+function compactText(value: string | null | undefined, fallback: string, maxLength = 220) {
+  const normalized = value?.replace(/\s+/g, " ").trim()
+  if (!normalized) return fallback
+  if (normalized.length <= maxLength) return normalized
+
+  const truncated = normalized.slice(0, maxLength).trim()
+  const lastSentenceBreak = Math.max(...SENTENCE_TERMINATORS.map((terminator) => truncated.lastIndexOf(terminator)))
+
+  if (lastSentenceBreak >= Math.floor(maxLength * MIN_SENTENCE_BREAK_RATIO)) {
+    return `${truncated.slice(0, lastSentenceBreak + 1).trim()}…`
+  }
+
+  const lastWordBreak = truncated.lastIndexOf(" ")
+  return `${truncated.slice(0, lastWordBreak > 0 ? lastWordBreak : truncated.length).trim()}…`
+}
+
+function narrativeParagraphs(value: string | null | undefined, fallback: string) {
+  const paragraphs = value
+    ?.split(/\n{2,}/)
+    .map((paragraph) => paragraph.replace(/\s+/g, " ").trim())
+    .filter(Boolean)
+
+  return paragraphs && paragraphs.length > 0 ? paragraphs : [fallback]
+}
+
 function SnapshotBulletList({
   title,
   items,
@@ -543,8 +573,8 @@ function SnapshotBulletList({
         </span>
       </div>
       <ul className="mt-3 space-y-2 text-sm text-text-secondary">
-        {items.map((item, index) => (
-          <li key={`${title}-${index}`} className="flex gap-2">
+        {items.map((item) => (
+          <li key={`${title}-${item}`} className="flex gap-2">
             <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-70" aria-hidden />
             <span>{item}</span>
           </li>
@@ -576,9 +606,13 @@ function SnapshotResultPanel({
   result: SnapshotResult
   onRefresh: () => void
 }) {
-  const summary = result.summary ?? result.one_line_summary
-  const strengths = result.strengths
-  const risks = result.risks
+  const summary = compactText(
+    result.summary ?? result.one_line_summary,
+    "Snapshot generated, but no summary text was returned.",
+    SNAPSHOT_SUMMARY_MAX_LENGTH,
+  )
+  const strengths = result.strengths.slice(0, SNAPSHOT_HIGHLIGHTS_COUNT)
+  const risks = result.risks.slice(0, SNAPSHOT_HIGHLIGHTS_COUNT)
   const metrics = [
     { label: "Verdict", value: result.verdict || "—" },
     { label: "Location Rating", value: result.location_rating || "—" },
@@ -607,10 +641,8 @@ function SnapshotResultPanel({
 
         <div className="grid gap-3 md:grid-cols-[minmax(0,1.3fr)_minmax(220px,0.7fr)]">
           <div className="rounded-2xl border border-brand/15 bg-gradient-to-br from-brand/10 via-bg-base to-bg-surface p-4">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Summary</p>
-            <p className="mt-2 text-sm leading-relaxed text-text-secondary">
-              {summary?.trim() || "Snapshot generated, but no summary text was returned."}
-            </p>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">At a Glance</p>
+            <p className="mt-2 text-sm leading-relaxed text-text-secondary">{summary}</p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-1 xl:grid-cols-2">
             {metrics.map((metric) => (
@@ -682,16 +714,29 @@ function SnapshotStatusPanel({
 }
 
 function ReviewNarrativeBlock({
+  index,
   title,
   body,
 }: {
+  index: string
   title: string
   body?: string | null
 }) {
+  const paragraphs = narrativeParagraphs(body, "No narrative was returned for this section.")
+
   return (
     <div className="rounded-xl border border-border-default bg-bg-base p-4">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{title}</p>
-      <p className="mt-2 text-sm leading-relaxed text-text-secondary">{body?.trim() || "No narrative was returned for this section."}</p>
+      <div className="flex items-center gap-2">
+        <span className="rounded-full border border-border-default bg-bg-surface px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+          {index}
+        </span>
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{title}</p>
+      </div>
+      <div className="mt-3 space-y-3 text-sm leading-relaxed text-text-secondary">
+        {paragraphs.map((paragraph) => (
+          <p key={`${title}-${paragraph}`}>{paragraph}</p>
+        ))}
+      </div>
     </div>
   )
 }
@@ -703,6 +748,11 @@ function ReviewResultPanel({
   result: ReviewResult
   onRefresh: () => void
 }) {
+  const narrativeSections = [
+    { index: "01", title: "Property Summary", body: result.property_summary },
+    { index: "02", title: "Location Analysis", body: result.location_analysis },
+    { index: "03", title: "Deal Economics", body: result.deal_economics },
+  ]
   const sections: Array<{ title: string; items: string[]; tone: "success" | "danger"; emptyMessage: string }> = [
     { title: "Strengths", items: result.strengths, tone: "success", emptyMessage: "No strengths were returned for this investment review." },
     { title: "Risks", items: result.risks, tone: "danger", emptyMessage: "No risks were returned for this investment review." },
@@ -731,10 +781,27 @@ function ReviewResultPanel({
         </div>
 
         <div className="grid gap-4 xl:grid-cols-2">
-          <ReviewNarrativeBlock title="Property Summary" body={result.property_summary} />
-          <ReviewNarrativeBlock title="Location Analysis" body={result.location_analysis} />
-          <ReviewNarrativeBlock title="Deal Economics" body={result.deal_economics} />
-          <ReviewNarrativeBlock title="Final Verdict" body={result.final_verdict} />
+          {narrativeSections.map((section) => (
+            <ReviewNarrativeBlock
+              key={section.title}
+              index={section.index}
+              title={section.title}
+              body={section.body}
+            />
+          ))}
+          <div className="rounded-xl border border-brand/15 bg-gradient-to-br from-brand/10 via-bg-base to-bg-surface p-4 xl:col-span-2">
+            <div className="flex items-center gap-2">
+              <span className="rounded-full border border-brand/15 bg-brand/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-brand">
+                Final take
+              </span>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">AI Verdict</p>
+            </div>
+            <div className="mt-3 space-y-3 text-sm leading-relaxed text-text-secondary">
+              {narrativeParagraphs(result.final_verdict, "No final verdict was returned for this review.").map((paragraph) => (
+                <p key={`final-verdict-${paragraph}`}>{paragraph}</p>
+              ))}
+            </div>
+          </div>
         </div>
 
         <div className="grid gap-4 xl:grid-cols-2">
@@ -809,25 +876,25 @@ function StrategyResultPanel({
 }) {
   const sections: Array<{ title: string; items: string[]; tone: "success" | "danger"; emptyMessage: string }> = [
     {
-      title: "Leverage Points",
+      title: "Use in Negotiation",
       items: result.leverage_points,
       tone: "success",
       emptyMessage: "No leverage points were returned for this buying strategy.",
     },
     {
-      title: "Seller Questions",
+      title: "Ask the Seller",
       items: result.seller_questions,
       tone: "success",
       emptyMessage: "No seller questions were returned for this buying strategy.",
     },
     {
-      title: "Diligence Priorities",
+      title: "Do Before You Commit",
       items: result.diligence_priorities,
       tone: "success",
       emptyMessage: "No diligence priorities were returned for this buying strategy.",
     },
     {
-      title: "Red Flags",
+      title: "Watchouts",
       items: result.red_flags,
       tone: "danger",
       emptyMessage: "No red flags were returned for this buying strategy.",
@@ -854,22 +921,33 @@ function StrategyResultPanel({
           </button>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-2">
-          <MetricMiniCard
-            label="Anchor Price"
-            value={result.anchor_price != null ? formatEUR(result.anchor_price) : "—"}
-          />
-          <MetricMiniCard
-            label="Walk-Away Price"
-            value={result.walk_away_price != null ? formatEUR(result.walk_away_price) : "—"}
-          />
-        </div>
+        <div className="grid gap-3 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+            <MetricMiniCard
+              label="Anchor Price"
+              value={result.anchor_price != null ? formatEUR(result.anchor_price) : "—"}
+            />
+            <MetricMiniCard
+              label="Walk-Away Price"
+              value={result.walk_away_price != null ? formatEUR(result.walk_away_price) : "—"}
+            />
+          </div>
 
-        <div className="rounded-2xl border border-brand/15 bg-gradient-to-br from-brand/10 via-bg-base to-bg-surface p-4">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Recommended Next Move</p>
-          <p className="mt-2 text-sm leading-relaxed text-text-secondary">
-            {result.recommended_next_move?.trim() || "No recommended next move was returned for this buying strategy."}
-          </p>
+          <div className="rounded-2xl border border-brand/15 bg-gradient-to-br from-brand/10 via-bg-base to-bg-surface p-4">
+            <div className="flex items-center gap-2">
+              <span className="rounded-full border border-brand/15 bg-brand/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-brand">
+                Next move
+              </span>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">What to do now</p>
+            </div>
+            <p className="mt-3 text-sm leading-relaxed text-text-secondary">
+              {compactText(
+                result.recommended_next_move,
+                "No recommended next move was returned for this buying strategy.",
+                STRATEGY_NEXT_MOVE_MAX_LENGTH,
+              )}
+            </p>
+          </div>
         </div>
 
         <div className="grid gap-4 xl:grid-cols-2">
