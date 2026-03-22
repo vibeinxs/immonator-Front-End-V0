@@ -28,22 +28,22 @@ export interface SnapshotResult {
 // ── Investment Review (mode: "full") ─────────────────────────────────────────
 
 export interface ReviewResult {
-  /** Concise property facts paragraph */
-  property_facts?: string
-  /** Derived financial metrics narrative */
-  derived_metrics?: string
+  /** High-level property summary */
+  property_summary?: string | null
   /** Location & market analysis */
-  location_analysis?: string
+  location_analysis?: string | null
   /** Deal economics summary */
-  deal_economics?: string
+  deal_economics?: string | null
   /** List of deal strengths */
   strengths: string[]
   /** List of deal risks */
   risks: string[]
+  /** Missing information that would improve confidence */
+  missing_inputs: string[]
   /** Sensitivity / scenario points */
   sensitivity_points: string[]
   /** Final AI verdict */
-  verdict: string
+  final_verdict?: string | null
   /** Full AI markdown output (fallback renderer) */
   raw?: string
 }
