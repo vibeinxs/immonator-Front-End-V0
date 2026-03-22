@@ -110,9 +110,10 @@ function normalizeStrategyResult(raw: unknown): StrategyResult | null {
     asNullableNumber(candidate.max_walk_away_price)
   const leveragePoints = asStringArray(candidate.leverage_points)
   const sellerQuestions = asStringArray(candidate.seller_questions)
+  const diligencePrioritiesPrimary = asStringArray(candidate.diligence_priorities)
   const diligencePriorities =
-    asStringArray(candidate.diligence_priorities).length > 0
-      ? asStringArray(candidate.diligence_priorities)
+    diligencePrioritiesPrimary.length > 0
+      ? diligencePrioritiesPrimary
       : asStringArray(candidate.due_diligence_priorities)
   const redFlags = asStringArray(candidate.red_flags)
   const recommendedNextMove =

@@ -1761,7 +1761,7 @@ function SingleAnalysisWorkspace({
                 ) : strategyResult ? (
                   <StrategyResultPanel result={strategyResult} onRefresh={onRunStrategy} />
                 ) : (
-                  <StrategyPrerequisitePanel canRun={Boolean(reviewResult)} onRun={Boolean(reviewResult) ? onRunStrategy : undefined} />
+                  <StrategyPrerequisitePanel canRun={Boolean(reviewResult)} onRun={onRunStrategy} />
                 )}
 
                 {/* ④ Intelligent Property Advisor */}
