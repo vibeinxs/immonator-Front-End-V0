@@ -193,11 +193,19 @@ function createInitialAnalysePageState({
   storeResultA,
   storeInputB,
   storeResultB,
+  storeSnapshotResult,
+  storeReviewResult,
+  storeStrategyResult,
+  storeAdvisorMode,
 }: {
   storeInputA: AnalyseRequest
   storeResultA: AnalyseResponse | null
   storeInputB: AnalyseRequest
   storeResultB: AnalyseResponse | null
+  storeSnapshotResult: SnapshotResult | null
+  storeReviewResult: ReviewResult | null
+  storeStrategyResult: StrategyResult | null
+  storeAdvisorMode: "light" | "full"
 }): AnalysePageState {
   return {
     analysisMode: "single",
@@ -220,16 +228,16 @@ function createInitialAnalysePageState({
     },
     compareError: null,
     // Skill state defaults
-    snapshotResult: null,
-    reviewResult: null,
-    strategyResult: null,
+    snapshotResult: storeSnapshotResult,
+    reviewResult: storeReviewResult,
+    strategyResult: storeStrategyResult,
     snapshotLoading: false,
     reviewLoading: false,
     strategyLoading: false,
     snapshotError: null,
     reviewError: null,
     strategyError: null,
-    advisorMode: "light",
+    advisorMode: storeAdvisorMode,
   }
 }
 
@@ -244,12 +252,6 @@ function analysePageReducer(state: AnalysePageState, action: AnalysePageAction):
       return {
         ...state,
         singleDraftInput: action.input,
-        snapshotResult: null,
-        snapshotError: null,
-        reviewResult: null,
-        reviewError: null,
-        strategyResult: null,
-        strategyError: null,
       }
     case "setSingleResultTab":
       return {
@@ -2176,6 +2178,14 @@ export default function AnalysePage() {
     setInputB: setStoreInputB,
     resultB: storeResultB,
     setResultB: setStoreResultB,
+    snapshotResult: storeSnapshotResult,
+    setSnapshotResult: setStoreSnapshotResult,
+    reviewResult: storeReviewResult,
+    setReviewResult: setStoreReviewResult,
+    strategyResult: storeStrategyResult,
+    setStrategyResult: setStoreStrategyResult,
+    advisorMode: storeAdvisorMode,
+    setAdvisorMode: setStoreAdvisorMode,
   } = useAnalysisStore()
   const [state, dispatch] = useReducer(
     analysePageReducer,
@@ -2184,6 +2194,10 @@ export default function AnalysePage() {
       storeResultA,
       storeInputB,
       storeResultB,
+      storeSnapshotResult,
+      storeReviewResult,
+      storeStrategyResult,
+      storeAdvisorMode,
     },
     createInitialAnalysePageState,
   )
@@ -2338,19 +2352,37 @@ export default function AnalysePage() {
   }, [])
 
   useEffect(() => {
-    setStoreInputA(state.compareDraftInputs.propertyA)
+    const nextInputA = state.analysisMode === "single" ? state.singleDraftInput : state.compareDraftInputs.propertyA
+    const nextResultA = state.analysisMode === "single" ? state.singleAnalysisResult : state.compareAnalysisResults.propertyA
+
+    setStoreInputA(nextInputA)
     setStoreInputB(state.compareDraftInputs.propertyB)
-    setStoreResultA(state.compareAnalysisResults.propertyA)
+    setStoreResultA(nextResultA)
     setStoreResultB(state.compareAnalysisResults.propertyB)
+    setStoreSnapshotResult(state.snapshotResult)
+    setStoreReviewResult(state.reviewResult)
+    setStoreStrategyResult(state.strategyResult)
+    setStoreAdvisorMode(state.advisorMode)
   }, [
+    state.advisorMode,
+    state.analysisMode,
     state.compareAnalysisResults.propertyA,
     state.compareAnalysisResults.propertyB,
     state.compareDraftInputs.propertyA,
     state.compareDraftInputs.propertyB,
+    state.reviewResult,
+    state.singleAnalysisResult,
+    state.singleDraftInput,
+    state.snapshotResult,
+    state.strategyResult,
+    setStoreAdvisorMode,
     setStoreInputA,
     setStoreInputB,
     setStoreResultA,
     setStoreResultB,
+    setStoreReviewResult,
+    setStoreSnapshotResult,
+    setStoreStrategyResult,
   ])
 
   return (
