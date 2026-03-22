@@ -23,7 +23,7 @@ import { runLocalCompute } from "@/lib/localComputeBridge"
 import { useAnalysisStore } from "@/store/analysisStore"
 import { AnalysisChat } from "@/components/chat/AnalysisChat"
 import { useLocale } from "@/lib/i18n/locale-context"
-import { runInvestmentReview, runPropertySnapshot } from "@/lib/skillsApi"
+import { runBuyingStrategy, runInvestmentReview, runPropertySnapshot } from "@/lib/skillsApi"
 import type { AnalyseRequest, AnalyseResponse } from "@/types/api"
 import type { SnapshotResult, ReviewResult, StrategyResult } from "@/types/skills"
 import type {
@@ -394,7 +394,13 @@ function analysePageReducer(state: AnalysePageState, action: AnalysePageAction):
       return { ...state, snapshotResult: null, snapshotError: null }
     // ── Investment Review ────────────────────────────────────────────────────
     case "reviewStart":
-      return { ...state, reviewLoading: true, reviewError: null }
+      return {
+        ...state,
+        reviewLoading: true,
+        reviewError: null,
+        strategyResult: null,
+        strategyError: null,
+      }
     case "reviewSuccess":
       return { ...state, reviewLoading: false, reviewResult: action.result }
     case "reviewError":
@@ -789,6 +795,173 @@ function ReviewStatusPanel({
             Try Again
           </button>
         </div>
+      </div>
+    </SectionShell>
+  )
+}
+
+function StrategyResultPanel({
+  result,
+  onRefresh,
+}: {
+  result: StrategyResult
+  onRefresh: () => void
+}) {
+  const sections: Array<{ title: string; items: string[]; tone: "success" | "danger"; emptyMessage: string }> = [
+    {
+      title: "Leverage Points",
+      items: result.leverage_points,
+      tone: "success",
+      emptyMessage: "No leverage points were returned for this buying strategy.",
+    },
+    {
+      title: "Seller Questions",
+      items: result.seller_questions,
+      tone: "success",
+      emptyMessage: "No seller questions were returned for this buying strategy.",
+    },
+    {
+      title: "Diligence Priorities",
+      items: result.diligence_priorities,
+      tone: "success",
+      emptyMessage: "No diligence priorities were returned for this buying strategy.",
+    },
+    {
+      title: "Red Flags",
+      items: result.red_flags,
+      tone: "danger",
+      emptyMessage: "No red flags were returned for this buying strategy.",
+    },
+  ]
+
+  return (
+    <SectionShell
+      title="Buying Strategy Insight"
+      description="How to approach this deal using the current property metrics and the latest full investment review."
+    >
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="inline-flex items-center gap-2 rounded-full border border-brand/20 bg-brand/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-brand">
+            Strategy ready
+          </div>
+          <button
+            type="button"
+            onClick={onRefresh}
+            className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-bg-base px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Refresh Strategy
+          </button>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-2">
+          <MetricMiniCard
+            label="Anchor Price"
+            value={result.anchor_price != null ? formatEUR(result.anchor_price) : "—"}
+          />
+          <MetricMiniCard
+            label="Walk-Away Price"
+            value={result.walk_away_price != null ? formatEUR(result.walk_away_price) : "—"}
+          />
+        </div>
+
+        <div className="rounded-2xl border border-brand/15 bg-gradient-to-br from-brand/10 via-bg-base to-bg-surface p-4">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Recommended Next Move</p>
+          <p className="mt-2 text-sm leading-relaxed text-text-secondary">
+            {result.recommended_next_move?.trim() || "No recommended next move was returned for this buying strategy."}
+          </p>
+        </div>
+
+        <div className="grid gap-4 xl:grid-cols-2">
+          {sections.map((section) =>
+            section.items.length > 0 ? (
+              <SnapshotBulletList key={section.title} title={section.title} items={section.items} tone={section.tone} />
+            ) : (
+              <SnapshotEmptyState key={section.title} title={section.title} message={section.emptyMessage} />
+            ),
+          )}
+        </div>
+      </div>
+    </SectionShell>
+  )
+}
+
+function StrategyStatusPanel({
+  loading,
+  error,
+  onRetry,
+}: {
+  loading?: boolean
+  error?: string | null
+  onRetry: () => void
+}) {
+  if (loading) {
+    return (
+      <SectionShell title="Buying Strategy Insight" description="How to approach this deal using the current property metrics and the latest full investment review.">
+        <div className="flex items-center gap-3 rounded-xl border border-border-default bg-bg-base px-4 py-4 text-sm text-text-secondary">
+          <Loader2 className="h-4 w-4 animate-spin text-brand" />
+          Generating buying strategy…
+        </div>
+      </SectionShell>
+    )
+  }
+
+  return (
+    <SectionShell title="Buying Strategy Insight" description="How to approach this deal using the current property metrics and the latest full investment review.">
+      <div className="space-y-4">
+        <div className="flex items-start gap-3 rounded-xl border border-danger/30 bg-danger/10 px-4 py-4 text-sm text-danger">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          <div>
+            <p className="font-medium">Buying strategy could not be generated.</p>
+            <p className="mt-1 text-danger/90">{error}</p>
+          </div>
+        </div>
+        <div>
+          <button
+            type="button"
+            onClick={onRetry}
+            className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-bg-base px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Try Again
+          </button>
+        </div>
+      </div>
+    </SectionShell>
+  )
+}
+
+function StrategyPrerequisitePanel({
+  canRun,
+  onRun,
+}: {
+  canRun: boolean
+  onRun?: () => void
+}) {
+  return (
+    <SectionShell
+      title="Buying Strategy Insight"
+      description="How to approach this deal using the current property metrics and the latest full investment review."
+    >
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-2">
+          <p className="text-sm leading-relaxed text-text-secondary">
+            Generate anchor price, walk-away price, leverage points, seller questions, diligence priorities, red flags and a recommended next move for this deal.
+          </p>
+          <div className="rounded-xl border border-dashed border-border-default bg-bg-base px-4 py-3 text-sm text-text-secondary">
+            {canRun
+              ? "Run Buying Strategy Insight when you're ready to turn the latest investment review into a negotiation plan."
+              : "Run Investment Review first. Buying Strategy Insight needs the latest full review result before it can generate a negotiation plan."}
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={canRun ? onRun : undefined}
+          disabled={!canRun}
+          className="inline-flex items-center justify-center gap-2 rounded-lg border border-brand/30 bg-brand/5 px-4 py-2 text-sm font-medium text-brand transition-colors hover:bg-brand/10 disabled:cursor-not-allowed disabled:border-border-default disabled:bg-bg-base disabled:text-text-muted disabled:opacity-60"
+        >
+          Generate Strategy
+        </button>
       </div>
     </SectionShell>
   )
@@ -1350,10 +1523,14 @@ function SingleAnalysisWorkspace({
   reviewResult,
   reviewLoading,
   reviewError,
+  strategyResult,
+  strategyLoading,
+  strategyError,
   onInputChange,
   onAnalyse,
   onRunSnapshot,
   onRunReview,
+  onRunStrategy,
   onResultTabChange,
 }: {
   input: AnalyseRequest
@@ -1367,10 +1544,14 @@ function SingleAnalysisWorkspace({
   reviewResult: ReviewResult | null
   reviewLoading: boolean
   reviewError: string | null
+  strategyResult: StrategyResult | null
+  strategyLoading: boolean
+  strategyError: string | null
   onInputChange: (value: AnalyseRequest) => void
   onAnalyse: () => void
   onRunSnapshot: () => void
   onRunReview: () => void
+  onRunStrategy: () => void
   onResultTabChange: (tab: ResultTab) => void
 }) {
   const { t } = useLocale()
@@ -1427,10 +1608,14 @@ function SingleAnalysisWorkspace({
         `${t("analyse.kpi.purchaseFactor")}: ${formatX(result.kpf)}`,
         ...(reviewResult?.final_verdict ? [`Investment review verdict: ${reviewResult.final_verdict}`] : []),
         ...(reviewResult?.missing_inputs?.[0] ? [`Review flagged missing input: ${reviewResult.missing_inputs[0]}`] : []),
+        ...(strategyResult?.anchor_price != null ? [`Buying strategy anchor price: ${formatEUR(strategyResult.anchor_price)}`] : []),
+        ...(strategyResult?.walk_away_price != null ? [`Buying strategy walk-away price: ${formatEUR(strategyResult.walk_away_price)}`] : []),
+        ...(strategyResult?.recommended_next_move ? [`Buying strategy next move: ${strategyResult.recommended_next_move}`] : []),
+        ...(strategyResult?.red_flags?.[0] ? [`Buying strategy red flag: ${strategyResult.red_flags[0]}`] : []),
       ],
       mockMessages: [],
     }
-  }, [input, result, reviewResult, t])
+  }, [input, result, reviewResult, strategyResult, t])
 
   useEffect(() => {
     if (!result) return
@@ -1569,13 +1754,15 @@ function SingleAnalysisWorkspace({
                 </SectionShell>
 
                 {/* ③ Buying Strategy Insight */}
-                <SkillCardPlaceholder
-                  title="Buying Strategy Insight"
-                  description="How to approach this deal — anchor price, leverage and walk-away logic."
-                  featureDescription="Recommended offer price, walk-away ceiling, leverage points, due diligence priorities and red flags to raise with the seller."
-                  ctaLabel="Generate Strategy"
-                  badge="AI · Negotiation"
-                />
+                {strategyLoading ? (
+                  <StrategyStatusPanel loading onRetry={onRunStrategy} />
+                ) : strategyError ? (
+                  <StrategyStatusPanel error={strategyError} onRetry={onRunStrategy} />
+                ) : strategyResult ? (
+                  <StrategyResultPanel result={strategyResult} onRefresh={onRunStrategy} />
+                ) : (
+                  <StrategyPrerequisitePanel canRun={Boolean(reviewResult)} onRun={onRunStrategy} />
+                )}
 
                 {/* ④ Intelligent Property Advisor */}
                 <SkillCardPlaceholder
@@ -1830,6 +2017,30 @@ export default function AnalysePage() {
     dispatch({ type: "reviewSuccess", result: response.data })
   }, [state.singleAnalysisResult, state.singleDraftInput])
 
+  const handleRunStrategy = useCallback(async () => {
+    if (!state.singleAnalysisResult) {
+      dispatch({ type: "strategyError", error: "Run the property analysis first to generate a buying strategy." })
+      return
+    }
+
+    if (!state.reviewResult) {
+      dispatch({ type: "strategyError", error: "Run Investment Review first. Buying Strategy Insight needs the latest full review result." })
+      return
+    }
+
+    dispatch({ type: "strategyStart" })
+
+    const property = buildPropertyMetricsInput(state.singleDraftInput, state.singleAnalysisResult)
+    const response = await runBuyingStrategy(property, state.reviewResult)
+
+    if (response.error || !response.data) {
+      dispatch({ type: "strategyError", error: response.error ?? "Unable to generate buying strategy insight." })
+      return
+    }
+
+    dispatch({ type: "strategySuccess", result: response.data })
+  }, [state.reviewResult, state.singleAnalysisResult, state.singleDraftInput])
+
   const updateCompareInput = useCallback((property: ComparePropertyKey, value: AnalyseRequest) => {
     dispatch({ type: "setCompareDraftInput", property, input: value })
   }, [])
@@ -1914,10 +2125,14 @@ export default function AnalysePage() {
             reviewResult={state.reviewResult}
             reviewLoading={state.reviewLoading}
             reviewError={state.reviewError}
+            strategyResult={state.strategyResult}
+            strategyLoading={state.strategyLoading}
+            strategyError={state.strategyError}
             onInputChange={(input) => dispatch({ type: "setSingleDraftInput", input })}
             onAnalyse={handleSingleAnalyse}
             onRunSnapshot={handleRunSnapshot}
             onRunReview={handleRunReview}
+            onRunStrategy={handleRunStrategy}
             onResultTabChange={(tab) => dispatch({ type: "setSingleResultTab", tab })}
           />
         ) : (

@@ -51,16 +51,20 @@ export interface ReviewResult {
 // ── Buying Strategy Insight ───────────────────────────────────────────────────
 
 export interface StrategyResult {
-  /** Recommended initial offer price (€) */
-  recommended_offer: number
+  /** Recommended anchor / opening offer price (€) */
+  anchor_price: number | null
   /** Maximum price before walking away (€) */
-  walk_away_ceiling: number
+  walk_away_price: number | null
   /** Negotiation leverage points */
   leverage_points: string[]
+  /** Questions to ask the seller */
+  seller_questions: string[]
   /** Due diligence priorities */
-  due_diligence_priorities: string[]
+  diligence_priorities: string[]
   /** Red flags to raise with the seller */
   red_flags: string[]
+  /** Recommended next move */
+  recommended_next_move?: string | null
   /** Full AI markdown output (fallback renderer) */
   raw?: string
 }
