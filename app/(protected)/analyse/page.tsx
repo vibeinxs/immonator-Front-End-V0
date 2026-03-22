@@ -23,7 +23,7 @@ import { runLocalCompute } from "@/lib/localComputeBridge"
 import { useAnalysisStore } from "@/store/analysisStore"
 import { AnalysisChat } from "@/components/chat/AnalysisChat"
 import { useLocale } from "@/lib/i18n/locale-context"
-import { runPropertySnapshot } from "@/lib/skillsApi"
+import { runInvestmentReview, runPropertySnapshot } from "@/lib/skillsApi"
 import type { AnalyseRequest, AnalyseResponse } from "@/types/api"
 import type { SnapshotResult, ReviewResult, StrategyResult } from "@/types/skills"
 import type {
@@ -241,6 +241,10 @@ function analysePageReducer(state: AnalysePageState, action: AnalysePageAction):
         singleDraftInput: action.input,
         snapshotResult: null,
         snapshotError: null,
+        reviewResult: null,
+        reviewError: null,
+        strategyResult: null,
+        strategyError: null,
       }
     case "setSingleResultTab":
       return {
@@ -282,6 +286,10 @@ function analysePageReducer(state: AnalysePageState, action: AnalysePageAction):
         singleError: null,
         snapshotResult: null,
         snapshotError: null,
+        reviewResult: null,
+        reviewError: null,
+        strategyResult: null,
+        strategyError: null,
         compareDraftInputs: {
           ...state.compareDraftInputs,
           propertyA: action.input,
@@ -649,6 +657,136 @@ function SnapshotStatusPanel({
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
           <div>
             <p className="font-medium">Snapshot could not be generated.</p>
+            <p className="mt-1 text-danger/90">{error}</p>
+          </div>
+        </div>
+        <div>
+          <button
+            type="button"
+            onClick={onRetry}
+            className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-bg-base px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Try Again
+          </button>
+        </div>
+      </div>
+    </SectionShell>
+  )
+}
+
+function ReviewNarrativeBlock({
+  title,
+  body,
+}: {
+  title: string
+  body?: string | null
+}) {
+  return (
+    <div className="rounded-xl border border-border-default bg-bg-base p-4">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{title}</p>
+      <p className="mt-2 text-sm leading-relaxed text-text-secondary">{body?.trim() || "No narrative was returned for this section."}</p>
+    </div>
+  )
+}
+
+function ReviewResultPanel({
+  result,
+  onRefresh,
+}: {
+  result: ReviewResult
+  onRefresh: () => void
+}) {
+  const sections: Array<{ title: string; items: string[]; tone: "success" | "danger" }> = [
+    { title: "Strengths", items: result.strengths, tone: "success" },
+    { title: "Risks", items: result.risks, tone: "danger" },
+  ]
+
+  return (
+    <SectionShell
+      title="Investment Review"
+      description="Full structured AI analysis generated from the current property metrics and underwriting output."
+    >
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="inline-flex items-center gap-2 rounded-full border border-brand/20 bg-brand/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-brand">
+            Review ready
+          </div>
+          <button
+            type="button"
+            onClick={onRefresh}
+            className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-bg-base px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Refresh Review
+          </button>
+        </div>
+
+        <div className="grid gap-4 xl:grid-cols-2">
+          <ReviewNarrativeBlock title="Property Summary" body={result.property_summary} />
+          <ReviewNarrativeBlock title="Location Analysis" body={result.location_analysis} />
+          <ReviewNarrativeBlock title="Deal Economics" body={result.deal_economics} />
+          <ReviewNarrativeBlock title="Final Verdict" body={result.final_verdict} />
+        </div>
+
+        <div className="grid gap-4 xl:grid-cols-2">
+          {sections.map((section) =>
+            section.items.length > 0 ? (
+              <SnapshotBulletList key={section.title} title={section.title} items={section.items} tone={section.tone} />
+            ) : (
+              <SnapshotEmptyState
+                key={section.title}
+                title={section.title}
+                message={`No ${section.title.toLowerCase()} were returned for this investment review.`}
+              />
+            ),
+          )}
+        </div>
+
+        <div className="grid gap-4 xl:grid-cols-2">
+          {result.missing_inputs.length > 0 ? (
+            <SnapshotBulletList title="Missing Inputs" items={result.missing_inputs} tone="danger" />
+          ) : (
+            <SnapshotEmptyState title="Missing Inputs" message="No additional missing inputs were flagged for this review." />
+          )}
+          {result.sensitivity_points.length > 0 ? (
+            <SnapshotBulletList title="Sensitivity Points" items={result.sensitivity_points} tone="success" />
+          ) : (
+            <SnapshotEmptyState title="Sensitivity Points" message="No scenario sensitivities were returned for this review." />
+          )}
+        </div>
+      </div>
+    </SectionShell>
+  )
+}
+
+function ReviewStatusPanel({
+  loading,
+  error,
+  onRetry,
+}: {
+  loading?: boolean
+  error?: string | null
+  onRetry: () => void
+}) {
+  if (loading) {
+    return (
+      <SectionShell title="Investment Review" description="Full structured AI analysis generated from the current property metrics and underwriting output.">
+        <div className="flex items-center gap-3 rounded-xl border border-border-default bg-bg-base px-4 py-4 text-sm text-text-secondary">
+          <Loader2 className="h-4 w-4 animate-spin text-brand" />
+          Generating investment review…
+        </div>
+      </SectionShell>
+    )
+  }
+
+  return (
+    <SectionShell title="Investment Review" description="Full structured AI analysis generated from the current property metrics and underwriting output.">
+      <div className="space-y-4">
+        <div className="flex items-start gap-3 rounded-xl border border-danger/30 bg-danger/10 px-4 py-4 text-sm text-danger">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          <div>
+            <p className="font-medium">Investment review could not be generated.</p>
             <p className="mt-1 text-danger/90">{error}</p>
           </div>
         </div>
@@ -1220,9 +1358,13 @@ function SingleAnalysisWorkspace({
   snapshotResult,
   snapshotLoading,
   snapshotError,
+  reviewResult,
+  reviewLoading,
+  reviewError,
   onInputChange,
   onAnalyse,
   onRunSnapshot,
+  onRunReview,
   onResultTabChange,
 }: {
   input: AnalyseRequest
@@ -1233,9 +1375,13 @@ function SingleAnalysisWorkspace({
   snapshotResult: SnapshotResult | null
   snapshotLoading: boolean
   snapshotError: string | null
+  reviewResult: ReviewResult | null
+  reviewLoading: boolean
+  reviewError: string | null
   onInputChange: (value: AnalyseRequest) => void
   onAnalyse: () => void
   onRunSnapshot: () => void
+  onRunReview: () => void
   onResultTabChange: (tab: ResultTab) => void
 }) {
   const { t } = useLocale()
@@ -1290,10 +1436,12 @@ function SingleAnalysisWorkspace({
       promptHints: [
         aiInsightText(result, t),
         `${t("analyse.kpi.purchaseFactor")}: ${formatX(result.kpf)}`,
+        ...(reviewResult?.final_verdict ? [`Investment review verdict: ${reviewResult.final_verdict}`] : []),
+        ...(reviewResult?.missing_inputs?.[0] ? [`Review flagged missing input: ${reviewResult.missing_inputs[0]}`] : []),
       ],
       mockMessages: [],
     }
-  }, [input, result, t])
+  }, [input, result, reviewResult, t])
 
   useEffect(() => {
     if (!result) return
@@ -1403,13 +1551,22 @@ function SingleAnalysisWorkspace({
                 </SectionShell>
 
                 {/* ② Investment Review */}
-                <SkillCardPlaceholder
-                  title="Investment Review"
-                  description="Full structured AI analysis of this property as an investment."
-                  featureDescription="Property facts, derived metrics, location analysis, deal economics, strengths, risks, sensitivity points and a final AI verdict."
-                  ctaLabel="Run Investment Review"
-                  badge="AI · Full analysis"
-                />
+                {reviewLoading ? (
+                  <ReviewStatusPanel loading onRetry={onRunReview} />
+                ) : reviewError ? (
+                  <ReviewStatusPanel error={reviewError} onRetry={onRunReview} />
+                ) : reviewResult ? (
+                  <ReviewResultPanel result={reviewResult} onRefresh={onRunReview} />
+                ) : (
+                  <SkillCardPlaceholder
+                    title="Investment Review"
+                    description="Full structured AI analysis of this property as an investment."
+                    featureDescription="Property summary, location analysis, deal economics, strengths, risks, missing inputs, sensitivity points and a final AI verdict."
+                    ctaLabel="Run Investment Review"
+                    badge="AI · Full analysis"
+                    onRun={onRunReview}
+                  />
+                )}
 
                 <SectionShell title={t("analyse.new.negotiation.title")} description={t("analyse.new.negotiation.description")}>
                   <div className="grid gap-2 md:grid-cols-2">
@@ -1665,6 +1822,25 @@ export default function AnalysePage() {
     dispatch({ type: "snapshotSuccess", result: response.data })
   }, [state.singleAnalysisResult, state.singleDraftInput])
 
+  const handleRunReview = useCallback(async () => {
+    if (!state.singleAnalysisResult) {
+      dispatch({ type: "reviewError", error: "Run the property analysis first to generate an investment review." })
+      return
+    }
+
+    dispatch({ type: "reviewStart" })
+
+    const property = buildPropertyMetricsInput(state.singleDraftInput, state.singleAnalysisResult)
+    const response = await runInvestmentReview(property)
+
+    if (response.error || !response.data) {
+      dispatch({ type: "reviewError", error: response.error ?? "Unable to generate investment review." })
+      return
+    }
+
+    dispatch({ type: "reviewSuccess", result: response.data })
+  }, [state.singleAnalysisResult, state.singleDraftInput])
+
   const updateCompareInput = useCallback((property: ComparePropertyKey, value: AnalyseRequest) => {
     dispatch({ type: "setCompareDraftInput", property, input: value })
   }, [])
@@ -1746,9 +1922,13 @@ export default function AnalysePage() {
             snapshotResult={state.snapshotResult}
             snapshotLoading={state.snapshotLoading}
             snapshotError={state.snapshotError}
+            reviewResult={state.reviewResult}
+            reviewLoading={state.reviewLoading}
+            reviewError={state.reviewError}
             onInputChange={(input) => dispatch({ type: "setSingleDraftInput", input })}
             onAnalyse={handleSingleAnalyse}
             onRunSnapshot={handleRunSnapshot}
+            onRunReview={handleRunReview}
             onResultTabChange={(tab) => dispatch({ type: "setSingleResultTab", tab })}
           />
         ) : (
