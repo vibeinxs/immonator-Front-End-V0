@@ -2,7 +2,7 @@
 
 import { type ReactNode, useCallback, useEffect, useMemo, useReducer, useRef } from "react"
 import { useSearchParams } from "next/navigation"
-import { Loader2, RotateCcw } from "lucide-react"
+import { AlertCircle, Loader2, RotateCcw } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AnalysisInputPanel } from "@/features/analysis/AnalysisInputPanel"
 import { KpiGrid } from "@/features/analysis/KpiGrid"
@@ -16,13 +16,14 @@ import { LandShareBlock } from "@/components/analysis/LandShareBlock"
 import { SkillCardPlaceholder } from "@/components/analysis/SkillCardPlaceholder"
 import { FlagsSection } from "@/features/analysis/FlagsSection"
 import { analyseProperty } from "@/lib/analyseApi"
-import { buildAnalysisChatContextId, buildAnalysisContextPayload, getAiAnalysisLines } from "@/lib/analysisAi"
+import { buildAnalysisChatContextId, buildAnalysisContextPayload, buildPropertyMetricsInput, getAiAnalysisLines } from "@/lib/analysisAi"
 import { formatEUR, formatPct, formatX } from "@/lib/format"
 import { getEntryById } from "@/lib/manualPortfolio"
 import { runLocalCompute } from "@/lib/localComputeBridge"
 import { useAnalysisStore } from "@/store/analysisStore"
 import { AnalysisChat } from "@/components/chat/AnalysisChat"
 import { useLocale } from "@/lib/i18n/locale-context"
+import { runPropertySnapshot } from "@/lib/skillsApi"
 import type { AnalyseRequest, AnalyseResponse } from "@/types/api"
 import type { SnapshotResult, ReviewResult, StrategyResult } from "@/types/skills"
 import type {
@@ -238,6 +239,8 @@ function analysePageReducer(state: AnalysePageState, action: AnalysePageAction):
       return {
         ...state,
         singleDraftInput: action.input,
+        snapshotResult: null,
+        snapshotError: null,
       }
     case "setSingleResultTab":
       return {
@@ -277,6 +280,8 @@ function analysePageReducer(state: AnalysePageState, action: AnalysePageAction):
         singleAnalysisResult: action.result,
         singleResultTab: "overview",
         singleError: null,
+        snapshotResult: null,
+        snapshotError: null,
         compareDraftInputs: {
           ...state.compareDraftInputs,
           propertyA: action.input,
@@ -502,6 +507,163 @@ function MetricMiniCard({ label, value }: { label: string; value: string }) {
       <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{label}</p>
       <p className="mt-1 font-mono text-lg font-semibold text-text-primary">{value}</p>
     </div>
+  )
+}
+
+function SnapshotBulletList({
+  title,
+  items,
+  tone,
+}: {
+  title: string
+  items: string[]
+  tone: "success" | "danger"
+}) {
+  const accentClass = tone === "success" ? "bg-success/10 text-success" : "bg-danger/10 text-danger"
+
+  return (
+    <div className="rounded-xl border border-border-default bg-bg-base p-4">
+      <div className="flex items-center gap-2">
+        <span className={`rounded-full px-2 py-1 text-[11px] font-semibold uppercase tracking-wide ${accentClass}`}>
+          {title}
+        </span>
+      </div>
+      <ul className="mt-3 space-y-2 text-sm text-text-secondary">
+        {items.map((item, index) => (
+          <li key={`${title}-${index}`} className="flex gap-2">
+            <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-70" aria-hidden />
+            <span>{item}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function SnapshotEmptyState({
+  title,
+  message,
+}: {
+  title: string
+  message: string
+}) {
+  return (
+    <div className="rounded-xl border border-dashed border-border-default bg-bg-base p-4">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{title}</p>
+      <p className="mt-2 text-sm text-text-secondary">{message}</p>
+    </div>
+  )
+}
+
+function SnapshotResultPanel({
+  result,
+  onRefresh,
+}: {
+  result: SnapshotResult
+  onRefresh: () => void
+}) {
+  const summary = result.summary ?? result.one_line_summary
+  const strengths = result.strengths
+  const risks = result.risks
+  const metrics = [
+    { label: "Verdict", value: result.verdict || "—" },
+    { label: "Location Rating", value: result.location_rating || "—" },
+    ...(result.grade ? [{ label: "Grade", value: result.grade }] : []),
+  ]
+
+  return (
+    <SectionShell
+      title="Intelligent Property Snapshot"
+      description="Compact AI readout generated from the current property metrics and analysis data."
+    >
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="inline-flex items-center gap-2 rounded-full border border-success/20 bg-success/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-success">
+            Snapshot ready
+          </div>
+          <button
+            type="button"
+            onClick={onRefresh}
+            className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-bg-base px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Refresh Snapshot
+          </button>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-[minmax(0,1.3fr)_minmax(220px,0.7fr)]">
+          <div className="rounded-2xl border border-brand/15 bg-gradient-to-br from-brand/10 via-bg-base to-bg-surface p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Summary</p>
+            <p className="mt-2 text-sm leading-relaxed text-text-secondary">
+              {summary?.trim() || "Snapshot generated, but no summary text was returned."}
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-1 xl:grid-cols-2">
+            {metrics.map((metric) => (
+              <MetricMiniCard key={metric.label} label={metric.label} value={metric.value} />
+            ))}
+          </div>
+        </div>
+
+        <div className="grid gap-4 xl:grid-cols-2">
+          {strengths.length > 0 ? (
+            <SnapshotBulletList title="Strengths" items={strengths} tone="success" />
+          ) : (
+            <SnapshotEmptyState title="Strengths" message="No strengths were returned for this snapshot." />
+          )}
+          {risks.length > 0 ? (
+            <SnapshotBulletList title="Risks" items={risks} tone="danger" />
+          ) : (
+            <SnapshotEmptyState title="Risks" message="No risks were returned for this snapshot." />
+          )}
+        </div>
+      </div>
+    </SectionShell>
+  )
+}
+
+function SnapshotStatusPanel({
+  loading,
+  error,
+  onRetry,
+}: {
+  loading?: boolean
+  error?: string | null
+  onRetry: () => void
+}) {
+  if (loading) {
+    return (
+      <SectionShell title="Intelligent Property Snapshot" description="Compact AI readout generated from the current property metrics and analysis data.">
+        <div className="flex items-center gap-3 rounded-xl border border-border-default bg-bg-base px-4 py-4 text-sm text-text-secondary">
+          <Loader2 className="h-4 w-4 animate-spin text-brand" />
+          Generating property snapshot…
+        </div>
+      </SectionShell>
+    )
+  }
+
+  return (
+    <SectionShell title="Intelligent Property Snapshot" description="Compact AI readout generated from the current property metrics and analysis data.">
+      <div className="space-y-4">
+        <div className="flex items-start gap-3 rounded-xl border border-danger/30 bg-danger/10 px-4 py-4 text-sm text-danger">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          <div>
+            <p className="font-medium">Snapshot could not be generated.</p>
+            <p className="mt-1 text-danger/90">{error}</p>
+          </div>
+        </div>
+        <div>
+          <button
+            type="button"
+            onClick={onRetry}
+            className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-bg-base px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Try Again
+          </button>
+        </div>
+      </div>
+    </SectionShell>
   )
 }
 
@@ -1055,8 +1217,12 @@ function SingleAnalysisWorkspace({
   loading,
   error,
   resultTab,
+  snapshotResult,
+  snapshotLoading,
+  snapshotError,
   onInputChange,
   onAnalyse,
+  onRunSnapshot,
   onResultTabChange,
 }: {
   input: AnalyseRequest
@@ -1064,8 +1230,12 @@ function SingleAnalysisWorkspace({
   loading: boolean
   error: string | null
   resultTab: ResultTab
+  snapshotResult: SnapshotResult | null
+  snapshotLoading: boolean
+  snapshotError: string | null
   onInputChange: (value: AnalyseRequest) => void
   onAnalyse: () => void
+  onRunSnapshot: () => void
   onResultTabChange: (tab: ResultTab) => void
 }) {
   const { t } = useLocale()
@@ -1165,13 +1335,22 @@ function SingleAnalysisWorkspace({
             ) : (
               <div className="space-y-4">
                 {/* ① Intelligent Property Snapshot */}
-                <SkillCardPlaceholder
-                  title="Intelligent Property Snapshot"
-                  description="Quick AI-powered first impression of the deal."
-                  featureDescription="Grade, verdict, location rating, top 2 strengths and top 2 risks — generated from your analysis results in seconds."
-                  ctaLabel="Run Snapshot"
-                  badge="AI · Compact"
-                />
+                {snapshotLoading ? (
+                  <SnapshotStatusPanel loading onRetry={onRunSnapshot} />
+                ) : snapshotError ? (
+                  <SnapshotStatusPanel error={snapshotError} onRetry={onRunSnapshot} />
+                ) : snapshotResult ? (
+                  <SnapshotResultPanel result={snapshotResult} onRefresh={onRunSnapshot} />
+                ) : (
+                  <SkillCardPlaceholder
+                    title="Intelligent Property Snapshot"
+                    description="Quick AI-powered first impression of the deal."
+                    featureDescription="Grade, verdict, location rating, top strengths and top risks — generated from your current property metrics in seconds."
+                    ctaLabel="Run Snapshot"
+                    badge="AI · Compact"
+                    onRun={onRunSnapshot}
+                  />
+                )}
 
                 <SectionShell title={t("analyse.new.analysis.title")} description={t("analyse.new.analysis.description")}>
                   <Tabs value={resultTab} onValueChange={(value) => onResultTabChange(value as ResultTab)}>
@@ -1467,6 +1646,25 @@ export default function AnalysePage() {
     }
   }, [analyseOne, state.singleDraftInput, t])
 
+  const handleRunSnapshot = useCallback(async () => {
+    if (!state.singleAnalysisResult) {
+      dispatch({ type: "snapshotError", error: "Run the property analysis first to generate a snapshot." })
+      return
+    }
+
+    dispatch({ type: "snapshotStart" })
+
+    const property = buildPropertyMetricsInput(state.singleDraftInput, state.singleAnalysisResult)
+    const response = await runPropertySnapshot(property)
+
+    if (response.error || !response.data) {
+      dispatch({ type: "snapshotError", error: response.error ?? "Unable to generate property snapshot." })
+      return
+    }
+
+    dispatch({ type: "snapshotSuccess", result: response.data })
+  }, [state.singleAnalysisResult, state.singleDraftInput])
+
   const updateCompareInput = useCallback((property: ComparePropertyKey, value: AnalyseRequest) => {
     dispatch({ type: "setCompareDraftInput", property, input: value })
   }, [])
@@ -1545,8 +1743,12 @@ export default function AnalysePage() {
             loading={state.singleLoading}
             error={state.singleError}
             resultTab={state.singleResultTab}
+            snapshotResult={state.snapshotResult}
+            snapshotLoading={state.snapshotLoading}
+            snapshotError={state.snapshotError}
             onInputChange={(input) => dispatch({ type: "setSingleDraftInput", input })}
             onAnalyse={handleSingleAnalyse}
+            onRunSnapshot={handleRunSnapshot}
             onResultTabChange={(tab) => dispatch({ type: "setSingleResultTab", tab })}
           />
         ) : (

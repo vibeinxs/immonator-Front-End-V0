@@ -17,7 +17,9 @@ export interface SnapshotResult {
   strengths: string[]
   /** Top 2 property risks */
   risks: string[]
-  /** One-line deal summary */
+  /** Compact deal summary */
+  summary?: string | null
+  /** One-line deal summary (legacy alias) */
   one_line_summary?: string | null
   /** Full AI markdown output (fallback renderer) */
   raw?: string
