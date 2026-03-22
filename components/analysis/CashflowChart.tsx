@@ -10,6 +10,7 @@ import {
   Tooltip,
   Cell,
   ResponsiveContainer,
+  ReferenceLine,
 } from "recharts"
 import { EUR } from "@/lib/utils"
 
@@ -31,7 +32,6 @@ function pickCashflow(row: YearData): number {
   const monthly = row.cashflow_monthly ?? null
   if (monthly !== null) return monthly
   if (row.cashflow_after_tax !== undefined) {
-    // If magnitude > 5000 it's probably annual
     return Math.abs(row.cashflow_after_tax) > 5000
       ? row.cashflow_after_tax / 12
       : row.cashflow_after_tax
@@ -59,6 +59,12 @@ function buildChartData(yearData: YearData[]): ChartRow[] {
   })
 }
 
+function formatEurK(v: number): string {
+  if (Math.abs(v) >= 1000) return `${EUR}${(v / 1000).toFixed(1)}k`
+  return `${EUR}${Math.round(v)}`
+}
+
+// ── Custom bar shape with value label inside ──────────────────────────────────
 interface CustomBarProps {
   x?: number
   y?: number
@@ -67,30 +73,54 @@ interface CustomBarProps {
   value?: number
 }
 
-function CustomBar(props: CustomBarProps) {
-  const { x = 0, y = 0, width = 0, height = 0, value = 0 } = props
+function CustomBar({ x = 0, y = 0, width = 0, height = 0, value = 0 }: CustomBarProps) {
   const positive = value >= 0
   const fill = positive ? "var(--success)" : "var(--danger)"
-  const opacity = positive ? 0.85 : 0.7
+  const absH = Math.abs(height)
+
+  // Show label inside bar only if bar is tall enough to hold the text
+  const showLabel = absH > 32
+  // For negative bars: anchor at 14px above the bar tip (furthest point from zero)
+  // For positive bars: anchor at 14px above the bar base (closest to x-axis)
+  const labelY = positive ? y + absH - 14 : y + 14
+
+  // Short format: just the sign + number (no € glyph, avoids font glyph issues)
+  const shortLabel = (() => {
+    const abs = Math.abs(value)
+    const formatted = abs >= 1000 ? `${(abs / 1000).toFixed(1)}k` : String(Math.round(abs))
+    return positive ? `+${formatted}` : `-${formatted}`
+  })()
+
   return (
-    <rect
-      x={x}
-      y={y}
-      width={width}
-      height={Math.abs(height)}
-      fill={fill}
-      fillOpacity={opacity}
-      rx={4}
-    />
+    <g>
+      <rect
+        x={x}
+        y={y}
+        width={width}
+        height={absH}
+        fill={fill}
+        fillOpacity={positive ? 0.9 : 0.88}
+        rx={5}
+      />
+      {showLabel && (
+        <text
+          x={x + width / 2}
+          y={labelY}
+          textAnchor="middle"
+          dominantBaseline="middle"
+          fill="rgba(255,255,255,0.95)"
+          fontSize={10}
+          fontWeight="700"
+          fontFamily="monospace"
+        >
+          {shortLabel}
+        </text>
+      )}
+    </g>
   )
 }
 
-function formatEurK(v: number): string {
-  if (Math.abs(v) >= 1000)
-    return `${EUR}${(v / 1000).toFixed(1)}k`
-  return `${EUR}${Math.round(v)}`
-}
-
+// ── Tooltip ───────────────────────────────────────────────────────────────────
 interface TooltipPayload {
   value?: number
 }
@@ -119,15 +149,17 @@ function CustomTooltip({
   )
 }
 
+// ── Main chart ─────────────────────────────────────────────────────────────────
 interface CashflowChartProps {
   yearData: YearData[]
 }
 
 export function CashflowChart({ yearData }: CashflowChartProps) {
   const { t } = useLocale()
+
   if (!yearData || yearData.length === 0) {
     return (
-      <div className="flex h-44 items-center justify-center text-sm text-text-muted">
+      <div className="flex h-52 items-center justify-center text-sm text-text-muted">
         {t("analyse.results.noYearData")}
       </div>
     )
@@ -138,7 +170,7 @@ export function CashflowChart({ yearData }: CashflowChartProps) {
 
   if (allZero) {
     return (
-      <div className="flex h-44 items-center justify-center text-sm text-text-muted">
+      <div className="flex h-52 items-center justify-center text-sm text-text-muted">
         {t("analyse.results.noCashflowData")}
       </div>
     )
@@ -148,43 +180,54 @@ export function CashflowChart({ yearData }: CashflowChartProps) {
   const minVal = Math.min(...values, 0)
   const maxVal = Math.max(...values, 0)
 
+  // When all values are negative: maxVal = 0.
+  // Add headroom above the zero line so the €0 label and reference line are clearly visible.
+  // When there are positive values: standard 20% padding above the highest bar.
+  const domainTop = maxVal === 0 ? Math.abs(minVal) * 0.15 : maxVal * 1.2
+  // Add 20% padding below the most negative value.
+  const domainBottom = minVal === 0 ? 0 : minVal * 1.2
+
   return (
-    <div className="h-44 w-full">
+    <div className="h-52 w-full">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
           data={data}
-          margin={{ top: 4, right: 4, left: 4, bottom: 0 }}
+          margin={{ top: 8, right: 4, left: 4, bottom: 4 }}
           barCategoryGap="30%"
         >
+          {/* Horizontal dashed grid lines — reduced opacity so they don't show through bars */}
           <CartesianGrid
             vertical={false}
             strokeDasharray="3 3"
-            stroke="var(--color-border)"
+            stroke="var(--color-border-default, #E2E9F0)"
+            strokeOpacity={0.6}
           />
+
           <XAxis
             dataKey="label"
             axisLine={false}
             tickLine={false}
-            tick={{ fontSize: 11, fill: "var(--text-muted)" }}
+            tick={{ fontSize: 11, fill: "var(--color-text-muted, #8296A8)" }}
           />
           <YAxis
             axisLine={false}
             tickLine={false}
-            tick={{ fontSize: 10, fill: "var(--text-muted)" }}
+            tick={{ fontSize: 10, fill: "var(--color-text-muted, #8296A8)" }}
             tickFormatter={formatEurK}
-            domain={[minVal * 1.15, maxVal * 1.15]}
+            domain={[domainBottom, domainTop]}
             width={52}
           />
+
           <Tooltip content={<CustomTooltip />} cursor={false} />
-          {/* Zero reference line */}
-          {minVal < 0 && (
-            <CartesianGrid
-              horizontal={false}
-              strokeDasharray="0"
-              stroke="var(--color-border)"
-            />
-          )}
-          <Bar dataKey="value" shape={<CustomBar />} maxBarSize={48}>
+
+          {/* Zero reference line — solid, slightly darker than the grid */}
+          <ReferenceLine
+            y={0}
+            stroke="var(--color-border-default, #CBD5E1)"
+            strokeWidth={1.5}
+          />
+
+          <Bar dataKey="value" shape={<CustomBar />} maxBarSize={52}>
             {data.map((entry, i) => (
               <Cell
                 key={i}

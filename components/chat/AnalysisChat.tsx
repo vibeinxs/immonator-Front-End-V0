@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useRef, useCallback } from "react"
-import { ChevronDown, ArrowRight } from "lucide-react"
+import { ChevronDown, Brain, Send } from "lucide-react"
 import { immoApi } from "@/lib/immonatorApi"
 import type { AnalysisContextPayload, ChatRequest, ConversationMessage } from "@/types/api"
 import { copy } from "@/lib/copy"
@@ -11,6 +11,103 @@ type ChatMessage = Pick<ConversationMessage, "role" | "message">
 
 const SUGGESTION_CHIPS = copy.chat.suggestions
 
+// ── AI avatar ─────────────────────────────────────────────────────────────────
+function AiAvatar({ size = 24 }: { size?: number }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: size,
+        height: size,
+        borderRadius: size * 0.35,
+        background: "linear-gradient(135deg, #3B7BF5 0%, #5A9FFF 100%)",
+        flexShrink: 0,
+      }}
+    >
+      <Brain style={{ width: size * 0.55, height: size * 0.55, color: "white" }} />
+    </div>
+  )
+}
+
+// ── Typing dots ───────────────────────────────────────────────────────────────
+function TypingIndicator() {
+  return (
+    <div className="flex items-end gap-2">
+      <AiAvatar size={24} />
+      <div
+        className="flex gap-1 rounded-2xl rounded-bl-sm border border-border-default bg-bg-surface px-4 py-3"
+        style={{ marginTop: "2px" }}
+      >
+        {[0, 1, 2].map((i) => (
+          <div
+            key={i}
+            className="h-1.5 w-1.5 rounded-full bg-brand/50"
+            style={{ animation: `pulse 1.2s ease-in-out ${i * 0.2}s infinite` }}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ── Empty state ───────────────────────────────────────────────────────────────
+function EmptyState({
+  allChips,
+  onChipClick,
+  streaming,
+}: {
+  allChips: string[]
+  onChipClick: (chip: string) => void
+  streaming: boolean
+}) {
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Welcome card */}
+      <div
+        className="flex items-start gap-3 rounded-2xl rounded-bl-sm p-4"
+        style={{
+          background:
+            "linear-gradient(135deg, rgba(59,123,245,0.07) 0%, rgba(59,123,245,0.03) 100%)",
+          border: "1px solid rgba(59,123,245,0.14)",
+        }}
+      >
+        <AiAvatar size={32} />
+        <div>
+          <p className="text-sm font-semibold text-text-primary">How can I help?</p>
+          <p className="mt-1 text-xs leading-relaxed text-text-secondary">
+            I have full context on this property — financials, yield projections, risks, and
+            market position. Ask me anything.
+          </p>
+        </div>
+      </div>
+
+      {/* Quick-start chips */}
+      {allChips.length > 0 && (
+        <div>
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.07em] text-text-muted">
+            Quick questions
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {allChips.map((chip) => (
+              <button
+                key={chip}
+                onClick={() => onChipClick(chip)}
+                disabled={streaming}
+                className="rounded-full border border-border-default bg-bg-surface px-3.5 py-1.5 text-xs text-text-secondary transition-all hover:border-brand hover:bg-brand/5 hover:text-brand disabled:opacity-50"
+              >
+                {chip}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
 export function AnalysisChat({
   contextType,
   contextId,
@@ -23,25 +120,28 @@ export function AnalysisChat({
   /**
    * Required when contextType is "analysis_single" or "analysis_compare".
    * Forwarded as analysis_context on every chat turn so the backend AI agent
-   * has the current property snapshot. Must not be persisted between renders.
+   * has the current property snapshot.
    */
   analysisContext?: AnalysisContextPayload
   title: string
   promptHints?: string[]
 }) {
   const { toast } = useToast()
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(true) // Start open so users discover the chat
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState("")
   const [streaming, setStreaming] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
   const readerRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null)
   const abortedRef = useRef(false)
 
-  // Load history for the active context without blocking initial render.
+  // Merge analysis-specific hints + generic suggestions for the empty state
+  const allChips = [...promptHints, ...SUGGESTION_CHIPS]
+
+  // Load history for the active context
   useEffect(() => {
     let cancelled = false
-
     setMessages([])
     immoApi
       .getChatHistory(contextType, contextId)
@@ -50,7 +150,6 @@ export function AnalysisChat({
           setMessages(data.messages)
           return
         }
-
         if (!cancelled && error) {
           toast({ title: copy.chat.errorGeneric, variant: "destructive" })
         }
@@ -60,13 +159,12 @@ export function AnalysisChat({
           toast({ title: copy.chat.errorNetwork, variant: "destructive" })
         }
       })
-
     return () => {
       cancelled = true
     }
   }, [contextType, contextId, toast])
 
-  // Cancel any in-flight stream on unmount
+  // Cancel in-flight stream on unmount
   useEffect(() => {
     abortedRef.current = false
     return () => {
@@ -75,17 +173,14 @@ export function AnalysisChat({
     }
   }, [])
 
-  // Auto-scroll to bottom whenever messages update
+  // Auto-scroll to bottom on new messages
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
   }, [messages])
 
-  const popLastMessage = useCallback(
-    () => setMessages((prev) => prev.slice(0, -1)),
-    []
-  )
+  const popLastMessage = useCallback(() => setMessages((prev) => prev.slice(0, -1)), [])
 
   const send = useCallback(
     async (text: string) => {
@@ -101,7 +196,6 @@ export function AnalysisChat({
           message: text.trim(),
           context_type: contextType,
           context_id: contextId,
-          // Required by backend for analysis context types — sent on every turn
           ...(analysisContext !== undefined ? { analysis_context: analysisContext } : {}),
         }
 
@@ -165,120 +259,142 @@ export function AnalysisChat({
       if (!abortedRef.current) setStreaming(false)
       readerRef.current = null
     },
-    [streaming, contextType, contextId, analysisContext, toast, popLastMessage]
+    [streaming, contextType, contextId, analysisContext, toast, popLastMessage],
   )
 
+  const handleSendInput = useCallback(() => send(input), [send, input])
+
+  const isEmpty = messages.length === 0
+  const isTyping =
+    streaming && messages.length > 0 && messages[messages.length - 1].message === ""
+
   return (
-    <div className="rounded-xl border border-border bg-white">
-      {/* Header — click to toggle */}
+    <div
+      className="overflow-hidden rounded-xl border border-border-default bg-bg-surface"
+      style={{ boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}
+    >
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between rounded-t-xl border-b border-border bg-white p-4 transition-colors hover:bg-bg-hover"
+        className="flex w-full items-center justify-between px-4 py-3.5 transition-colors hover:bg-bg-base"
       >
-        <span className="text-sm font-semibold text-text-primary">
-          {copy.chat.headerPrefix} {title}
-        </span>
-        <ChevronDown
-          className={`h-4 w-4 text-text-muted transition-transform duration-200 ${open ? "rotate-180" : ""}`}
-        />
+        <div className="flex items-center gap-3">
+          <AiAvatar size={30} />
+          <div className="text-left">
+            <p className="text-sm font-semibold text-text-primary">AI Property Advisor</p>
+            <p className="text-[11px] text-text-muted capitalize">{title}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {streaming && (
+            <span
+              className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+              style={{
+                background: "rgba(59,123,245,0.10)",
+                color: "#3B7BF5",
+              }}
+            >
+              <span
+                className="h-1.5 w-1.5 rounded-full bg-brand"
+                style={{ animation: "pulse 1s ease-in-out infinite" }}
+              />
+              Thinking…
+            </span>
+          )}
+          <ChevronDown
+            className={`h-4 w-4 text-text-muted transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+          />
+        </div>
       </button>
 
-      {/* Expanded panel */}
+      {/* ── Expanded body ──────────────────────────────────────────────────── */}
       {open && (
-        <div>
-          {promptHints.length > 0 ? (
-            <div className="flex flex-wrap gap-2 border-b border-border bg-white px-4 py-3">
-              {promptHints.map((hint) => (
-                <span
-                  key={hint}
-                  className="rounded-full border border-border bg-bg-elevated px-3.5 py-1.5 text-xs text-text-secondary"
-                >
-                  {hint}
-                </span>
-              ))}
-            </div>
-          ) : null}
-          {/* Message area */}
+        <div className="border-t border-border-default">
+          {/* Message / empty-state area */}
           <div
             ref={scrollRef}
-            className="max-h-96 space-y-3 overflow-y-auto bg-bg-base/50 p-4"
+            className="max-h-80 overflow-y-auto p-4"
+            style={{ background: "var(--color-bg-base, #F8FAFC)" }}
           >
-            {messages.map((msg, i) => (
-              <div
-                key={i}
-                className={`flex animate-fade-up ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-                style={{ animationDelay: "0ms" }}
-              >
-                <div
-                  className={
-                    msg.role === "user"
-                      ? "max-w-[75%] rounded-2xl rounded-br-sm bg-brand px-4 py-2.5 text-sm text-white"
-                      : "max-w-[82%] rounded-2xl rounded-bl-sm border border-border bg-white px-4 py-2.5 text-sm text-text-primary"
-                  }
-                >
-                  <p className="whitespace-pre-wrap">{msg.message}</p>
-                  {msg.role === "assistant" && msg.message && (
-                    <p className="mt-1 text-[11px] text-text-muted">{copy.analysis.aiLabel}</p>
-                  )}
-                </div>
-              </div>
-            ))}
+            {isEmpty ? (
+              <EmptyState
+                allChips={allChips}
+                onChipClick={send}
+                streaming={streaming}
+              />
+            ) : (
+              <div className="space-y-4">
+                {messages.map((msg, i) => (
+                  <div
+                    key={i}
+                    className={`flex items-end gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                  >
+                    {/* AI avatar — only for assistant messages */}
+                    {msg.role === "assistant" && msg.message && <AiAvatar size={22} />}
 
-            {/* Typing indicator — 3 animated dots while empty assistant message is streaming */}
-            {streaming &&
-              messages.length > 0 &&
-              messages[messages.length - 1].message === "" && (
-                <div className="flex justify-start">
-                  <div className="flex gap-1 rounded-2xl rounded-bl-sm border border-border bg-white px-4 py-3">
-                    {[0, 1, 2].map((i) => (
-                      <div
-                        key={i}
-                        className="h-1.5 w-1.5 animate-pulse rounded-full bg-text-muted"
-                        style={{ animationDelay: `${i * 200}ms` }}
-                      />
-                    ))}
+                    <div
+                      className={
+                        msg.role === "user"
+                          ? "max-w-[75%] rounded-2xl rounded-br-sm bg-brand px-4 py-2.5 text-sm text-white"
+                          : "max-w-[82%] rounded-2xl rounded-bl-sm border border-border-default bg-bg-surface px-4 py-2.5 text-sm text-text-primary"
+                      }
+                    >
+                      <p className="whitespace-pre-wrap leading-relaxed">{msg.message}</p>
+                      {msg.role === "assistant" && msg.message && (
+                        <p className="mt-1 text-[10px] text-text-muted/70">
+                          {copy.analysis.aiLabel}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
+                ))}
+
+                {/* Typing indicator */}
+                {isTyping && <TypingIndicator />}
+              </div>
+            )}
           </div>
 
-          {/* Suggestion chips — empty state only */}
-          {messages.length === 0 && (
-            <div className="flex flex-wrap gap-2 border-t border-border bg-white p-4">
-              {SUGGESTION_CHIPS.map((chip) => (
+          {/* Quick chips above input — shown when there are messages (for follow-ups) */}
+          {!isEmpty && promptHints.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 border-t border-border-default bg-bg-surface px-4 py-2.5">
+              {promptHints.slice(0, 4).map((hint) => (
                 <button
-                  key={chip}
-                  onClick={() => send(chip)}
-                  className="rounded-full border border-border bg-bg-elevated px-3.5 py-1.5 text-xs text-text-secondary transition-colors hover:border-border-strong"
+                  key={hint}
+                  onClick={() => send(hint)}
+                  disabled={streaming}
+                  className="rounded-full border border-border-default bg-bg-base px-3 py-1 text-[11px] text-text-muted transition-colors hover:border-brand hover:text-brand disabled:opacity-50"
                 >
-                  {chip}
+                  {hint}
                 </button>
               ))}
             </div>
           )}
 
           {/* Input row */}
-          <div className="flex gap-2 border-t border-border bg-white p-3">
+          <div className="flex items-center gap-2 border-t border-border-default bg-bg-surface p-3">
             <input
+              ref={inputRef}
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault()
-                  send(input)
+                  handleSendInput()
                 }
               }}
               disabled={streaming}
               placeholder={copy.chat.inputPlaceholder}
-              className="flex-1 rounded-xl border border-border bg-bg-elevated px-4 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10 disabled:opacity-50"
+              className="flex-1 rounded-xl border border-border-default bg-bg-base px-4 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/10 disabled:opacity-50"
             />
             <button
-              onClick={() => send(input)}
+              onClick={handleSendInput}
               disabled={streaming || !input.trim()}
-              className="rounded-xl bg-brand px-4 text-white transition-colors hover:bg-brand-hover disabled:opacity-50"
+              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-brand text-white transition-colors hover:bg-brand-hover disabled:opacity-40"
+              aria-label="Send message"
             >
-              <ArrowRight className="h-4 w-4" />
+              <Send className="h-4 w-4" />
             </button>
           </div>
         </div>

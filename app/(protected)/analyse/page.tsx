@@ -715,23 +715,13 @@ function compareRecommendationSummary(resultA: AnalyseResponse, resultB: Analyse
 
 function AskAiShell({ context }: { context: AskAiContextPayload }) {
   return (
-    <div className="space-y-3">
-      {context.contextId ? (
-        <div className="rounded-2xl border border-border-default bg-bg-base px-4 py-3 text-sm text-text-secondary">
-          <span className="font-medium text-text-primary">Analysis chat context ready.</span>{" "}
-          {context.mode === "compare"
-            ? "Messages will stay grouped to this comparison state while numeric analysis remains fully usable on its own."
-            : "Messages will stay grouped to this underwriting state while numeric analysis remains fully usable on its own."}
-        </div>
-      ) : null}
-      <AnalysisChat
-        contextType={context.mode === "compare" ? "analysis_compare" : "analysis_single"}
-        contextId={context.contextId}
-        analysisContext={buildAnalysisContextPayload(context)}
-        title={context.mode === "compare" ? "comparison" : "analysis"}
-        promptHints={context.promptHints}
-      />
-    </div>
+    <AnalysisChat
+      contextType={context.mode === "compare" ? "analysis_compare" : "analysis_single"}
+      contextId={context.contextId}
+      analysisContext={buildAnalysisContextPayload(context)}
+      title={context.mode === "compare" ? "comparison" : "analysis"}
+      promptHints={context.promptHints}
+    />
   )
 }
 
