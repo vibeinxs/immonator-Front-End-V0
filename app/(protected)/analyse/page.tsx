@@ -37,6 +37,11 @@ import type {
 const NEGOTIATION_SCORE_THRESHOLD = 6
 const NEGOTIATION_NEGATIVE_CASHFLOW_THRESHOLD = 0
 const NEGOTIATION_DYNAMIC_POINTS_LIMIT = 2
+const SENTENCE_TERMINATORS = [". ", "! ", "? "] as const
+const MIN_SENTENCE_BREAK_RATIO = 0.55
+const SNAPSHOT_SUMMARY_MAX_LENGTH = 190
+const SNAPSHOT_HIGHLIGHTS_COUNT = 2
+const STRATEGY_NEXT_MOVE_MAX_LENGTH = 260
 
 type CompareMetricTone = "higher" | "lower"
 type AnalysisMode = "single" | "compare"
@@ -530,8 +535,9 @@ function compactText(value: string | null | undefined, fallback: string, maxLeng
   if (normalized.length <= maxLength) return normalized
 
   const truncated = normalized.slice(0, maxLength).trim()
-  const lastSentenceBreak = Math.max(truncated.lastIndexOf(". "), truncated.lastIndexOf("! "), truncated.lastIndexOf("? "))
-  if (lastSentenceBreak >= Math.floor(maxLength * 0.55)) {
+  const lastSentenceBreak = Math.max(...SENTENCE_TERMINATORS.map((terminator) => truncated.lastIndexOf(terminator)))
+
+  if (lastSentenceBreak >= Math.floor(maxLength * MIN_SENTENCE_BREAK_RATIO)) {
     return `${truncated.slice(0, lastSentenceBreak + 1).trim()}…`
   }
 
@@ -567,8 +573,8 @@ function SnapshotBulletList({
         </span>
       </div>
       <ul className="mt-3 space-y-2 text-sm text-text-secondary">
-        {items.map((item, index) => (
-          <li key={`${title}-${index}`} className="flex gap-2">
+        {items.map((item) => (
+          <li key={`${title}-${item}`} className="flex gap-2">
             <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-70" aria-hidden />
             <span>{item}</span>
           </li>
@@ -603,10 +609,10 @@ function SnapshotResultPanel({
   const summary = compactText(
     result.summary ?? result.one_line_summary,
     "Snapshot generated, but no summary text was returned.",
-    190,
+    SNAPSHOT_SUMMARY_MAX_LENGTH,
   )
-  const strengths = result.strengths.slice(0, 2)
-  const risks = result.risks.slice(0, 2)
+  const strengths = result.strengths.slice(0, SNAPSHOT_HIGHLIGHTS_COUNT)
+  const risks = result.risks.slice(0, SNAPSHOT_HIGHLIGHTS_COUNT)
   const metrics = [
     { label: "Verdict", value: result.verdict || "—" },
     { label: "Location Rating", value: result.location_rating || "—" },
@@ -727,8 +733,8 @@ function ReviewNarrativeBlock({
         <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{title}</p>
       </div>
       <div className="mt-3 space-y-3 text-sm leading-relaxed text-text-secondary">
-        {paragraphs.map((paragraph, paragraphIndex) => (
-          <p key={`${title}-${paragraphIndex}`}>{paragraph}</p>
+        {paragraphs.map((paragraph) => (
+          <p key={`${title}-${paragraph}`}>{paragraph}</p>
         ))}
       </div>
     </div>
@@ -791,8 +797,8 @@ function ReviewResultPanel({
               <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">AI Verdict</p>
             </div>
             <div className="mt-3 space-y-3 text-sm leading-relaxed text-text-secondary">
-              {narrativeParagraphs(result.final_verdict, "No final verdict was returned for this review.").map((paragraph, paragraphIndex) => (
-                <p key={`final-verdict-${paragraphIndex}`}>{paragraph}</p>
+              {narrativeParagraphs(result.final_verdict, "No final verdict was returned for this review.").map((paragraph) => (
+                <p key={`final-verdict-${paragraph}`}>{paragraph}</p>
               ))}
             </div>
           </div>
@@ -938,7 +944,7 @@ function StrategyResultPanel({
               {compactText(
                 result.recommended_next_move,
                 "No recommended next move was returned for this buying strategy.",
-                260,
+                STRATEGY_NEXT_MOVE_MAX_LENGTH,
               )}
             </p>
           </div>
