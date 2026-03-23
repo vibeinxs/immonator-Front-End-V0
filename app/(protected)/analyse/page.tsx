@@ -145,7 +145,9 @@ interface AnalysePageState {
   // ── Skill results ─────────────────────────────────────────────────────────
   snapshotResult: SnapshotResult | null
   reviewResult: ReviewResult | null
+  reviewRawResult: Record<string, unknown> | null
   strategyResult: StrategyResult | null
+  strategyRawResult: Record<string, unknown> | null
   // ── Skill loading states ──────────────────────────────────────────────────
   snapshotLoading: boolean
   reviewLoading: boolean
@@ -180,11 +182,11 @@ type AnalysePageAction =
   | { type: "snapshotError"; error: string }
   | { type: "snapshotReset" }
   | { type: "reviewStart" }
-  | { type: "reviewSuccess"; result: ReviewResult }
+  | { type: "reviewSuccess"; result: ReviewResult; rawResult: Record<string, unknown> }
   | { type: "reviewError"; error: string }
   | { type: "reviewReset" }
   | { type: "strategyStart" }
-  | { type: "strategySuccess"; result: StrategyResult }
+  | { type: "strategySuccess"; result: StrategyResult; rawResult: Record<string, unknown> }
   | { type: "strategyError"; error: string }
   | { type: "strategyReset" }
   | { type: "setAdvisorMode"; mode: "light" | "full" }
@@ -196,7 +198,9 @@ function createInitialAnalysePageState({
   storeResultB,
   storeSnapshotResult,
   storeReviewResult,
+  storeReviewRawResult,
   storeStrategyResult,
+  storeStrategyRawResult,
   storeAdvisorMode,
 }: {
   storeInputA: AnalyseRequest
@@ -205,7 +209,9 @@ function createInitialAnalysePageState({
   storeResultB: AnalyseResponse | null
   storeSnapshotResult: SnapshotResult | null
   storeReviewResult: ReviewResult | null
+  storeReviewRawResult: Record<string, unknown> | null
   storeStrategyResult: StrategyResult | null
+  storeStrategyRawResult: Record<string, unknown> | null
   storeAdvisorMode: "light" | "full"
 }): AnalysePageState {
   return {
@@ -231,7 +237,9 @@ function createInitialAnalysePageState({
     // Skill state defaults
     snapshotResult: storeSnapshotResult,
     reviewResult: storeReviewResult,
+    reviewRawResult: storeReviewRawResult,
     strategyResult: storeStrategyResult,
+    strategyRawResult: storeStrategyRawResult,
     snapshotLoading: false,
     reviewLoading: false,
     strategyLoading: false,
@@ -268,8 +276,10 @@ function analysePageReducer(state: AnalysePageState, action: AnalysePageAction):
         snapshotResult: null,
         snapshotError: null,
         reviewResult: null,
+        reviewRawResult: null,
         reviewError: null,
         strategyResult: null,
+        strategyRawResult: null,
         strategyError: null,
       }
     case "singleAnalyseSuccess":
@@ -295,8 +305,10 @@ function analysePageReducer(state: AnalysePageState, action: AnalysePageAction):
         snapshotResult: null,
         snapshotError: null,
         reviewResult: null,
+        reviewRawResult: null,
         reviewError: null,
         strategyResult: null,
+        strategyRawResult: null,
         strategyError: null,
         compareDraftInputs: {
           ...state.compareDraftInputs,
@@ -407,23 +419,24 @@ function analysePageReducer(state: AnalysePageState, action: AnalysePageAction):
         reviewLoading: true,
         reviewError: null,
         strategyResult: null,
+        strategyRawResult: null,
         strategyError: null,
       }
     case "reviewSuccess":
-      return { ...state, reviewLoading: false, reviewResult: action.result }
+      return { ...state, reviewLoading: false, reviewResult: action.result, reviewRawResult: action.rawResult }
     case "reviewError":
       return { ...state, reviewLoading: false, reviewError: action.error }
     case "reviewReset":
-      return { ...state, reviewResult: null, reviewError: null }
+      return { ...state, reviewResult: null, reviewRawResult: null, reviewError: null }
     // ── Buying Strategy ──────────────────────────────────────────────────────
     case "strategyStart":
       return { ...state, strategyLoading: true, strategyError: null }
     case "strategySuccess":
-      return { ...state, strategyLoading: false, strategyResult: action.result }
+      return { ...state, strategyLoading: false, strategyResult: action.result, strategyRawResult: action.rawResult }
     case "strategyError":
       return { ...state, strategyLoading: false, strategyError: action.error }
     case "strategyReset":
-      return { ...state, strategyResult: null, strategyError: null }
+      return { ...state, strategyResult: null, strategyRawResult: null, strategyError: null }
     // ── Advisor mode ─────────────────────────────────────────────────────────
     case "setAdvisorMode":
       return { ...state, advisorMode: action.mode }
@@ -1720,9 +1733,11 @@ function SingleAnalysisWorkspace({
   snapshotLoading,
   snapshotError,
   reviewResult,
+  reviewRawResult,
   reviewLoading,
   reviewError,
   strategyResult,
+  strategyRawResult,
   strategyLoading,
   strategyError,
   advisorMode,
@@ -1744,9 +1759,11 @@ function SingleAnalysisWorkspace({
   snapshotLoading: boolean
   snapshotError: string | null
   reviewResult: ReviewResult | null
+  reviewRawResult: Record<string, unknown> | null
   reviewLoading: boolean
   reviewError: string | null
   strategyResult: StrategyResult | null
+  strategyRawResult: Record<string, unknown> | null
   strategyLoading: boolean
   strategyError: string | null
   advisorMode: "light" | "full"
@@ -1827,10 +1844,10 @@ function SingleAnalysisWorkspace({
 
     return {
       property: buildPropertyMetricsInput(input, result),
-      analysis_result: reviewResult ? { ...reviewResult } : null,
-      strategy_result: strategyResult ? { ...strategyResult } : null,
+      analysis_result: reviewRawResult ? { ...reviewRawResult } : null,
+      strategy_result: strategyRawResult ? { ...strategyRawResult } : null,
     }
-  }, [input, result, reviewResult, strategyResult])
+  }, [input, result, reviewRawResult, strategyRawResult])
 
   const hasSnapshotContext = Boolean(snapshotResult)
   const hasReviewContext = Boolean(reviewResult)
@@ -2191,8 +2208,12 @@ export default function AnalysePage() {
     setSnapshotResult: setStoreSnapshotResult,
     reviewResult: storeReviewResult,
     setReviewResult: setStoreReviewResult,
+    reviewRawResult: storeReviewRawResult,
+    setReviewRawResult: setStoreReviewRawResult,
     strategyResult: storeStrategyResult,
     setStrategyResult: setStoreStrategyResult,
+    strategyRawResult: storeStrategyRawResult,
+    setStrategyRawResult: setStoreStrategyRawResult,
     advisorMode: storeAdvisorMode,
     setAdvisorMode: setStoreAdvisorMode,
   } = useAnalysisStore()
@@ -2205,7 +2226,9 @@ export default function AnalysePage() {
       storeResultB,
       storeSnapshotResult,
       storeReviewResult,
+      storeReviewRawResult,
       storeStrategyResult,
+      storeStrategyRawResult,
       storeAdvisorMode,
     },
     createInitialAnalysePageState,
@@ -2288,7 +2311,7 @@ export default function AnalysePage() {
       return
     }
 
-    dispatch({ type: "reviewSuccess", result: response.data })
+    dispatch({ type: "reviewSuccess", result: response.data.normalized, rawResult: response.data.raw })
   }, [state.singleAnalysisResult, state.singleDraftInput])
 
   const handleRunStrategy = useCallback(async () => {
@@ -2297,7 +2320,7 @@ export default function AnalysePage() {
       return
     }
 
-    if (!state.reviewResult) {
+    if (!state.reviewRawResult) {
       dispatch({ type: "strategyError", error: "Run Investment Review first. Buying Strategy Insight needs the latest full review result." })
       return
     }
@@ -2305,15 +2328,15 @@ export default function AnalysePage() {
     dispatch({ type: "strategyStart" })
 
     const property = buildPropertyMetricsInput(state.singleDraftInput, state.singleAnalysisResult)
-    const response = await runBuyingStrategy(property, state.reviewResult)
+    const response = await runBuyingStrategy(property, state.reviewRawResult)
 
     if (response.error || !response.data) {
       dispatch({ type: "strategyError", error: response.error ?? "Unable to generate buying strategy insight." })
       return
     }
 
-    dispatch({ type: "strategySuccess", result: response.data })
-  }, [state.reviewResult, state.singleAnalysisResult, state.singleDraftInput])
+    dispatch({ type: "strategySuccess", result: response.data.normalized, rawResult: response.data.raw })
+  }, [state.reviewRawResult, state.singleAnalysisResult, state.singleDraftInput])
 
   const updateCompareInput = useCallback((property: ComparePropertyKey, value: AnalyseRequest) => {
     dispatch({ type: "setCompareDraftInput", property, input: value })
@@ -2387,8 +2410,16 @@ export default function AnalysePage() {
   }, [state.reviewResult, setStoreReviewResult])
 
   useEffect(() => {
+    setStoreReviewRawResult(state.reviewRawResult)
+  }, [state.reviewRawResult, setStoreReviewRawResult])
+
+  useEffect(() => {
     setStoreStrategyResult(state.strategyResult)
   }, [state.strategyResult, setStoreStrategyResult])
+
+  useEffect(() => {
+    setStoreStrategyRawResult(state.strategyRawResult)
+  }, [state.strategyRawResult, setStoreStrategyRawResult])
 
   useEffect(() => {
     setStoreAdvisorMode(state.advisorMode)
@@ -2420,9 +2451,11 @@ export default function AnalysePage() {
             snapshotLoading={state.snapshotLoading}
             snapshotError={state.snapshotError}
             reviewResult={state.reviewResult}
+            reviewRawResult={state.reviewRawResult}
             reviewLoading={state.reviewLoading}
             reviewError={state.reviewError}
             strategyResult={state.strategyResult}
+            strategyRawResult={state.strategyRawResult}
             strategyLoading={state.strategyLoading}
             strategyError={state.strategyError}
             advisorMode={state.advisorMode}

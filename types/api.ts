@@ -400,9 +400,9 @@ export interface ChatRequest {
   mode?: "light" | "full"
   /** Compact property snapshot forwarded to the advisor. */
   property?: PropertyMetricsInput
-  /** Normalized analysis result forwarded to the advisor (not persisted). */
+  /** Raw backend investment review result forwarded to the advisor (not persisted). */
   analysis_result?: Record<string, unknown> | null
-  /** Normalized strategy result forwarded to the advisor (not persisted). */
+  /** Raw backend buying strategy result forwarded to the advisor (not persisted). */
   strategy_result?: Record<string, unknown> | null
   /** Inline conversation turns sent by the caller (oldest-first). */
   history?: PropertySkillHistoryMessage[]
@@ -530,4 +530,9 @@ export interface NegotiationBriefResponse {
 export interface ApiResult<T> {
   data: T | null
   error: string | null
+}
+
+export interface CanonicalSkillResult<T> {
+  normalized: T
+  raw: Record<string, unknown>
 }
