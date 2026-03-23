@@ -8,6 +8,7 @@ interface SkillCardPlaceholderProps {
   featureDescription: string
   ctaLabel: string
   badge?: string
+  actionTestId?: string
   // ── Optional live-state props (wired up when API is connected) ────────────
   /** True while the skill API call is in-flight */
   loading?: boolean
@@ -44,6 +45,7 @@ export function SkillCardPlaceholder({
   featureDescription,
   ctaLabel,
   badge,
+  actionTestId,
   loading = false,
   error,
   hasResult = false,
@@ -91,6 +93,7 @@ export function SkillCardPlaceholder({
           <button
             disabled={isDisabled}
             onClick={isInteractive && !loading ? onRun : undefined}
+            data-testid={actionTestId}
             className={[
               "shrink-0 rounded-lg border px-4 py-2 text-sm font-medium sm:self-start",
               "inline-flex items-center gap-2",
