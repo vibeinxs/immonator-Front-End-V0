@@ -222,13 +222,15 @@ export function AnalysisChat({
           context_type: contextType,
           context_id: contextId,
           ...(analysisContext !== undefined ? { analysis_context: analysisContext } : {}),
+          // Backend ChatRequest (PR #63) expects these at the top level — not
+          // inside a property_skill_context wrapper.
           ...(propertySkillContext
             ? {
-                property_skill_context: {
-                  ...propertySkillContext,
-                  mode: advisorMode,
-                  history: nextHistory,
-                },
+                property: propertySkillContext.property,
+                analysis_result: propertySkillContext.analysis_result ?? null,
+                strategy_result: propertySkillContext.strategy_result ?? null,
+                mode: advisorMode,
+                history: nextHistory,
               }
             : {}),
         }

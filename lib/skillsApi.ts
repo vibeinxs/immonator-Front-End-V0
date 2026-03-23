@@ -3,15 +3,10 @@ import type {
   ApiResult,
   ChatRequest,
   PropertyMetricsInput,
-  PropertySkillContextPayload,
 } from "@/types/api"
 import type { ReviewResult, SnapshotResult, StrategyResult } from "@/types/skills"
 
 export type AnalysisRunMode = "compact" | "full"
-
-export interface AdvisorChatPayload extends ChatRequest {
-  property_skill_context: PropertySkillContextPayload
-}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
@@ -66,6 +61,51 @@ function normalizeSnapshotResult(raw: unknown): SnapshotResult | null {
   }
 }
 
+// ── Investment Review helpers ─────────────────────────────────────────────────
+// The backend InvestmentReviewOutput schema (immonator/prompt_assets/investment-review)
+// returns structured objects for location_analysis, deal_economics, final_verdict, and
+// [{input, impact}] objects for missing_inputs.  Extract display text from each.
+
+function extractLocationAnalysis(value: unknown): string {
+  if (typeof value === "string") return value
+  if (!isRecord(value)) return ""
+  const rating = asString(value.overall_location_rating)
+  const rationale = asString(value.overall_location_rationale)
+  return rating && rationale ? `${rating}: ${rationale}` : rationale || rating
+}
+
+function extractDealEconomics(value: unknown): string {
+  if (typeof value === "string") return value
+  if (!isRecord(value)) return ""
+  // economic_summary is the top-level prose field in the new schema
+  return asString(value.economic_summary) || asString(value.derived_metrics)
+}
+
+function extractMissingInputs(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value
+    .map((item) => {
+      if (typeof item === "string") return item.trim()
+      if (isRecord(item)) {
+        const input = asString(item.input)
+        const impact = asString(item.impact)
+        return impact ? `${input}: ${impact}` : input
+      }
+      return ""
+    })
+    .filter((s) => s.length > 0)
+}
+
+function extractFinalVerdict(value: unknown): string {
+  if (typeof value === "string") return value
+  if (!isRecord(value)) return ""
+  const stance = asString(value.stance)
+  const primaryReason = asString(value.primary_reason)
+  const nextStep = asString(value.next_required_validation_step)
+  const headline = primaryReason && stance ? `${primaryReason} [${stance}]` : primaryReason || stance
+  return [headline, nextStep ? `Next step: ${nextStep}` : ""].filter(Boolean).join("\n\n")
+}
+
 function normalizeReviewResult(raw: unknown): ReviewResult | null {
   const candidate = pickResultPayload(raw)
   if (!candidate) return null
@@ -74,13 +114,30 @@ function normalizeReviewResult(raw: unknown): ReviewResult | null {
     asString(candidate.property_summary) ||
     asString(candidate.property_facts) ||
     asString(candidate.summary)
-  const locationAnalysis = asString(candidate.location_analysis)
-  const dealEconomics = asString(candidate.deal_economics) || asString(candidate.derived_metrics)
+
+  // location_analysis: new schema → object; old schema → string
+  const locationAnalysis = extractLocationAnalysis(candidate.location_analysis)
+
+  // deal_economics: new schema → object; old schema → string
+  const dealEconomics =
+    extractDealEconomics(candidate.deal_economics) ||
+    asString(candidate.derived_metrics)
+
   const strengths = asStringArray(candidate.strengths)
   const risks = asStringArray(candidate.risks)
-  const missingInputs = asStringArray(candidate.missing_inputs)
+
+  // missing_inputs: new schema → [{input, impact}]; old schema → string[]
+  const missingInputs = extractMissingInputs(candidate.missing_inputs)
+    .concat(asStringArray(candidate.missing_inputs))
+    .filter((s, i, arr) => arr.indexOf(s) === i) // de-dup if old schema already returned strings
+
   const sensitivityPoints = asStringArray(candidate.sensitivity_points)
-  const finalVerdict = asString(candidate.final_verdict) || asString(candidate.verdict)
+
+  // final_verdict: new schema → object; old schema → string
+  const finalVerdict =
+    extractFinalVerdict(candidate.final_verdict) ||
+    asString(candidate.verdict)
+
   const rawOutput = asString(candidate.raw)
 
   const result: ReviewResult = {
@@ -107,30 +164,74 @@ function asNullableNumber(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null
 }
 
+// ── Buying Strategy helpers ───────────────────────────────────────────────────
+// The backend BuyingStrategyInsightOutput schema changed in PR #64.
+// New fields: recommendation, rationale, negotiation_strategy, required_validations,
+//             walk_away_triggers, buyer_fit, summary.
+// Old fields (anchor_price, leverage_points, seller_questions, etc.) no longer sent.
+// Normalizer tries new schema first, falls back to old field names for compatibility.
+
 function normalizeStrategyResult(raw: unknown): StrategyResult | null {
   const candidate = pickResultPayload(raw)
   if (!candidate) return null
 
+  // ── New schema top-level objects ─────────────────────────────────────────
+  const recommendation = isRecord(candidate.recommendation) ? candidate.recommendation : null
+  const negStrategy = isRecord(candidate.negotiation_strategy) ? candidate.negotiation_strategy : null
+  const rationale = Array.isArray(candidate.rationale) ? candidate.rationale : []
+  const requiredValidations = Array.isArray(candidate.required_validations) ? candidate.required_validations : []
+
+  // anchor_price / walk_away_price — no longer in new schema; keep legacy aliases
   const anchorPrice =
     asNullableNumber(candidate.anchor_price) ??
     asNullableNumber(candidate.recommended_offer) ??
     asNullableNumber(candidate.recommended_offer_price)
+
   const walkAwayPrice =
     asNullableNumber(candidate.walk_away_price) ??
     asNullableNumber(candidate.walk_away_ceiling) ??
     asNullableNumber(candidate.max_walk_away_price)
-  const leveragePoints = asStringArray(candidate.leverage_points)
-  const sellerQuestions = asStringArray(candidate.seller_questions)
+
+  // leverage_points: new → negotiation_strategy.notes; old → leverage_points
+  const negNotes = negStrategy ? asStringArray(negStrategy.notes) : []
+  const leveragePoints = negNotes.length > 0 ? negNotes : asStringArray(candidate.leverage_points)
+
+  // seller_questions: new → required_validations[].item; old → seller_questions
+  const validationItems = requiredValidations
+    .map((v) => (isRecord(v) ? asString(v.item) : ""))
+    .filter((s) => s.length > 0)
+  const sellerQuestions =
+    validationItems.length > 0 ? validationItems : asStringArray(candidate.seller_questions)
+
+  // diligence_priorities: new → rationale[].assessment (labelled by factor); old → diligence/due_diligence
+  const rationaleItems = rationale
+    .map((r) => {
+      if (!isRecord(r)) return ""
+      const factor = asString(r.factor)
+      const assessment = asString(r.assessment)
+      return factor && assessment ? `[${factor}] ${assessment}` : assessment || factor
+    })
+    .filter((s) => s.length > 0)
   const diligencePrioritiesPrimary = asStringArray(candidate.diligence_priorities)
   const diligencePriorities =
     diligencePrioritiesPrimary.length > 0
       ? diligencePrioritiesPrimary
-      : asStringArray(candidate.due_diligence_priorities)
-  const redFlags = asStringArray(candidate.red_flags)
+      : rationaleItems.length > 0
+        ? rationaleItems
+        : asStringArray(candidate.due_diligence_priorities)
+
+  // red_flags: new → walk_away_triggers; old → red_flags
+  const walkAwayTriggers = asStringArray(candidate.walk_away_triggers)
+  const redFlags = walkAwayTriggers.length > 0 ? walkAwayTriggers : asStringArray(candidate.red_flags)
+
+  // recommended_next_move: new → summary then recommendation.primary_reason; old → legacy fields
   const recommendedNextMove =
+    asString(candidate.summary) ||
+    (recommendation ? asString(recommendation.primary_reason) : "") ||
     asString(candidate.recommended_next_move) ||
     asString(candidate.next_move) ||
     asString(candidate.strategy)
+
   const rawOutput = asString(candidate.raw)
 
   const result: StrategyResult = {
@@ -237,7 +338,7 @@ export function runBuyingStrategy(
 }
 
 export function streamAdvisorChat(
-  payload: AdvisorChatPayload
+  payload: ChatRequest
 ): Promise<Response | null> {
   return apiStream("/api/chat", payload)
 }

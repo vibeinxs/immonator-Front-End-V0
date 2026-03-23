@@ -373,9 +373,9 @@ export interface PropertySkillHistoryMessage {
 }
 
 /**
- * Inline property skill context sent alongside advisor chat turns.
- * Keeps the existing SSE flow intact while giving the backend access to the
- * latest property-analysis skill outputs for the active chat session.
+ * Internal prop shape used by AnalysisChat and SingleAnalysisWorkspace to pass
+ * advisor context through the component tree.  NOT sent on the wire directly —
+ * the fields are spread flat into ChatRequest before the HTTP call.
  */
 export interface PropertySkillContextPayload {
   mode: "light" | "full"
@@ -395,8 +395,17 @@ export interface ChatRequest {
    * Sent on every turn — the backend does not persist it between messages.
    */
   analysis_context?: AnalysisContextPayload
-  /** Additional transient context for the property advisor skill. */
-  property_skill_context?: PropertySkillContextPayload
+  // ── Property advisor skill — flat fields (backend ChatRequest contract) ───
+  /** Advisor chat depth; activates the dedicated property-advisor skill prompt. */
+  mode?: "light" | "full"
+  /** Compact property snapshot forwarded to the advisor. */
+  property?: PropertyMetricsInput
+  /** Normalized analysis result forwarded to the advisor (not persisted). */
+  analysis_result?: Record<string, unknown> | null
+  /** Normalized strategy result forwarded to the advisor (not persisted). */
+  strategy_result?: Record<string, unknown> | null
+  /** Inline conversation turns sent by the caller (oldest-first). */
+  history?: PropertySkillHistoryMessage[]
 }
 
 export interface ChatHistoryResponse {
