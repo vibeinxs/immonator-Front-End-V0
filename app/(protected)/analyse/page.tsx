@@ -1111,7 +1111,7 @@ function getDependencyStatusToneClassName(tone: "success" | "warning" | "neutral
 function isStrategyBlockedByMissingReview(error?: string | null) {
   if (!error) return false
 
-  return error.toLowerCase().includes("run investment review first")
+  return error.startsWith("Run Investment Review first")
 }
 
 function getAdvisorNextStep({
