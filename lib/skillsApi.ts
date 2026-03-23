@@ -293,7 +293,7 @@ async function postCanonicalSkillResult<T>(
     return { data: null, error: missingFieldsMessage }
   }
 
-  const normalized = normalize(response.data)
+  const normalized = normalize(raw)
   if (!normalized) {
     return { data: null, error: missingFieldsMessage }
   }
