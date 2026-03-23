@@ -27,7 +27,7 @@ function buildPropertySkillPayload({
   propertySkillContext?: PropertySkillContextInput
   advisorMode: "light" | "full"
   history: ChatMessage[]
-}): Pick<ChatRequest, "property" | "analysis_result" | "strategy_result" | "history" | "mode"> | {} {
+}): Pick<ChatRequest, "property" | "analysis_result" | "strategy_result" | "history" | "mode"> {
   if (!propertySkillContext) return {}
 
   return {
