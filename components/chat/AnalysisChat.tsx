@@ -10,6 +10,7 @@ import type {
   PropertySkillContextPayload,
 } from "@/types/api"
 import { copy } from "@/lib/copy"
+import { TEST_IDS } from "@/lib/test-ids"
 import { useToast } from "@/hooks/use-toast"
 
 type ChatMessage = Pick<ConversationMessage, "role" | "message">
@@ -317,7 +318,7 @@ export function AnalysisChat({
   return (
     <div
       ref={containerRef}
-      data-testid="ai-advisor-chat"
+      data-testid={TEST_IDS.AI_ADVISOR_CHAT}
       className="overflow-hidden rounded-xl border border-border-default bg-bg-surface"
       style={{ boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}
     >
