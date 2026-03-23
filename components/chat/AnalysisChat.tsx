@@ -15,7 +15,33 @@ import { useToast } from "@/hooks/use-toast"
 
 type ChatMessage = Pick<ConversationMessage, "role" | "message">
 
+type PropertySkillContextInput = Omit<PropertySkillContextPayload, "mode" | "history">
+
 const SUGGESTION_CHIPS = copy.chat.suggestions
+
+function buildPropertySkillPayload({
+  propertySkillContext,
+  advisorMode,
+  history,
+}: {
+  propertySkillContext?: PropertySkillContextInput
+  advisorMode: "light" | "full"
+  history: ChatMessage[]
+}): Pick<ChatRequest, "property" | "analysis_result" | "strategy_result" | "history" | "mode"> {
+  if (!propertySkillContext) return {}
+
+  return {
+    property: propertySkillContext.property,
+    ...(propertySkillContext.analysis_result !== undefined
+      ? { analysis_result: propertySkillContext.analysis_result }
+      : {}),
+    ...(propertySkillContext.strategy_result !== undefined
+      ? { strategy_result: propertySkillContext.strategy_result }
+      : {}),
+    history,
+    mode: advisorMode,
+  }
+}
 
 // ── AI avatar ─────────────────────────────────────────────────────────────────
 function AiAvatar({ size = 24 }: { size?: number }) {
@@ -113,7 +139,7 @@ export function AnalysisChat({
    * has the current property snapshot.
    */
   analysisContext?: AnalysisContextPayload
-  propertySkillContext?: Omit<PropertySkillContextPayload, "mode" | "history">
+  propertySkillContext?: PropertySkillContextInput
   title: string
   promptHints?: string[]
   advisorMode?: "light" | "full"
@@ -224,15 +250,11 @@ export function AnalysisChat({
           ...(analysisContext !== undefined ? { analysis_context: analysisContext } : {}),
           // Backend ChatRequest (PR #63) expects these at the top level — not
           // inside a property_skill_context wrapper.
-          ...(propertySkillContext
-            ? {
-                property: propertySkillContext.property,
-                analysis_result: propertySkillContext.analysis_result ?? null,
-                strategy_result: propertySkillContext.strategy_result ?? null,
-                mode: advisorMode,
-                history: nextHistory,
-              }
-            : {}),
+          ...buildPropertySkillPayload({
+            propertySkillContext,
+            advisorMode,
+            history: nextHistory,
+          }),
         }
 
         const res = await immoApi.sendChatMessage(chatRequest)
