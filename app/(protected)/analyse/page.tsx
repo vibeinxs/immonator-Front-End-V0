@@ -553,6 +553,31 @@ function MetricMiniCard({ label, value }: { label: string; value: string }) {
   )
 }
 
+function WorkflowActionButton({
+  label,
+  onClick,
+  tone = "neutral",
+}: {
+  label: string
+  onClick: () => void
+  tone?: "neutral" | "brand"
+}) {
+  const className =
+    tone === "brand"
+      ? "border-brand/30 bg-brand text-white hover:bg-brand-hover"
+      : "border-border-default bg-bg-base text-text-primary hover:bg-bg-elevated"
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex items-center justify-center rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${className}`}
+    >
+      {label}
+    </button>
+  )
+}
+
 function compactText(value: string | null | undefined, fallback: string, maxLength = 220) {
   const normalized = value?.replace(/\s+/g, " ").trim()
   if (!normalized) return fallback
@@ -644,52 +669,47 @@ function SnapshotResultPanel({
   ]
 
   return (
-    <SectionShell
-      title="Intelligent Property Snapshot"
-      description="Compact AI readout generated from the current property metrics and analysis data."
-    >
-      <div className="space-y-4" data-testid={TEST_IDS.AI_SNAPSHOT_RESULT}>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="inline-flex items-center gap-2 rounded-full border border-success/20 bg-success/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-success">
-            Snapshot ready
-          </div>
-          <button
-            type="button"
-            onClick={onRefresh}
-            data-testid={TEST_IDS.AI_SNAPSHOT_ACTION}
-            className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-bg-base px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-            Refresh Snapshot
-          </button>
+    <div className="space-y-4" data-testid={TEST_IDS.AI_SNAPSHOT_RESULT}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="inline-flex items-center gap-2 rounded-full border border-success/20 bg-success/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-success">
+          Ready
         </div>
+        <button
+          type="button"
+          onClick={onRefresh}
+          data-testid={TEST_IDS.AI_SNAPSHOT_ACTION}
+          className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-bg-base px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
+        >
+          <RotateCcw className="h-3.5 w-3.5" />
+          Regenerate Quick Take
+        </button>
+      </div>
 
-        <div className="grid gap-3 md:grid-cols-[minmax(0,1.3fr)_minmax(220px,0.7fr)]">
-          <div className="rounded-2xl border border-brand/15 bg-gradient-to-br from-brand/10 via-bg-base to-bg-surface p-4">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">At a Glance</p>
-            <p className="mt-2 text-sm leading-relaxed text-text-secondary">{summary}</p>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-1 xl:grid-cols-2">
-            {metrics.map((metric) => (
-              <MetricMiniCard key={metric.label} label={metric.label} value={metric.value} />
-            ))}
-          </div>
+      <div className="grid gap-3 md:grid-cols-[minmax(0,1.3fr)_minmax(220px,0.7fr)]">
+        <div className="rounded-2xl border border-brand/15 bg-gradient-to-br from-brand/10 via-bg-base to-bg-surface p-4">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">At a glance</p>
+          <p className="mt-2 text-sm leading-relaxed text-text-secondary">{summary}</p>
         </div>
-
-        <div className="grid gap-4 xl:grid-cols-2">
-          {strengths.length > 0 ? (
-            <SnapshotBulletList title="Strengths" items={strengths} tone="success" />
-          ) : (
-            <SnapshotEmptyState title="Strengths" message="No strengths were returned for this snapshot." />
-          )}
-          {risks.length > 0 ? (
-            <SnapshotBulletList title="Risks" items={risks} tone="danger" />
-          ) : (
-            <SnapshotEmptyState title="Risks" message="No risks were returned for this snapshot." />
-          )}
+        <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-1 xl:grid-cols-2">
+          {metrics.map((metric) => (
+            <MetricMiniCard key={metric.label} label={metric.label} value={metric.value} />
+          ))}
         </div>
       </div>
-    </SectionShell>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        {strengths.length > 0 ? (
+          <SnapshotBulletList title="Strengths" items={strengths} tone="success" />
+        ) : (
+          <SnapshotEmptyState title="Strengths" message="No strengths were returned for this quick take." />
+        )}
+        {risks.length > 0 ? (
+          <SnapshotBulletList title="Risks" items={risks} tone="danger" />
+        ) : (
+          <SnapshotEmptyState title="Risks" message="No risks were returned for this quick take." />
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -704,37 +724,33 @@ function SnapshotStatusPanel({
 }) {
   if (loading) {
     return (
-      <SectionShell title="Intelligent Property Snapshot" description="Compact AI readout generated from the current property metrics and analysis data.">
-        <div className="flex items-center gap-3 rounded-xl border border-border-default bg-bg-base px-4 py-4 text-sm text-text-secondary">
-          <Loader2 className="h-4 w-4 animate-spin text-brand" />
-          Generating property snapshot…
-        </div>
-      </SectionShell>
+      <div className="flex items-center gap-3 rounded-xl border border-border-default bg-bg-base px-4 py-4 text-sm text-text-secondary">
+        <Loader2 className="h-4 w-4 animate-spin text-brand" />
+        Generating quick take…
+      </div>
     )
   }
 
   return (
-    <SectionShell title="Intelligent Property Snapshot" description="Compact AI readout generated from the current property metrics and analysis data.">
-      <div className="space-y-4">
-        <div className="flex items-start gap-3 rounded-xl border border-danger/30 bg-danger/10 px-4 py-4 text-sm text-danger">
-          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-          <div>
-            <p className="font-medium">Snapshot could not be generated.</p>
-            <p className="mt-1 text-danger/90">{error}</p>
-          </div>
-        </div>
+    <div className="space-y-4">
+      <div className="flex items-start gap-3 rounded-xl border border-danger/30 bg-danger/10 px-4 py-4 text-sm text-danger">
+        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
         <div>
-          <button
-            type="button"
-            onClick={onRetry}
-            className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-bg-base px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-            Try Again
-          </button>
+          <p className="font-medium">Quick Take could not be generated.</p>
+          <p className="mt-1 text-danger/90">{error}</p>
         </div>
       </div>
-    </SectionShell>
+      <div>
+        <button
+          type="button"
+          onClick={onRetry}
+          className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-bg-base px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
+        >
+          <RotateCcw className="h-3.5 w-3.5" />
+          Try Again
+        </button>
+      </div>
+    </div>
   )
 }
 
@@ -786,65 +802,60 @@ function ReviewResultPanel({
   ]
 
   return (
-    <SectionShell
-      title="Investment Review"
-      description="Full structured AI analysis generated from the current property metrics and underwriting output."
-    >
-      <div className="space-y-4" data-testid={TEST_IDS.AI_REVIEW_RESULT}>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="inline-flex items-center gap-2 rounded-full border border-brand/20 bg-brand/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-brand">
-            Review ready
-          </div>
-          <button
-            type="button"
-            onClick={onRefresh}
-            data-testid={TEST_IDS.AI_REVIEW_ACTION}
-            className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-bg-base px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-            Refresh Review
-          </button>
+    <div className="space-y-4" data-testid={TEST_IDS.AI_REVIEW_RESULT}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="inline-flex items-center gap-2 rounded-full border border-brand/20 bg-brand/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-brand">
+          Ready
         </div>
+        <button
+          type="button"
+          onClick={onRefresh}
+          data-testid={TEST_IDS.AI_REVIEW_ACTION}
+          className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-bg-base px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
+        >
+          <RotateCcw className="h-3.5 w-3.5" />
+          Regenerate Full Review
+        </button>
+      </div>
 
-        <div className="grid gap-4 xl:grid-cols-2">
-          {narrativeSections.map((section) => (
-            <ReviewNarrativeBlock
-              key={section.title}
-              index={section.index}
-              title={section.title}
-              body={section.body}
-            />
-          ))}
-          <div className="rounded-xl border border-brand/15 bg-gradient-to-br from-brand/10 via-bg-base to-bg-surface p-4 xl:col-span-2">
-            <div className="flex items-center gap-2">
-              <span className="rounded-full border border-brand/15 bg-brand/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-brand">
-                Final take
-              </span>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">AI Verdict</p>
-            </div>
-            <div className="mt-3 space-y-3 text-sm leading-relaxed text-text-secondary">
-              {narrativeParagraphs(result.final_verdict, "No final verdict was returned for this review.").map((paragraph) => (
-                <p key={`final-verdict-${paragraph}`}>{paragraph}</p>
-              ))}
-            </div>
+      <div className="grid gap-4 xl:grid-cols-2">
+        {narrativeSections.map((section) => (
+          <ReviewNarrativeBlock
+            key={section.title}
+            index={section.index}
+            title={section.title}
+            body={section.body}
+          />
+        ))}
+        <div className="rounded-xl border border-brand/15 bg-gradient-to-br from-brand/10 via-bg-base to-bg-surface p-4 xl:col-span-2">
+          <div className="flex items-center gap-2">
+            <span className="rounded-full border border-brand/15 bg-brand/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-brand">
+              Final take
+            </span>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Verdict</p>
           </div>
-        </div>
-
-        <div className="grid gap-4 xl:grid-cols-2">
-          {sections.map((section) =>
-            section.items.length > 0 ? (
-              <SnapshotBulletList key={section.title} title={section.title} items={section.items} tone={section.tone} />
-            ) : (
-              <SnapshotEmptyState
-                key={section.title}
-                title={section.title}
-                message={section.emptyMessage}
-              />
-            ),
-          )}
+          <div className="mt-3 space-y-3 text-sm leading-relaxed text-text-secondary">
+            {narrativeParagraphs(result.final_verdict, "No final verdict was returned for this review.").map((paragraph) => (
+              <p key={`final-verdict-${paragraph}`}>{paragraph}</p>
+            ))}
+          </div>
         </div>
       </div>
-    </SectionShell>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        {sections.map((section) =>
+          section.items.length > 0 ? (
+            <SnapshotBulletList key={section.title} title={section.title} items={section.items} tone={section.tone} />
+          ) : (
+            <SnapshotEmptyState
+              key={section.title}
+              title={section.title}
+              message={section.emptyMessage}
+            />
+          ),
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -859,37 +870,33 @@ function ReviewStatusPanel({
 }) {
   if (loading) {
     return (
-      <SectionShell title="Investment Review" description="Full structured AI analysis generated from the current property metrics and underwriting output.">
-        <div className="flex items-center gap-3 rounded-xl border border-border-default bg-bg-base px-4 py-4 text-sm text-text-secondary">
-          <Loader2 className="h-4 w-4 animate-spin text-brand" />
-          Generating investment review…
-        </div>
-      </SectionShell>
+      <div className="flex items-center gap-3 rounded-xl border border-border-default bg-bg-base px-4 py-4 text-sm text-text-secondary">
+        <Loader2 className="h-4 w-4 animate-spin text-brand" />
+        Generating full review…
+      </div>
     )
   }
 
   return (
-    <SectionShell title="Investment Review" description="Full structured AI analysis generated from the current property metrics and underwriting output.">
-      <div className="space-y-4">
-        <div className="flex items-start gap-3 rounded-xl border border-danger/30 bg-danger/10 px-4 py-4 text-sm text-danger">
-          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-          <div>
-            <p className="font-medium">Investment review could not be generated.</p>
-            <p className="mt-1 text-danger/90">{error}</p>
-          </div>
-        </div>
+    <div className="space-y-4">
+      <div className="flex items-start gap-3 rounded-xl border border-danger/30 bg-danger/10 px-4 py-4 text-sm text-danger">
+        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
         <div>
-          <button
-            type="button"
-            onClick={onRetry}
-            className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-bg-base px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-            Try Again
-          </button>
+          <p className="font-medium">Full Review could not be generated.</p>
+          <p className="mt-1 text-danger/90">{error}</p>
         </div>
       </div>
-    </SectionShell>
+      <div>
+        <button
+          type="button"
+          onClick={onRetry}
+          className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-bg-base px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
+        >
+          <RotateCcw className="h-3.5 w-3.5" />
+          Try Again
+        </button>
+      </div>
+    </div>
   )
 }
 
@@ -928,66 +935,61 @@ function StrategyResultPanel({
   ]
 
   return (
-    <SectionShell
-      title="Buying Strategy Insight"
-      description="How to approach this deal using the current property metrics and the latest full investment review."
-    >
-      <div className="space-y-4" data-testid={TEST_IDS.AI_STRATEGY_RESULT}>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="inline-flex items-center gap-2 rounded-full border border-brand/20 bg-brand/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-brand">
-            Strategy ready
-          </div>
-          <button
-            type="button"
-            onClick={onRefresh}
-            data-testid={TEST_IDS.AI_STRATEGY_ACTION}
-            className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-bg-base px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-            Refresh Strategy
-          </button>
+    <div className="space-y-4" data-testid={TEST_IDS.AI_STRATEGY_RESULT}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="inline-flex items-center gap-2 rounded-full border border-brand/20 bg-brand/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-brand">
+          Ready
+        </div>
+        <button
+          type="button"
+          onClick={onRefresh}
+          data-testid={TEST_IDS.AI_STRATEGY_ACTION}
+          className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-bg-base px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
+        >
+          <RotateCcw className="h-3.5 w-3.5" />
+          Regenerate Buying Strategy
+        </button>
+      </div>
+
+      <div className="grid gap-3 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+          <MetricMiniCard
+            label="Anchor Price"
+            value={result.anchor_price != null ? formatEUR(result.anchor_price) : "—"}
+          />
+          <MetricMiniCard
+            label="Walk-Away Price"
+            value={result.walk_away_price != null ? formatEUR(result.walk_away_price) : "—"}
+          />
         </div>
 
-        <div className="grid gap-3 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-            <MetricMiniCard
-              label="Anchor Price"
-              value={result.anchor_price != null ? formatEUR(result.anchor_price) : "—"}
-            />
-            <MetricMiniCard
-              label="Walk-Away Price"
-              value={result.walk_away_price != null ? formatEUR(result.walk_away_price) : "—"}
-            />
+        <div className="rounded-2xl border border-brand/15 bg-gradient-to-br from-brand/10 via-bg-base to-bg-surface p-4">
+          <div className="flex items-center gap-2">
+            <span className="rounded-full border border-brand/15 bg-brand/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-brand">
+              Next move
+            </span>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">What to do now</p>
           </div>
-
-          <div className="rounded-2xl border border-brand/15 bg-gradient-to-br from-brand/10 via-bg-base to-bg-surface p-4">
-            <div className="flex items-center gap-2">
-              <span className="rounded-full border border-brand/15 bg-brand/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-brand">
-                Next move
-              </span>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">What to do now</p>
-            </div>
-            <p className="mt-3 text-sm leading-relaxed text-text-secondary">
-              {compactText(
-                result.recommended_next_move,
-                "No recommended next move was returned for this buying strategy.",
-                STRATEGY_NEXT_MOVE_MAX_LENGTH,
-              )}
-            </p>
-          </div>
-        </div>
-
-        <div className="grid gap-4 xl:grid-cols-2">
-          {sections.map((section) =>
-            section.items.length > 0 ? (
-              <SnapshotBulletList key={section.title} title={section.title} items={section.items} tone={section.tone} />
-            ) : (
-              <SnapshotEmptyState key={section.title} title={section.title} message={section.emptyMessage} />
-            ),
-          )}
+          <p className="mt-3 text-sm leading-relaxed text-text-secondary">
+            {compactText(
+              result.recommended_next_move,
+              "No recommended next move was returned for this buying strategy.",
+              STRATEGY_NEXT_MOVE_MAX_LENGTH,
+            )}
+          </p>
         </div>
       </div>
-    </SectionShell>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        {sections.map((section) =>
+          section.items.length > 0 ? (
+            <SnapshotBulletList key={section.title} title={section.title} items={section.items} tone={section.tone} />
+          ) : (
+            <SnapshotEmptyState key={section.title} title={section.title} message={section.emptyMessage} />
+          ),
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -1002,37 +1004,33 @@ function StrategyStatusPanel({
 }) {
   if (loading) {
     return (
-      <SectionShell title="Buying Strategy Insight" description="How to approach this deal using the current property metrics and the latest full investment review.">
-        <div className="flex items-center gap-3 rounded-xl border border-border-default bg-bg-base px-4 py-4 text-sm text-text-secondary">
-          <Loader2 className="h-4 w-4 animate-spin text-brand" />
-          Generating buying strategy…
-        </div>
-      </SectionShell>
+      <div className="flex items-center gap-3 rounded-xl border border-border-default bg-bg-base px-4 py-4 text-sm text-text-secondary">
+        <Loader2 className="h-4 w-4 animate-spin text-brand" />
+        Generating buying strategy…
+      </div>
     )
   }
 
   return (
-    <SectionShell title="Buying Strategy Insight" description="How to approach this deal using the current property metrics and the latest full investment review.">
-      <div className="space-y-4">
-        <div className="flex items-start gap-3 rounded-xl border border-danger/30 bg-danger/10 px-4 py-4 text-sm text-danger">
-          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-          <div>
-            <p className="font-medium">Buying strategy could not be generated.</p>
-            <p className="mt-1 text-danger/90">{error}</p>
-          </div>
-        </div>
+    <div className="space-y-4">
+      <div className="flex items-start gap-3 rounded-xl border border-danger/30 bg-danger/10 px-4 py-4 text-sm text-danger">
+        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
         <div>
-          <button
-            type="button"
-            onClick={onRetry}
-            className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-bg-base px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-            Try Again
-          </button>
+          <p className="font-medium">Buying Strategy could not be generated.</p>
+          <p className="mt-1 text-danger/90">{error}</p>
         </div>
       </div>
-    </SectionShell>
+      <div>
+        <button
+          type="button"
+          onClick={onRetry}
+          className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-bg-base px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
+        >
+          <RotateCcw className="h-3.5 w-3.5" />
+          Try Again
+        </button>
+      </div>
+    </div>
   )
 }
 
@@ -1046,38 +1044,33 @@ function StrategyPrerequisitePanel({
   inlineMessage?: string | null
 }) {
   return (
-    <SectionShell
-      title="Buying Strategy Insight"
-      description="How to approach this deal using the current property metrics and the latest full investment review."
-    >
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-2">
-          <p className="text-sm leading-relaxed text-text-secondary">
-            Generate anchor price, walk-away price, leverage points, seller questions, diligence priorities, red flags and a recommended next move for this deal.
-          </p>
-          {inlineMessage ? (
-            <div className="flex items-start gap-3 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
-              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-              <p>{inlineMessage}</p>
-            </div>
-          ) : null}
-          <div className="rounded-xl border border-dashed border-border-default bg-bg-base px-4 py-3 text-sm text-text-secondary">
-            {canRun
-              ? "Run Buying Strategy Insight when you're ready to turn the latest investment review into a negotiation plan."
-              : "Run Investment Review first. Buying Strategy Insight needs the latest full review result before it can generate a negotiation plan."}
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="space-y-2">
+        <p className="text-sm leading-relaxed text-text-secondary">
+          Turn the analysis into an offer plan, due diligence checklist, and walk-away range.
+        </p>
+        {inlineMessage ? (
+          <div className="flex items-start gap-3 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            <p>{inlineMessage}</p>
           </div>
+        ) : null}
+        <div className="rounded-xl border border-dashed border-border-default bg-bg-base px-4 py-3 text-sm text-text-secondary">
+          {canRun
+            ? "Full Review is ready. Generate Buying Strategy when you want an offer plan."
+            : "Generate Full Review first to unlock Buying Strategy."}
         </div>
-        <button
-          type="button"
-          onClick={canRun ? onRun : undefined}
-          disabled={!canRun}
-          data-testid={TEST_IDS.AI_STRATEGY_ACTION}
-          className="inline-flex items-center justify-center gap-2 rounded-lg border border-brand/30 bg-brand/5 px-4 py-2 text-sm font-medium text-brand transition-colors hover:bg-brand/10 disabled:cursor-not-allowed disabled:border-border-default disabled:bg-bg-base disabled:text-text-muted disabled:opacity-60"
-        >
-          Generate Strategy
-        </button>
       </div>
-    </SectionShell>
+      <button
+        type="button"
+        onClick={canRun ? onRun : undefined}
+        disabled={!canRun}
+        data-testid={TEST_IDS.AI_STRATEGY_ACTION}
+        className="inline-flex items-center justify-center gap-2 rounded-lg border border-brand/30 bg-brand/5 px-4 py-2 text-sm font-medium text-brand transition-colors hover:bg-brand/10 disabled:cursor-not-allowed disabled:border-border-default disabled:bg-bg-base disabled:text-text-muted disabled:opacity-60"
+      >
+        Generate Buying Strategy
+      </button>
+    </div>
   )
 }
 
@@ -1111,91 +1104,34 @@ function getDependencyStatusToneClassName(tone: "success" | "warning" | "neutral
 function isStrategyBlockedByMissingReview(error?: string | null) {
   if (!error) return false
 
-  return error.startsWith("Run Investment Review first")
-}
-
-function getAdvisorNextStep({
-  hasReview,
-  hasStrategy,
-  onRunReview,
-  onRunStrategy,
-}: {
-  hasReview: boolean
-  hasStrategy: boolean
-  onRunReview: () => void
-  onRunStrategy: () => void
-}) {
-  switch (true) {
-    case !hasReview:
-      return {
-        message: "Run Investment Review to give the advisor full underwriting context before you ask deeper questions.",
-        ctaLabel: "Run Investment Review",
-        onClick: onRunReview,
-      }
-    case !hasStrategy:
-      return {
-        message: "The advisor already has your investment review. Run Buying Strategy Insight if you also want negotiation context in the chat.",
-        ctaLabel: "Run Buying Strategy Insight",
-        onClick: onRunStrategy,
-      }
-    default:
-      return null
-  }
+  return error.startsWith("Run Full Review first")
 }
 
 function AdvisorContextGuide({
   hasSnapshot,
   hasReview,
   hasStrategy,
-  onRunReview,
-  onRunStrategy,
 }: {
   hasSnapshot: boolean
   hasReview: boolean
   hasStrategy: boolean
-  onRunReview: () => void
-  onRunStrategy: () => void
 }) {
-  const nextStep = getAdvisorNextStep({
-    hasReview,
-    hasStrategy,
-    onRunReview,
-    onRunStrategy,
-  })
-
   return (
     <div className="rounded-2xl border border-border-default bg-bg-base p-4">
       <div className="flex flex-col gap-3">
         <div>
-          <p className="text-sm font-medium text-text-primary">Context the advisor can use</p>
+          <p className="text-sm font-medium text-text-primary">What the advisor can use</p>
           <p className="mt-1 text-sm text-text-secondary">
-            The advisor always works from the current property analysis. When available, it automatically adds investment review and buying strategy context. Snapshot remains optional and never blocks the flow.
+            The advisor always uses the current analysis and adds Full Review and Buying Strategy context when available.
           </p>
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <DependencyStatusPill label="Core analysis ready" tone="success" />
-          <DependencyStatusPill label={hasSnapshot ? "Snapshot available" : "Snapshot optional"} tone={hasSnapshot ? "success" : "neutral"} />
-          <DependencyStatusPill label={hasReview ? "Investment review attached" : "Investment review pending"} tone={hasReview ? "success" : "warning"} />
-          <DependencyStatusPill label={hasStrategy ? "Buying strategy attached" : "Buying strategy not run yet"} tone={hasStrategy ? "success" : "neutral"} />
+          <DependencyStatusPill label="Analysis ready" tone="success" />
+          <DependencyStatusPill label={hasSnapshot ? "Quick Take ready" : "Quick Take optional"} tone={hasSnapshot ? "success" : "neutral"} />
+          <DependencyStatusPill label={hasReview ? "Full Review ready" : "Full Review pending"} tone={hasReview ? "success" : "warning"} />
+          <DependencyStatusPill label={hasStrategy ? "Buying Strategy ready" : "Buying Strategy pending"} tone={hasStrategy ? "success" : "neutral"} />
         </div>
-
-        {nextStep ? (
-          <div className="flex flex-col gap-3 rounded-xl border border-dashed border-border-default bg-bg-surface px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-text-secondary">{nextStep.message}</p>
-            <button
-              type="button"
-              onClick={nextStep.onClick}
-              className="inline-flex items-center justify-center rounded-lg border border-brand/30 bg-brand/5 px-3 py-2 text-sm font-medium text-brand transition-colors hover:bg-brand/10"
-            >
-              {nextStep.ctaLabel}
-            </button>
-          </div>
-        ) : (
-          <div className="rounded-xl border border-brand/20 bg-brand/5 px-4 py-3 text-sm text-text-secondary">
-            Review and strategy context are already available, so the advisor will answer with both underwriting and negotiation context in view.
-          </div>
-        )}
       </div>
     </div>
   )
@@ -1493,7 +1429,7 @@ function AskAiShell({ context }: { context: AskAiContextPayload }) {
       contextType={context.mode === "compare" ? "analysis_compare" : "analysis_single"}
       contextId={context.contextId}
       analysisContext={buildAnalysisContextPayload(context)}
-      title={context.mode === "compare" ? "comparison" : "analysis"}
+      title={context.mode === "compare" ? "comparison advisor" : "advisor"}
       promptHints={context.promptHints}
     />
   )
@@ -1538,7 +1474,7 @@ function CompareAiInsightSection({
   ]
 
   return (
-    <SectionShell title={t("analyse.new.aiInsight.title")} description={t("analyse.new.aiInsight.description")}>
+    <SectionShell title="Quick Take" description="Fast comparison of the two current analysis results.">
       <div className="space-y-4">
         <div className="rounded-2xl border border-brand/15 bg-gradient-to-br from-brand/10 via-bg-base to-bg-surface p-4">
           <div className="flex flex-wrap items-center gap-2">
@@ -1612,10 +1548,10 @@ function CompareAiAnalysisSection({
   ]
 
   return (
-    <SectionShell title={t("analyse.new.aiAnalysis.title")} description={t("analyse.new.aiAnalysis.description")}>
+    <SectionShell title="Full Review" description="Detailed comparison narrative and evidence for both properties.">
       <div className="space-y-4">
         <div className="rounded-2xl border border-border-default bg-bg-base p-4">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Recommendation</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Executive summary</p>
           <p className="mt-2 text-lg font-semibold text-text-primary">{recommendation.headline}</p>
           <p className="mt-2 text-sm leading-relaxed text-text-secondary">{recommendation.body}</p>
         </div>
@@ -1663,7 +1599,7 @@ function CompareNegotiationSection({
   ]
 
   return (
-    <SectionShell title={t("analyse.new.negotiation.title")} description={t("analyse.new.negotiation.description")}>
+    <SectionShell title="Buying Strategy" description="Deal-specific negotiation angles for each property.">
       <div className="grid gap-4 xl:grid-cols-2">
         {cards.map(({ slot, items }) => (
           <article key={slot} className="rounded-2xl border border-border-default bg-bg-base p-4">
@@ -1730,7 +1666,7 @@ function CompareAskAiSection({
   }
 
   return (
-    <SectionShell title={t("analyse.new.askAi.title")} description={t("analyse.new.askAi.description")}>
+    <SectionShell title="Advisor" description="Ask comparison questions without leaving Analyse.">
       <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border-default bg-bg-base px-4 py-3 text-sm text-text-secondary">
           <span className="font-medium text-text-primary">Comparison context</span>
@@ -1800,6 +1736,9 @@ function SingleAnalysisWorkspace({
 }) {
   const { t } = useLocale()
   const resultTopRef = useRef<HTMLDivElement | null>(null)
+  const fullReviewRef = useRef<HTMLDivElement | null>(null)
+  const buyingStrategyRef = useRef<HTMLDivElement | null>(null)
+  const advisorRef = useRef<HTMLDivElement | null>(null)
 
   const aiInsightPayload = useMemo<AIInsightPayload | null>(() => {
     if (!result) return null
@@ -1885,6 +1824,29 @@ function SingleAnalysisWorkspace({
     return () => window.clearTimeout(timeoutId)
   }, [result])
 
+  const handleOpenFullReview = useCallback(() => {
+    if (!reviewResult && !reviewLoading) {
+      onRunReview()
+    }
+
+    fullReviewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+  }, [onRunReview, reviewLoading, reviewResult])
+
+  const handleOpenBuyingStrategy = useCallback(() => {
+    if (reviewResult && !strategyResult && !strategyLoading) {
+      onRunStrategy()
+    } else if (!reviewResult && !reviewLoading) {
+      onRunReview()
+    }
+
+    buyingStrategyRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+  }, [onRunReview, onRunStrategy, reviewLoading, reviewResult, strategyLoading, strategyResult])
+
+  const handleOpenAdvisorSection = useCallback(() => {
+    onOpenAdvisor("full")
+    advisorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+  }, [onOpenAdvisor])
+
   return (
     <div className="space-y-4">
       <SectionShell
@@ -1914,161 +1876,163 @@ function SingleAnalysisWorkspace({
               </div>
             ) : (
               <div className="space-y-4">
-                {/* ① Intelligent Property Snapshot */}
-                {snapshotLoading ? (
-                  <SnapshotStatusPanel loading onRetry={onRunSnapshot} />
-                ) : snapshotError ? (
-                  <SnapshotStatusPanel error={snapshotError} onRetry={onRunSnapshot} />
-                ) : snapshotResult ? (
-                  <SnapshotResultPanel result={snapshotResult} onRefresh={onRunSnapshot} />
-                ) : (
-                  <SkillCardPlaceholder
-                    title="Intelligent Property Snapshot"
-                    description="Quick AI-powered first impression of the deal."
-                    featureDescription="Grade, verdict, location rating, top strengths and top risks — generated from your current property metrics in seconds."
-                    ctaLabel="Run Snapshot"
-                    badge="AI · Compact"
-                    actionTestId={TEST_IDS.AI_SNAPSHOT_ACTION}
-                    onRun={onRunSnapshot}
-                  />
-                )}
+                <SectionShell title="Quick Take" description="Fast first read on this deal.">
+                  <div className="space-y-4">
+                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                      {aiInsightPayload?.cards.map((card) => (
+                        <div key={card.id} className="rounded-xl border border-border-default bg-bg-base p-3">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{card.label}</p>
+                          <p className="mt-1 font-mono text-lg font-semibold text-text-primary">{card.value}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-sm text-text-secondary">{aiInsightPayload?.summaryLine ?? ""}</p>
 
-                <SectionShell title={t("analyse.new.analysis.title")} description={t("analyse.new.analysis.description")}>
-                  <Tabs value={resultTab} onValueChange={(value) => onResultTabChange(value as ResultTab)}>
-                    <div className="mb-4 flex flex-col gap-3 border-b border-border-default pb-2 sm:flex-row sm:items-center sm:justify-between">
-                      <TabsList className="h-auto gap-0 rounded-none bg-transparent p-0">
-                        <TabsTrigger value="overview" className="rounded-none border-b-2 border-transparent px-3 py-2 text-sm data-[state=active]:border-brand data-[state=active]:text-brand">{t("analyse.tab.overview")}</TabsTrigger>
-                        <TabsTrigger value="projections" className="rounded-none border-b-2 border-transparent px-3 py-2 text-sm data-[state=active]:border-brand data-[state=active]:text-brand">{t("analyse.tab.projections")}</TabsTrigger>
-                        <TabsTrigger value="market" className="rounded-none border-b-2 border-transparent px-3 py-2 text-sm data-[state=active]:border-brand data-[state=active]:text-brand">{t("analyse.tab.market")}</TabsTrigger>
-                      </TabsList>
-                      <SaveToPortfolioButton input={input} result={result} className="self-start" />
+                    {snapshotLoading ? (
+                      <SnapshotStatusPanel loading onRetry={onRunSnapshot} />
+                    ) : snapshotError ? (
+                      <SnapshotStatusPanel error={snapshotError} onRetry={onRunSnapshot} />
+                    ) : snapshotResult ? (
+                      <SnapshotResultPanel result={snapshotResult} onRefresh={onRunSnapshot} />
+                    ) : (
+                      <SkillCardPlaceholder
+                        title="Quick Take"
+                        description="Fast AI read on the deal."
+                        featureDescription="Grade, verdict, location rating, top strengths and top risks generated from your current analysis."
+                        ctaLabel="Generate Quick Take"
+                        badge="AI"
+                        actionTestId={TEST_IDS.AI_SNAPSHOT_ACTION}
+                        onRun={onRunSnapshot}
+                      />
+                    )}
+
+                    <div className="rounded-2xl border border-border-default bg-bg-base p-4">
+                      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-text-primary">Next steps</p>
+                          <p className="mt-1 text-sm text-text-secondary">Go deeper, turn it into a buying plan, or ask follow-up questions.</p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <WorkflowActionButton label="Generate Full Review" onClick={handleOpenFullReview} />
+                          <WorkflowActionButton label="Generate Buying Strategy" onClick={handleOpenBuyingStrategy} />
+                          <WorkflowActionButton label="Open Advisor" onClick={handleOpenAdvisorSection} tone="brand" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </SectionShell>
+
+                <SectionShell title="Full Review" description="Core analysis, executive summary, and deeper underwriting.">
+                  <div ref={fullReviewRef} className="space-y-4">
+                    <div className="rounded-2xl border border-brand/15 bg-gradient-to-br from-brand/10 via-bg-base to-bg-surface p-4">
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-full border border-brand/15 bg-brand/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-brand">
+                          Executive summary
+                        </span>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">What stands out</p>
+                      </div>
+                      <div className="mt-3 space-y-2 text-sm leading-relaxed text-text-secondary">
+                        {aiAnalysisNarrative.map((line, idx) => (
+                          <p key={`single-summary-${idx}`}>{line}</p>
+                        ))}
+                      </div>
                     </div>
 
-                    <TabsContent value="overview" className="mt-0"><ResultOverview input={input} result={result} /></TabsContent>
-                    <TabsContent value="projections" className="mt-0 space-y-4">
-                      <ExitHorizonsTable
-                        irr_10={result.irr_10}
-                        irr_15={result.irr_15}
-                        irr_20={result.irr_20}
-                        equity_multiple_10={result.equity_multiple_10}
-                        equity_multiple_15={result.equity_multiple_15}
-                        equity_multiple_20={result.equity_multiple_20}
-                        holding_years={input.holding_years ?? 10}
-                      />
-                      <YearByYearTable yearData={result.year_data} />
-                    </TabsContent>
-                    <TabsContent value="market" className="mt-0">
-                      <MarketDataPanel input={input} result={result} />
-                    </TabsContent>
-                  </Tabs>
-                </SectionShell>
-
-                <SectionShell title={t("analyse.new.aiInsight.title")} description={t("analyse.new.aiInsight.description")}>
-                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                    {aiInsightPayload?.cards.map((card) => (
-                      <div key={card.id} className="rounded-xl border border-border-default bg-bg-base p-3">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{card.label}</p>
-                        <p className="mt-1 font-mono text-lg font-semibold text-text-primary">{card.value}</p>
+                    <Tabs value={resultTab} onValueChange={(value) => onResultTabChange(value as ResultTab)}>
+                      <div className="mb-4 flex flex-col gap-3 border-b border-border-default pb-2 sm:flex-row sm:items-center sm:justify-between">
+                        <TabsList className="h-auto gap-0 rounded-none bg-transparent p-0">
+                          <TabsTrigger value="overview" className="rounded-none border-b-2 border-transparent px-3 py-2 text-sm data-[state=active]:border-brand data-[state=active]:text-brand">{t("analyse.tab.overview")}</TabsTrigger>
+                          <TabsTrigger value="projections" className="rounded-none border-b-2 border-transparent px-3 py-2 text-sm data-[state=active]:border-brand data-[state=active]:text-brand">{t("analyse.tab.projections")}</TabsTrigger>
+                          <TabsTrigger value="market" className="rounded-none border-b-2 border-transparent px-3 py-2 text-sm data-[state=active]:border-brand data-[state=active]:text-brand">{t("analyse.tab.market")}</TabsTrigger>
+                        </TabsList>
+                        <SaveToPortfolioButton input={input} result={result} className="self-start" />
                       </div>
-                    ))}
-                  </div>
-                  <p className="mt-3 text-sm text-text-secondary">{aiInsightPayload?.summaryLine ?? ""}</p>
-                </SectionShell>
 
-                <SectionShell title={t("analyse.new.aiAnalysis.title")} description={t("analyse.new.aiAnalysis.description")}>
-                  <div className="space-y-2 text-sm leading-relaxed text-text-secondary">
-                    {aiAnalysisNarrative.map((line, idx) => (
-                      <p key={`single-${idx}`}>{line}</p>
-                    ))}
-                  </div>
-                </SectionShell>
+                      <TabsContent value="overview" className="mt-0"><ResultOverview input={input} result={result} /></TabsContent>
+                      <TabsContent value="projections" className="mt-0 space-y-4">
+                        <ExitHorizonsTable
+                          irr_10={result.irr_10}
+                          irr_15={result.irr_15}
+                          irr_20={result.irr_20}
+                          equity_multiple_10={result.equity_multiple_10}
+                          equity_multiple_15={result.equity_multiple_15}
+                          equity_multiple_20={result.equity_multiple_20}
+                          holding_years={input.holding_years ?? 10}
+                        />
+                        <YearByYearTable yearData={result.year_data} />
+                      </TabsContent>
+                      <TabsContent value="market" className="mt-0">
+                        <MarketDataPanel input={input} result={result} />
+                      </TabsContent>
+                    </Tabs>
 
-                {/* ② Investment Review */}
-                {reviewLoading ? (
-                  <ReviewStatusPanel loading onRetry={onRunReview} />
-                ) : reviewError ? (
-                  <ReviewStatusPanel error={reviewError} onRetry={onRunReview} />
-                ) : reviewResult ? (
-                  <ReviewResultPanel result={reviewResult} onRefresh={onRunReview} />
-                ) : (
-                  <SkillCardPlaceholder
-                    title="Investment Review"
-                    description="Full structured AI analysis of this property as an investment."
-                    featureDescription="Property summary, location analysis, deal economics, strengths, risks, missing inputs, sensitivity points and a final AI verdict."
-                    ctaLabel="Run Investment Review"
-                    badge="AI · Full analysis"
-                    actionTestId={TEST_IDS.AI_REVIEW_ACTION}
-                    onRun={onRunReview}
-                  />
-                )}
-
-                <SectionShell title={t("analyse.new.negotiation.title")} description={t("analyse.new.negotiation.description")}>
-                  <div className="grid gap-2 md:grid-cols-2">
-                    {negotiationPayload?.items.map((item) => (
-                      <article key={item.id} className="rounded-lg border border-border-default bg-bg-base px-3 py-3">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{negotiationCardTitle(item.id, t)}</p>
-                        <p className="mt-1 text-sm text-text-secondary">{item.text}</p>
-                      </article>
-                    ))}
+                    {reviewLoading ? (
+                      <ReviewStatusPanel loading onRetry={onRunReview} />
+                    ) : reviewError ? (
+                      <ReviewStatusPanel error={reviewError} onRetry={onRunReview} />
+                    ) : reviewResult ? (
+                      <ReviewResultPanel result={reviewResult} onRefresh={onRunReview} />
+                    ) : (
+                      <SkillCardPlaceholder
+                        title="Full Review"
+                        description="Structured deal review built from the current property analysis."
+                        featureDescription="Property summary, market view, deal economics, strengths, risks, missing inputs, sensitivity points and final verdict."
+                        ctaLabel="Generate Full Review"
+                        badge="AI"
+                        actionTestId={TEST_IDS.AI_REVIEW_ACTION}
+                        onRun={onRunReview}
+                      />
+                    )}
                   </div>
                 </SectionShell>
 
-                {/* ③ Buying Strategy Insight */}
-                {strategyLoading ? (
-                  <StrategyStatusPanel loading onRetry={onRunStrategy} />
-                ) : strategyError && !isStrategyBlockedByMissingReview(strategyError) ? (
-                  <StrategyStatusPanel error={strategyError} onRetry={onRunStrategy} />
-                ) : strategyResult ? (
-                  <StrategyResultPanel result={strategyResult} onRefresh={onRunStrategy} />
-                ) : (
-                  <StrategyPrerequisitePanel
-                    canRun={Boolean(reviewResult)}
-                    onRun={onRunStrategy}
-                    inlineMessage={!reviewResult ? strategyError : null}
-                  />
-                )}
+                <SectionShell title="Buying Strategy" description="Offer plan, negotiation angles, and diligence priorities.">
+                  <div ref={buyingStrategyRef} className="space-y-4">
+                    <div className="grid gap-2 md:grid-cols-2">
+                      {negotiationPayload?.items.map((item) => (
+                        <article key={item.id} className="rounded-lg border border-border-default bg-bg-base px-3 py-3">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{negotiationCardTitle(item.id, t)}</p>
+                          <p className="mt-1 text-sm text-text-secondary">{item.text}</p>
+                        </article>
+                      ))}
+                    </div>
 
-                {/* ④ Intelligent Property Advisor */}
-                <SkillCardPlaceholder
-                  title="Intelligent Property Advisor"
-                  description="Guided analysis with short answers and next-step prompts."
-                  featureDescription="Ask a focused question and get a direct, concise answer. Lighter than the full chat — designed for quick clarifications and decision checkpoints. Investment review and buying strategy context are added automatically when available."
-                  ctaLabel="Open Advisor"
-                  badge="AI · Light mode"
-                  actionTestId={TEST_IDS.AI_ADVISOR_LIGHT_ACTION}
-                  onRun={() => onOpenAdvisor("light")}
-                />
+                    {strategyLoading ? (
+                      <StrategyStatusPanel loading onRetry={onRunStrategy} />
+                    ) : strategyError && !isStrategyBlockedByMissingReview(strategyError) ? (
+                      <StrategyStatusPanel error={strategyError} onRetry={onRunStrategy} />
+                    ) : strategyResult ? (
+                      <StrategyResultPanel result={strategyResult} onRefresh={onRunStrategy} />
+                    ) : (
+                      <StrategyPrerequisitePanel
+                        canRun={Boolean(reviewResult)}
+                        onRun={onRunStrategy}
+                        inlineMessage={!reviewResult ? strategyError : null}
+                      />
+                    )}
+                  </div>
+                </SectionShell>
 
-                {/* ⑤ Ask the Property Advisor — full conversational AI */}
-                <SectionShell
-                  title="Ask the Property Advisor"
-                  description="Deep conversational AI — test scenarios, challenge assumptions and explore the numbers."
-                >
-                  <div className="space-y-3">
+                <SectionShell title="Advisor" description="Ask follow-up questions with the current property context.">
+                  <div ref={advisorRef} className="space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border-default bg-bg-base px-4 py-3">
+                      <div>
+                        <p className="text-sm font-medium text-text-primary">One shared advisor</p>
+                        <p className="mt-1 text-xs text-text-secondary">
+                          Use one chat for quick answers or deeper guidance without leaving Analyse.
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <WorkflowActionButton label="Quick answers" onClick={() => onOpenAdvisor("light")} />
+                        <WorkflowActionButton label="Deep guidance" onClick={() => onOpenAdvisor("full")} tone="brand" />
+                      </div>
+                    </div>
+
                     <AdvisorContextGuide
                       hasSnapshot={hasSnapshotContext}
                       hasReview={hasReviewContext}
                       hasStrategy={hasStrategyContext}
-                      onRunReview={onRunReview}
-                      onRunStrategy={onRunStrategy}
                     />
-
-                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border-default bg-bg-base px-4 py-3">
-                      <div>
-                        <p className="text-sm font-medium text-text-primary">{t("analyse.new.askAi.sharedTitle")}</p>
-                        <p className="mt-1 text-xs text-text-secondary">
-                          {t("analyse.new.askAi.sharedDescription")}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => onOpenAdvisor("full")}
-                        data-testid={TEST_IDS.AI_ADVISOR_FULL_ACTION}
-                        className="inline-flex items-center gap-2 rounded-lg border border-brand/30 bg-brand/5 px-3 py-2 text-sm font-medium text-brand transition-colors hover:bg-brand/10"
-                      >
-                        {t("analyse.new.askAi.openFull")}
-                      </button>
-                    </div>
 
                     {askAiContext ? (
                       <AnalysisChat
@@ -2076,7 +2040,7 @@ function SingleAnalysisWorkspace({
                         contextId={askAiContext.contextId}
                         analysisContext={buildAnalysisContextPayload(askAiContext)}
                         propertySkillContext={propertySkillContext ?? undefined}
-                        title="analysis"
+                        title="advisor"
                         promptHints={askAiContext.promptHints}
                         advisorMode={advisorMode}
                         activationKey={advisorActivationKey}
@@ -2323,7 +2287,7 @@ export default function AnalysePage() {
 
   const handleRunReview = useCallback(async () => {
     if (!state.singleAnalysisResult) {
-      dispatch({ type: "reviewError", error: "Run the property analysis first to generate an investment review." })
+      dispatch({ type: "reviewError", error: "Run the property analysis first to generate a Full Review." })
       return
     }
 
@@ -2347,7 +2311,7 @@ export default function AnalysePage() {
     }
 
     if (!state.reviewRawResult) {
-      dispatch({ type: "strategyError", error: "Run Investment Review first. Buying Strategy Insight needs the latest full review result." })
+      dispatch({ type: "strategyError", error: "Run Full Review first. Buying Strategy needs the latest full review result." })
       return
     }
 
