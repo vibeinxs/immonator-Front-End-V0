@@ -18,7 +18,9 @@ interface AnalysisState {
   resultB: AnalyseResponse | null
   snapshotResult: SnapshotResult | null
   reviewResult: ReviewResult | null
+  reviewRawResult: Record<string, unknown> | null
   strategyResult: StrategyResult | null
+  strategyRawResult: Record<string, unknown> | null
   advisorMode: "light" | "full"
   setInputA: (input: AnalyseRequest) => void
   setInputB: (input: AnalyseRequest) => void
@@ -26,7 +28,9 @@ interface AnalysisState {
   setResultB: (result: AnalyseResponse | null) => void
   setSnapshotResult: (result: SnapshotResult | null) => void
   setReviewResult: (result: ReviewResult | null) => void
+  setReviewRawResult: (result: Record<string, unknown> | null) => void
   setStrategyResult: (result: StrategyResult | null) => void
+  setStrategyRawResult: (result: Record<string, unknown> | null) => void
   setAdvisorMode: (mode: "light" | "full") => void
   resetA: () => void
   resetB: () => void
@@ -41,7 +45,9 @@ export function AnalysisStoreProvider({ children }: { children: ReactNode }) {
   const [resultB, setResultB] = useState<AnalyseResponse | null>(null)
   const [snapshotResult, setSnapshotResult] = useState<SnapshotResult | null>(null)
   const [reviewResult, setReviewResult] = useState<ReviewResult | null>(null)
+  const [reviewRawResult, setReviewRawResult] = useState<Record<string, unknown> | null>(null)
   const [strategyResult, setStrategyResult] = useState<StrategyResult | null>(null)
+  const [strategyRawResult, setStrategyRawResult] = useState<Record<string, unknown> | null>(null)
   const [advisorMode, setAdvisorMode] = useState<"light" | "full">("light")
 
   const resetA = useCallback(() => {
@@ -49,7 +55,9 @@ export function AnalysisStoreProvider({ children }: { children: ReactNode }) {
     setResultA(null)
     setSnapshotResult(null)
     setReviewResult(null)
+    setReviewRawResult(null)
     setStrategyResult(null)
+    setStrategyRawResult(null)
     setAdvisorMode("light")
   }, [])
 
@@ -67,7 +75,9 @@ export function AnalysisStoreProvider({ children }: { children: ReactNode }) {
         resultB,
         snapshotResult,
         reviewResult,
+        reviewRawResult,
         strategyResult,
+        strategyRawResult,
         advisorMode,
         setInputA,
         setInputB,
@@ -75,7 +85,9 @@ export function AnalysisStoreProvider({ children }: { children: ReactNode }) {
         setResultB,
         setSnapshotResult,
         setReviewResult,
+        setReviewRawResult,
         setStrategyResult,
+        setStrategyRawResult,
         setAdvisorMode,
         resetA,
         resetB,
