@@ -119,16 +119,16 @@ export const copy = {
     aiLabel: "Immonator AI",
     advisor: {
       light: {
-        badge: "Light mode",
-        subtitle: "Short answers and quick decision support",
+        badge: "Quick answers",
+        subtitle: "Concise guidance for fast decision-making",
         emptyStateTitle: "Need a quick take?",
         emptyStateDescription:
           "Ask for a concise explanation, a next step, or a fast clarification on the current analysis.",
         inputPlaceholder: "Ask for a quick answer about this analysis…",
       },
       full: {
-        badge: "Full mode",
-        subtitle: "Deep conversational analysis for this property",
+        badge: "Deep guidance",
+        subtitle: "Full-context guidance for this property",
         emptyStateTitle: "How can I help?",
         emptyStateDescription:
           "I have full context on this property — financials, yield projections, risks, and market position. Ask me anything.",

@@ -354,7 +354,7 @@ export function AnalysisChat({
         <div className="flex items-center gap-3">
           <AiAvatar size={30} />
           <div className="text-left">
-            <p className="text-sm font-semibold text-text-primary">AI Property Advisor</p>
+            <p className="text-sm font-semibold text-text-primary">Advisor</p>
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-[11px] text-text-muted capitalize">{title}</p>
               <span className="rounded-full border border-brand/20 bg-brand/5 px-2 py-0.5 text-[10px] font-medium text-brand">
