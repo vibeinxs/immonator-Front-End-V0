@@ -427,7 +427,15 @@ function analysePageReducer(state: AnalysePageState, action: AnalysePageAction):
     case "reviewError":
       return { ...state, reviewLoading: false, reviewError: action.error }
     case "reviewReset":
-      return { ...state, reviewResult: null, reviewRawResult: null, reviewError: null }
+      return {
+        ...state,
+        reviewResult: null,
+        reviewRawResult: null,
+        reviewError: null,
+        strategyResult: null,
+        strategyRawResult: null,
+        strategyError: null,
+      }
     // ── Buying Strategy ──────────────────────────────────────────────────────
     case "strategyStart":
       return { ...state, strategyLoading: true, strategyError: null }
@@ -1031,9 +1039,11 @@ function StrategyStatusPanel({
 function StrategyPrerequisitePanel({
   canRun,
   onRun,
+  inlineMessage,
 }: {
   canRun: boolean
   onRun?: () => void
+  inlineMessage?: string | null
 }) {
   return (
     <SectionShell
@@ -1045,6 +1055,12 @@ function StrategyPrerequisitePanel({
           <p className="text-sm leading-relaxed text-text-secondary">
             Generate anchor price, walk-away price, leverage points, seller questions, diligence priorities, red flags and a recommended next move for this deal.
           </p>
+          {inlineMessage ? (
+            <div className="flex items-start gap-3 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <p>{inlineMessage}</p>
+            </div>
+          ) : null}
           <div className="rounded-xl border border-dashed border-border-default bg-bg-base px-4 py-3 text-sm text-text-secondary">
             {canRun
               ? "Run Buying Strategy Insight when you're ready to turn the latest investment review into a negotiation plan."
@@ -1090,6 +1106,12 @@ function getDependencyStatusToneClassName(tone: "success" | "warning" | "neutral
     default:
       return "border-border-default bg-bg-base text-text-secondary"
   }
+}
+
+function isStrategyBlockedByMissingReview(error?: string | null) {
+  if (!error) return false
+
+  return error.startsWith("Run Investment Review first")
 }
 
 function getAdvisorNextStep({
@@ -1994,12 +2016,16 @@ function SingleAnalysisWorkspace({
                 {/* ③ Buying Strategy Insight */}
                 {strategyLoading ? (
                   <StrategyStatusPanel loading onRetry={onRunStrategy} />
-                ) : strategyError ? (
+                ) : strategyError && !isStrategyBlockedByMissingReview(strategyError) ? (
                   <StrategyStatusPanel error={strategyError} onRetry={onRunStrategy} />
                 ) : strategyResult ? (
                   <StrategyResultPanel result={strategyResult} onRefresh={onRunStrategy} />
                 ) : (
-                  <StrategyPrerequisitePanel canRun={Boolean(reviewResult)} onRun={onRunStrategy} />
+                  <StrategyPrerequisitePanel
+                    canRun={Boolean(reviewResult)}
+                    onRun={onRunStrategy}
+                    inlineMessage={!reviewResult ? strategyError : null}
+                  />
                 )}
 
                 {/* ④ Intelligent Property Advisor */}
