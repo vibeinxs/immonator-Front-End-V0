@@ -7,7 +7,6 @@ import {
   BarChart3,
   Building2,
   Briefcase,
-  Sparkles,
   Link2,
   MessageSquare,
   LogOut,
@@ -29,7 +28,6 @@ const NAV_ITEMS = [
   { key: "nav.home", href: "/home", icon: Building2 },
   { key: "nav.analyse", href: "/analyse", icon: BarChart3 },
   { key: "nav.portfolio", href: "/portfolio", icon: Briefcase },
-  { key: "nav.aiInsights", href: "/ai-insights", icon: Sparkles },
   { key: "nav.import", href: "/import", icon: Link2 },
 ] as const
 
