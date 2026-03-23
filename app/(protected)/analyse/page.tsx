@@ -655,6 +655,7 @@ function SnapshotResultPanel({
   result: SnapshotResult
   onRefresh: () => void
 }) {
+  const { t } = useLocale()
   const summary = compactText(
     result.summary ?? result.one_line_summary,
     "Snapshot generated, but no summary text was returned.",
@@ -681,7 +682,7 @@ function SnapshotResultPanel({
           className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-bg-base px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
         >
           <RotateCcw className="h-3.5 w-3.5" />
-          Regenerate Quick Take
+          {t("analyse.new.aiInsight.ctaRefresh")}
         </button>
       </div>
 
@@ -722,11 +723,12 @@ function SnapshotStatusPanel({
   error?: string | null
   onRetry: () => void
 }) {
+  const { t } = useLocale()
   if (loading) {
     return (
       <div className="flex items-center gap-3 rounded-xl border border-border-default bg-bg-base px-4 py-4 text-sm text-text-secondary">
         <Loader2 className="h-4 w-4 animate-spin text-brand" />
-        Generating quick take…
+        {t("analyse.new.aiInsight.loading")}
       </div>
     )
   }
@@ -736,7 +738,7 @@ function SnapshotStatusPanel({
       <div className="flex items-start gap-3 rounded-xl border border-danger/30 bg-danger/10 px-4 py-4 text-sm text-danger">
         <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
         <div>
-          <p className="font-medium">Quick Take could not be generated.</p>
+          <p className="font-medium">{t("analyse.new.aiInsight.errorTitle")}</p>
           <p className="mt-1 text-danger/90">{error}</p>
         </div>
       </div>
@@ -789,6 +791,7 @@ function ReviewResultPanel({
   result: ReviewResult
   onRefresh: () => void
 }) {
+  const { t } = useLocale()
   const narrativeSections = [
     { index: "01", title: "Property Summary", body: result.property_summary },
     { index: "02", title: "Location Analysis", body: result.location_analysis },
@@ -814,7 +817,7 @@ function ReviewResultPanel({
           className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-bg-base px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
         >
           <RotateCcw className="h-3.5 w-3.5" />
-          Regenerate Full Review
+          {t("analyse.new.analysis.ctaRefresh")}
         </button>
       </div>
 
@@ -868,11 +871,12 @@ function ReviewStatusPanel({
   error?: string | null
   onRetry: () => void
 }) {
+  const { t } = useLocale()
   if (loading) {
     return (
       <div className="flex items-center gap-3 rounded-xl border border-border-default bg-bg-base px-4 py-4 text-sm text-text-secondary">
         <Loader2 className="h-4 w-4 animate-spin text-brand" />
-        Generating full review…
+        {t("analyse.new.analysis.loading")}
       </div>
     )
   }
@@ -882,7 +886,7 @@ function ReviewStatusPanel({
       <div className="flex items-start gap-3 rounded-xl border border-danger/30 bg-danger/10 px-4 py-4 text-sm text-danger">
         <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
         <div>
-          <p className="font-medium">Full Review could not be generated.</p>
+          <p className="font-medium">{t("analyse.new.analysis.errorTitle")}</p>
           <p className="mt-1 text-danger/90">{error}</p>
         </div>
       </div>
@@ -907,6 +911,7 @@ function StrategyResultPanel({
   result: StrategyResult
   onRefresh: () => void
 }) {
+  const { t } = useLocale()
   const sections: Array<{ title: string; items: string[]; tone: "success" | "danger"; emptyMessage: string }> = [
     {
       title: "Use in Negotiation",
@@ -947,7 +952,7 @@ function StrategyResultPanel({
           className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-bg-base px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
         >
           <RotateCcw className="h-3.5 w-3.5" />
-          Regenerate Buying Strategy
+          {t("analyse.new.negotiation.ctaRefresh")}
         </button>
       </div>
 
@@ -1002,11 +1007,12 @@ function StrategyStatusPanel({
   error?: string | null
   onRetry: () => void
 }) {
+  const { t } = useLocale()
   if (loading) {
     return (
       <div className="flex items-center gap-3 rounded-xl border border-border-default bg-bg-base px-4 py-4 text-sm text-text-secondary">
         <Loader2 className="h-4 w-4 animate-spin text-brand" />
-        Generating buying strategy…
+        {t("analyse.new.negotiation.loading")}
       </div>
     )
   }
@@ -1016,7 +1022,7 @@ function StrategyStatusPanel({
       <div className="flex items-start gap-3 rounded-xl border border-danger/30 bg-danger/10 px-4 py-4 text-sm text-danger">
         <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
         <div>
-          <p className="font-medium">Buying Strategy could not be generated.</p>
+          <p className="font-medium">{t("analyse.new.negotiation.errorTitle")}</p>
           <p className="mt-1 text-danger/90">{error}</p>
         </div>
       </div>
@@ -1043,6 +1049,7 @@ function StrategyPrerequisitePanel({
   onRun?: () => void
   inlineMessage?: string | null
 }) {
+  const { t } = useLocale()
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div className="space-y-2">
@@ -1057,8 +1064,8 @@ function StrategyPrerequisitePanel({
         ) : null}
         <div className="rounded-xl border border-dashed border-border-default bg-bg-base px-4 py-3 text-sm text-text-secondary">
           {canRun
-            ? "Full Review is ready. Generate Buying Strategy when you want an offer plan."
-            : "Generate Full Review first to unlock Buying Strategy."}
+            ? t("analyse.new.negotiation.readyPrompt")
+            : t("analyse.new.negotiation.prerequisitePrompt")}
         </div>
       </div>
       <button
@@ -1068,7 +1075,7 @@ function StrategyPrerequisitePanel({
         data-testid={TEST_IDS.AI_STRATEGY_ACTION}
         className="inline-flex items-center justify-center gap-2 rounded-lg border border-brand/30 bg-brand/5 px-4 py-2 text-sm font-medium text-brand transition-colors hover:bg-brand/10 disabled:cursor-not-allowed disabled:border-border-default disabled:bg-bg-base disabled:text-text-muted disabled:opacity-60"
       >
-        Generate Buying Strategy
+        {t("analyse.new.negotiation.ctaGenerate")}
       </button>
     </div>
   )
@@ -1116,21 +1123,22 @@ function AdvisorContextGuide({
   hasReview: boolean
   hasStrategy: boolean
 }) {
+  const { t } = useLocale()
   return (
     <div className="rounded-2xl border border-border-default bg-bg-base p-4">
       <div className="flex flex-col gap-3">
         <div>
-          <p className="text-sm font-medium text-text-primary">What the advisor can use</p>
+          <p className="text-sm font-medium text-text-primary">{t("analyse.new.askAi.contextTitle")}</p>
           <p className="mt-1 text-sm text-text-secondary">
-            The advisor always uses the current analysis and adds Full Review and Buying Strategy context when available.
+            {t("analyse.new.askAi.contextDescription")}
           </p>
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <DependencyStatusPill label="Analysis ready" tone="success" />
-          <DependencyStatusPill label={hasSnapshot ? "Quick Take ready" : "Quick Take optional"} tone={hasSnapshot ? "success" : "neutral"} />
-          <DependencyStatusPill label={hasReview ? "Full Review ready" : "Full Review pending"} tone={hasReview ? "success" : "warning"} />
-          <DependencyStatusPill label={hasStrategy ? "Buying Strategy ready" : "Buying Strategy pending"} tone={hasStrategy ? "success" : "neutral"} />
+          <DependencyStatusPill label={t("analyse.new.askAi.status.analysisReady")} tone="success" />
+          <DependencyStatusPill label={hasSnapshot ? t("analyse.new.askAi.status.quickTakeReady") : t("analyse.new.askAi.status.quickTakeOptional")} tone={hasSnapshot ? "success" : "neutral"} />
+          <DependencyStatusPill label={hasReview ? t("analyse.new.askAi.status.fullReviewReady") : t("analyse.new.askAi.status.fullReviewPending")} tone={hasReview ? "success" : "warning"} />
+          <DependencyStatusPill label={hasStrategy ? t("analyse.new.askAi.status.buyingStrategyReady") : t("analyse.new.askAi.status.buyingStrategyPending")} tone={hasStrategy ? "success" : "neutral"} />
         </div>
       </div>
     </div>
@@ -1474,7 +1482,7 @@ function CompareAiInsightSection({
   ]
 
   return (
-    <SectionShell title="Quick Take" description="Fast comparison of the two current analysis results.">
+    <SectionShell title={t("analyse.new.aiInsight.title")} description={t("analyse.new.aiInsight.description.compare")}>
       <div className="space-y-4">
         <div className="rounded-2xl border border-brand/15 bg-gradient-to-br from-brand/10 via-bg-base to-bg-surface p-4">
           <div className="flex flex-wrap items-center gap-2">
@@ -1548,7 +1556,7 @@ function CompareAiAnalysisSection({
   ]
 
   return (
-    <SectionShell title="Full Review" description="Detailed comparison narrative and evidence for both properties.">
+    <SectionShell title={t("analyse.new.analysis.title")} description={t("analyse.new.analysis.description.compare")}>
       <div className="space-y-4">
         <div className="rounded-2xl border border-border-default bg-bg-base p-4">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Executive summary</p>
@@ -1599,7 +1607,7 @@ function CompareNegotiationSection({
   ]
 
   return (
-    <SectionShell title="Buying Strategy" description="Deal-specific negotiation angles for each property.">
+    <SectionShell title={t("analyse.new.negotiation.title")} description={t("analyse.new.negotiation.description.compare")}>
       <div className="grid gap-4 xl:grid-cols-2">
         {cards.map(({ slot, items }) => (
           <article key={slot} className="rounded-2xl border border-border-default bg-bg-base p-4">
@@ -1666,7 +1674,7 @@ function CompareAskAiSection({
   }
 
   return (
-    <SectionShell title="Advisor" description="Ask comparison questions without leaving Analyse.">
+    <SectionShell title={t("analyse.new.askAi.title")} description={t("analyse.new.askAi.description.compare")}>
       <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border-default bg-bg-base px-4 py-3 text-sm text-text-secondary">
           <span className="font-medium text-text-primary">Comparison context</span>
@@ -1835,11 +1843,13 @@ function SingleAnalysisWorkspace({
   const handleOpenBuyingStrategy = useCallback(() => {
     if (reviewResult && !strategyResult && !strategyLoading) {
       onRunStrategy()
+      buyingStrategyRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
     } else if (!reviewResult && !reviewLoading) {
       onRunReview()
+      fullReviewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+    } else {
+      buyingStrategyRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
     }
-
-    buyingStrategyRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
   }, [onRunReview, onRunStrategy, reviewLoading, reviewResult, strategyLoading, strategyResult])
 
   const handleOpenAdvisorSection = useCallback(() => {
@@ -1876,7 +1886,7 @@ function SingleAnalysisWorkspace({
               </div>
             ) : (
               <div className="space-y-4">
-                <SectionShell title="Quick Take" description="Fast first read on this deal.">
+                <SectionShell title={t("analyse.new.aiInsight.title")} description={t("analyse.new.aiInsight.description.single")}>
                   <div className="space-y-4">
                     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                       {aiInsightPayload?.cards.map((card) => (
@@ -1896,10 +1906,10 @@ function SingleAnalysisWorkspace({
                       <SnapshotResultPanel result={snapshotResult} onRefresh={onRunSnapshot} />
                     ) : (
                       <SkillCardPlaceholder
-                        title="Quick Take"
-                        description="Fast AI read on the deal."
+                        title={t("analyse.new.aiInsight.title")}
+                        description={t("analyse.new.aiInsight.description.single")}
                         featureDescription="Grade, verdict, location rating, top strengths and top risks generated from your current analysis."
-                        ctaLabel="Generate Quick Take"
+                        ctaLabel={t("analyse.new.aiInsight.ctaGenerate")}
                         badge="AI"
                         actionTestId={TEST_IDS.AI_SNAPSHOT_ACTION}
                         onRun={onRunSnapshot}
@@ -1909,20 +1919,20 @@ function SingleAnalysisWorkspace({
                     <div className="rounded-2xl border border-border-default bg-bg-base p-4">
                       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                         <div>
-                          <p className="text-sm font-medium text-text-primary">Next steps</p>
-                          <p className="mt-1 text-sm text-text-secondary">Go deeper, turn it into a buying plan, or ask follow-up questions.</p>
+                          <p className="text-sm font-medium text-text-primary">{t("analyse.new.workflow.title")}</p>
+                          <p className="mt-1 text-sm text-text-secondary">{t("analyse.new.workflow.description")}</p>
                         </div>
                         <div className="flex flex-wrap gap-2">
-                          <WorkflowActionButton label="Generate Full Review" onClick={handleOpenFullReview} />
-                          <WorkflowActionButton label="Generate Buying Strategy" onClick={handleOpenBuyingStrategy} />
-                          <WorkflowActionButton label="Open Advisor" onClick={handleOpenAdvisorSection} tone="brand" />
+                          <WorkflowActionButton label={t("analyse.new.analysis.ctaGenerate")} onClick={handleOpenFullReview} />
+                          <WorkflowActionButton label={t("analyse.new.negotiation.ctaGenerate")} onClick={handleOpenBuyingStrategy} />
+                          <WorkflowActionButton label={t("analyse.new.askAi.openFull")} onClick={handleOpenAdvisorSection} tone="brand" />
                         </div>
                       </div>
                     </div>
                   </div>
                 </SectionShell>
 
-                <SectionShell title="Full Review" description="Core analysis, executive summary, and deeper underwriting.">
+                <SectionShell title={t("analyse.new.analysis.title")} description={t("analyse.new.analysis.description.single")}>
                   <div ref={fullReviewRef} className="space-y-4">
                     <div className="rounded-2xl border border-brand/15 bg-gradient-to-br from-brand/10 via-bg-base to-bg-surface p-4">
                       <div className="flex items-center gap-2">
@@ -1974,10 +1984,10 @@ function SingleAnalysisWorkspace({
                       <ReviewResultPanel result={reviewResult} onRefresh={onRunReview} />
                     ) : (
                       <SkillCardPlaceholder
-                        title="Full Review"
-                        description="Structured deal review built from the current property analysis."
+                        title={t("analyse.new.analysis.title")}
+                        description={t("analyse.new.analysis.description.single")}
                         featureDescription="Property summary, market view, deal economics, strengths, risks, missing inputs, sensitivity points and final verdict."
-                        ctaLabel="Generate Full Review"
+                        ctaLabel={t("analyse.new.analysis.ctaGenerate")}
                         badge="AI"
                         actionTestId={TEST_IDS.AI_REVIEW_ACTION}
                         onRun={onRunReview}
@@ -1986,7 +1996,7 @@ function SingleAnalysisWorkspace({
                   </div>
                 </SectionShell>
 
-                <SectionShell title="Buying Strategy" description="Offer plan, negotiation angles, and diligence priorities.">
+                <SectionShell title={t("analyse.new.negotiation.title")} description={t("analyse.new.negotiation.description.single")}>
                   <div ref={buyingStrategyRef} className="space-y-4">
                     <div className="grid gap-2 md:grid-cols-2">
                       {negotiationPayload?.items.map((item) => (
@@ -2013,18 +2023,18 @@ function SingleAnalysisWorkspace({
                   </div>
                 </SectionShell>
 
-                <SectionShell title="Advisor" description="Ask follow-up questions with the current property context.">
+                <SectionShell title={t("analyse.new.askAi.title")} description={t("analyse.new.askAi.description.single")}>
                   <div ref={advisorRef} className="space-y-3">
                     <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border-default bg-bg-base px-4 py-3">
                       <div>
-                        <p className="text-sm font-medium text-text-primary">One shared advisor</p>
+                        <p className="text-sm font-medium text-text-primary">{t("analyse.new.askAi.sharedTitle")}</p>
                         <p className="mt-1 text-xs text-text-secondary">
-                          Use one chat for quick answers or deeper guidance without leaving Analyse.
+                          {t("analyse.new.askAi.sharedDescription")}
                         </p>
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        <WorkflowActionButton label="Quick answers" onClick={() => onOpenAdvisor("light")} />
-                        <WorkflowActionButton label="Deep guidance" onClick={() => onOpenAdvisor("full")} tone="brand" />
+                        <WorkflowActionButton label={t("analyse.new.askAi.quickMode")} onClick={() => onOpenAdvisor("light")} />
+                        <WorkflowActionButton label={t("analyse.new.askAi.deepMode")} onClick={() => onOpenAdvisor("full")} tone="brand" />
                       </div>
                     </div>
 
