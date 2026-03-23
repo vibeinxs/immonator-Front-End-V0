@@ -317,6 +317,7 @@ export function AnalysisChat({
   return (
     <div
       ref={containerRef}
+      data-testid="ai-advisor-chat"
       className="overflow-hidden rounded-xl border border-border-default bg-bg-surface"
       style={{ boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}
     >

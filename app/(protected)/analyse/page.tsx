@@ -626,7 +626,7 @@ function SnapshotResultPanel({
       title="Intelligent Property Snapshot"
       description="Compact AI readout generated from the current property metrics and analysis data."
     >
-      <div className="space-y-4">
+      <div className="space-y-4" data-testid="ai-snapshot-result">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="inline-flex items-center gap-2 rounded-full border border-success/20 bg-success/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-success">
             Snapshot ready
@@ -634,6 +634,7 @@ function SnapshotResultPanel({
           <button
             type="button"
             onClick={onRefresh}
+            data-testid="ai-snapshot-action"
             className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-bg-base px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
           >
             <RotateCcw className="h-3.5 w-3.5" />
@@ -767,7 +768,7 @@ function ReviewResultPanel({
       title="Investment Review"
       description="Full structured AI analysis generated from the current property metrics and underwriting output."
     >
-      <div className="space-y-4">
+      <div className="space-y-4" data-testid="ai-review-result">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="inline-flex items-center gap-2 rounded-full border border-brand/20 bg-brand/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-brand">
             Review ready
@@ -775,6 +776,7 @@ function ReviewResultPanel({
           <button
             type="button"
             onClick={onRefresh}
+            data-testid="ai-review-action"
             className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-bg-base px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
           >
             <RotateCcw className="h-3.5 w-3.5" />
@@ -908,7 +910,7 @@ function StrategyResultPanel({
       title="Buying Strategy Insight"
       description="How to approach this deal using the current property metrics and the latest full investment review."
     >
-      <div className="space-y-4">
+      <div className="space-y-4" data-testid="ai-strategy-result">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="inline-flex items-center gap-2 rounded-full border border-brand/20 bg-brand/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-brand">
             Strategy ready
@@ -916,6 +918,7 @@ function StrategyResultPanel({
           <button
             type="button"
             onClick={onRefresh}
+            data-testid="ai-strategy-action"
             className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-bg-base px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
           >
             <RotateCcw className="h-3.5 w-3.5" />
@@ -1038,6 +1041,7 @@ function StrategyPrerequisitePanel({
           type="button"
           onClick={canRun ? onRun : undefined}
           disabled={!canRun}
+          data-testid="ai-strategy-action"
           className="inline-flex items-center justify-center gap-2 rounded-lg border border-brand/30 bg-brand/5 px-4 py-2 text-sm font-medium text-brand transition-colors hover:bg-brand/10 disabled:cursor-not-allowed disabled:border-border-default disabled:bg-bg-base disabled:text-text-muted disabled:opacity-60"
         >
           Generate Strategy
@@ -1884,6 +1888,7 @@ function SingleAnalysisWorkspace({
                     featureDescription="Grade, verdict, location rating, top strengths and top risks — generated from your current property metrics in seconds."
                     ctaLabel="Run Snapshot"
                     badge="AI · Compact"
+                    actionTestId="ai-snapshot-action"
                     onRun={onRunSnapshot}
                   />
                 )}
@@ -1952,6 +1957,7 @@ function SingleAnalysisWorkspace({
                     featureDescription="Property summary, location analysis, deal economics, strengths, risks, missing inputs, sensitivity points and a final AI verdict."
                     ctaLabel="Run Investment Review"
                     badge="AI · Full analysis"
+                    actionTestId="ai-review-action"
                     onRun={onRunReview}
                   />
                 )}
@@ -1985,6 +1991,7 @@ function SingleAnalysisWorkspace({
                   featureDescription="Ask a focused question and get a direct, concise answer. Lighter than the full chat — designed for quick clarifications and decision checkpoints. Investment review and buying strategy context are added automatically when available."
                   ctaLabel="Open Advisor"
                   badge="AI · Light mode"
+                  actionTestId="ai-advisor-light-action"
                   onRun={() => onOpenAdvisor("light")}
                 />
 
@@ -2012,6 +2019,7 @@ function SingleAnalysisWorkspace({
                       <button
                         type="button"
                         onClick={() => onOpenAdvisor("full")}
+                        data-testid="ai-advisor-full-action"
                         className="inline-flex items-center gap-2 rounded-lg border border-brand/30 bg-brand/5 px-3 py-2 text-sm font-medium text-brand transition-colors hover:bg-brand/10"
                       >
                         {t("analyse.new.askAi.openFull")}
