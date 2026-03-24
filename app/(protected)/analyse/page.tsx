@@ -2078,6 +2078,7 @@ function CompareAnalysisWorkspace({
   loading,
   error,
   advisorActivationKey,
+  onOpenAdvisor,
   onInputChange,
   onAnalyseProperty,
   onAnalyseBoth,
@@ -2088,6 +2089,7 @@ function CompareAnalysisWorkspace({
   loading: CompareLoadingState
   error: string | null
   advisorActivationKey: number
+  onOpenAdvisor: () => void
   onInputChange: (property: ComparePropertyKey, value: AnalyseRequest) => void
   onAnalyseProperty: (property: ComparePropertyKey) => void
   onAnalyseBoth: () => void
@@ -2095,6 +2097,12 @@ function CompareAnalysisWorkspace({
 }) {
   const { t } = useLocale()
   const compareReady = Boolean(results.propertyA && results.propertyB)
+  const advisorRef = useRef<HTMLDivElement | null>(null)
+
+  const handleOpenAdvisorSection = useCallback(() => {
+    onOpenAdvisor()
+    advisorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+  }, [onOpenAdvisor])
 
   return (
     <div className="space-y-4">
@@ -2162,6 +2170,13 @@ function CompareAnalysisWorkspace({
 
           {compareReady ? (
             <div className="space-y-4">
+              <div className="flex justify-end">
+                <WorkflowActionButton
+                  label={t("analyse.new.askAi.openFull")}
+                  onClick={handleOpenAdvisorSection}
+                  tone="brand"
+                />
+              </div>
               <CompactCompareSummary resultA={results.propertyA as AnalyseResponse} resultB={results.propertyB as AnalyseResponse} />
               <CompareAiInsightSection
                 resultA={results.propertyA as AnalyseResponse}
@@ -2180,7 +2195,9 @@ function CompareAnalysisWorkspace({
                 resultB={results.propertyB as AnalyseResponse}
                 t={t}
               />
-              <CompareAskAiSection inputs={inputs} results={results} activationKey={advisorActivationKey} t={t} />
+              <div ref={advisorRef}>
+                <CompareAskAiSection inputs={inputs} results={results} activationKey={advisorActivationKey} t={t} />
+              </div>
               <CompareTable
                 resultA={results.propertyA as AnalyseResponse}
                 resultB={results.propertyB as AnalyseResponse}
@@ -2473,6 +2490,7 @@ export default function AnalysePage() {
             loading={state.compareLoading}
             error={state.compareError}
             advisorActivationKey={advisorActivationKey}
+            onOpenAdvisor={handleOpenAdvisor}
             onInputChange={updateCompareInput}
             onAnalyseProperty={handleCompareAnalyse}
             onAnalyseBoth={handleAnalyseBoth}
