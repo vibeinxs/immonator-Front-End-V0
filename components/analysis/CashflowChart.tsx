@@ -60,8 +60,37 @@ function buildChartData(yearData: YearData[]): ChartRow[] {
 }
 
 function formatEurK(v: number): string {
-  if (Math.abs(v) >= 1000) return `${EUR}${(v / 1000).toFixed(1)}k`
-  return `${EUR}${Math.round(v)}`
+  const rounded = Math.round(v)
+  const abs = Math.abs(rounded)
+  const formatted = abs.toLocaleString("de-DE")
+  return rounded < 0 ? `-${EUR}${formatted}` : `${EUR}${formatted}`
+}
+
+function getNiceStep(range: number, targetTicks = 4): number {
+  if (range <= 0) return 100
+  const rough = range / targetTicks
+  const magnitude = 10 ** Math.floor(Math.log10(rough))
+  const residual = rough / magnitude
+
+  if (residual <= 1) return magnitude
+  if (residual <= 2) return 2 * magnitude
+  if (residual <= 5) return 5 * magnitude
+  return 10 * magnitude
+}
+
+function buildTicks(bottom: number, top: number): number[] {
+  const span = Math.max(top - bottom, 1)
+  const step = getNiceStep(span, 4)
+  const tickMin = Math.floor(bottom / step) * step
+  const tickMax = Math.ceil(top / step) * step
+  const ticks: number[] = []
+
+  for (let tick = tickMin; tick <= tickMax; tick += step) {
+    ticks.push(tick)
+  }
+
+  if (!ticks.includes(0)) ticks.push(0)
+  return ticks.sort((a, b) => a - b)
 }
 
 // ── Custom bar shape ───────────────────────────────────────────────────────────
@@ -109,14 +138,13 @@ function CustomTooltip({
 }) {
   if (!active || !payload?.length) return null
   const val = payload[0].value ?? 0
-  const positive = val >= 0
+  const rounded = Math.round(val)
+  const amount = `${rounded < 0 ? "-" : ""}${EUR}${Math.abs(rounded).toLocaleString("de-DE")}`
   return (
-    <div className="rounded-lg border border-border-default bg-bg-surface px-3 py-2 shadow-md text-xs">
-      <p className="font-medium text-text-secondary">{label}</p>
-      <p className={`mt-0.5 font-mono font-bold ${positive ? "text-success" : "text-danger"}`}>
-        {positive ? "+" : ""}
-        {EUR}
-        {val.toLocaleString("de-DE")}/mo
+    <div className="rounded-md border border-border-default bg-bg-surface px-2 py-1.5 shadow-sm">
+      <p className="text-[11px] font-medium text-text-secondary">{label}</p>
+      <p className="mt-0.5 text-[11px] font-semibold text-text-primary">
+        {amount} per month
       </p>
     </div>
   )
@@ -153,27 +181,26 @@ export function CashflowChart({ yearData }: CashflowChartProps) {
   const minVal = Math.min(...values, 0)
   const maxVal = Math.max(...values, 0)
 
-  // When all values are negative: maxVal = 0.
-  // Add headroom above the zero line so the €0 label and reference line are clearly visible.
-  // When there are positive values: standard 20% padding above the highest bar.
-  const domainTop = maxVal === 0 ? Math.abs(minVal) * 0.15 : maxVal * 1.2
-  // Add 20% padding below the most negative value.
-  const domainBottom = minVal === 0 ? 0 : minVal * 1.2
+  const span = Math.max(maxVal - minVal, 1)
+  const bottomPadding = Math.max(80, span * 0.1)
+  const topPadding = maxVal <= 0 ? Math.max(120, Math.abs(minVal) * 0.18) : Math.max(80, span * 0.1)
+  const domainBottom = minVal < 0 ? minVal - bottomPadding : -topPadding
+  const domainTop = maxVal > 0 ? maxVal + topPadding : topPadding
+  const ticks = buildTicks(domainBottom, domainTop)
 
   return (
-    <div className="h-64 w-full md:h-72">
+    <div className="h-[260px] w-full md:h-[280px]">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
           data={data}
-          margin={{ top: 10, right: 10, left: 8, bottom: 14 }}
-          barCategoryGap="30%"
+          margin={{ top: 4, right: 8, left: 2, bottom: 28 }}
+          barCategoryGap="40%"
         >
-          {/* Horizontal dashed grid lines — reduced opacity so they don't show through bars */}
           <CartesianGrid
             vertical={false}
             strokeDasharray="3 3"
             stroke="var(--color-border-default, #E2E9F0)"
-            strokeOpacity={0.6}
+            strokeOpacity={0.45}
           />
 
           <XAxis
@@ -181,29 +208,30 @@ export function CashflowChart({ yearData }: CashflowChartProps) {
             axisLine={false}
             tickLine={false}
             interval={0}
-            tickMargin={10}
+            tickMargin={14}
             tick={{ fontSize: 11, fill: "var(--color-text-muted, #8296A8)" }}
           />
           <YAxis
             axisLine={false}
             tickLine={false}
-            tickMargin={6}
+            tickMargin={8}
             tick={{ fontSize: 10, fill: "var(--color-text-muted, #8296A8)" }}
             tickFormatter={formatEurK}
             domain={[domainBottom, domainTop]}
-            width={58}
+            ticks={ticks}
+            width={68}
           />
 
           <Tooltip content={<CustomTooltip />} cursor={false} />
 
-          {/* Zero reference line — solid, slightly darker than the grid */}
           <ReferenceLine
             y={0}
-            stroke="var(--color-border-default, #CBD5E1)"
+            stroke="var(--color-text-secondary, #6B7D8F)"
             strokeWidth={1.5}
+            strokeOpacity={0.8}
           />
 
-          <Bar dataKey="value" shape={<CustomBar />} maxBarSize={52}>
+          <Bar dataKey="value" shape={<CustomBar />} maxBarSize={36}>
             {data.map((entry, i) => (
               <Cell
                 key={i}

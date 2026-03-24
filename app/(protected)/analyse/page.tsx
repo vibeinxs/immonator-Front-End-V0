@@ -479,7 +479,8 @@ function ResultOverview({ input, result }: { input: AnalyseRequest; result: Anal
       <section className="grid gap-4 md:grid-cols-2">
         <div className="rounded-[14px] border border-border-default bg-bg-surface p-4">
           <h3 className="mb-2 text-sm font-semibold text-text-primary">{t("analyse.results.annualCashflow")}</h3>
-          <p className="mb-3 text-[11px] text-text-muted">{t("analyse.results.cashflowSubtitle")}</p>
+          <p className="text-[11px] text-text-muted">{t("analyse.results.cashflowSubtitle")}</p>
+          <p className="mb-3 mt-1 text-[11px] text-text-secondary">{t("analyse.results.cashflowHelper")}</p>
           <CashflowChart yearData={toChartData(result.year_data)} />
         </div>
         <div className="rounded-[14px] border border-border-default bg-bg-surface p-4">
