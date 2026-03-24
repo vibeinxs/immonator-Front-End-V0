@@ -118,22 +118,11 @@ export const copy = {
     errorNetwork: "Connection error. Please try again.",
     aiLabel: "Immonator AI",
     advisor: {
-      light: {
-        badge: "Quick answers",
-        subtitle: "Concise guidance for fast decision-making",
-        emptyStateTitle: "Need a quick take?",
-        emptyStateDescription:
-          "Ask for a concise explanation, a next step, or a fast clarification on the current analysis.",
-        inputPlaceholder: "Ask for a quick answer about this analysis…",
-      },
-      full: {
-        badge: "Deep guidance",
-        subtitle: "Full-context guidance for this property",
-        emptyStateTitle: "How can I help?",
-        emptyStateDescription:
-          "I have full context on this property — financials, yield projections, risks, and market position. Ask me anything.",
-        inputPlaceholder: "Ask anything...",
-      },
+      subtitle: "Uses the current property analysis context for follow-up questions and guidance.",
+      emptyStateTitle: "How can I help?",
+      emptyStateDescription:
+        "I have the current property analysis context and will add Full Review and Buying Strategy details when they are available.",
+      inputPlaceholder: "Ask the advisor about this analysis…",
     },
     suggestions: [
       "Is this a good investment?",

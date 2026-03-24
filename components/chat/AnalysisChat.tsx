@@ -337,7 +337,7 @@ export function AnalysisChat({
     streaming && messages.length > 0 && messages[messages.length - 1].message === ""
   const requiresPropertySkillContext = propertySkillContext !== undefined
   const hasContextData = Boolean(propertySkillContext?.property)
-  const advisorCopy = copy.chat.advisor[advisorMode]
+  const advisorCopy = copy.chat.advisor
 
   return (
     <div
@@ -355,12 +355,7 @@ export function AnalysisChat({
           <AiAvatar size={30} />
           <div className="text-left">
             <p className="text-sm font-semibold text-text-primary">Advisor</p>
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="text-[11px] text-text-muted capitalize">{title}</p>
-              <span className="rounded-full border border-brand/20 bg-brand/5 px-2 py-0.5 text-[10px] font-medium text-brand">
-                {advisorCopy.badge}
-              </span>
-            </div>
+            <p className="text-[11px] text-text-muted capitalize">{title}</p>
             <p className="mt-1 text-[11px] text-text-muted">{advisorCopy.subtitle}</p>
           </div>
         </div>

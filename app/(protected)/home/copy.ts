@@ -6,7 +6,6 @@ import {
   Building2,
   Compass,
   LineChart,
-  MessageSquareText,
   SearchCheck,
   Sparkles,
 } from "lucide-react"
@@ -216,8 +215,8 @@ export const HOME_COPY: Record<Locale, HomeCopy> = {
       items: [
         {
           id: "advisor",
-          title: "Intelligent Property Advisor",
-          body: "Get guided interpretation of the property and its underwriting signals so you can decide what deserves another step.",
+          title: "Advisor",
+          body: "Use one advisor experience for property analysis follow-up, interpretation, and next-step guidance.",
           icon: Sparkles,
         },
         {
@@ -237,12 +236,6 @@ export const HOME_COPY: Record<Locale, HomeCopy> = {
           title: "Buying Strategy Insight",
           body: "Use comparison and strategy workflows to understand where a property fits in your broader acquisition plan.",
           icon: Compass,
-        },
-        {
-          id: "ask",
-          title: "Ask the Property Advisor",
-          body: "Use the advisor chat in analysis workflows when you want follow-up questions answered in context.",
-          icon: MessageSquareText,
         },
       ],
     },
@@ -408,8 +401,8 @@ export const HOME_COPY: Record<Locale, HomeCopy> = {
       items: [
         {
           id: "advisor",
-          title: "Intelligent Property Advisor",
-          body: "Erhalten Sie eine geführte Einordnung der Immobilie und ihrer Underwriting-Signale, damit Sie die nächsten Schritte sicher priorisieren können.",
+          title: "Advisor",
+          body: "Nutzen Sie eine gemeinsame Advisor-Erfahrung für Rückfragen, Einordnung und nächste Schritte rund um die Analyse.",
           icon: Sparkles,
         },
         {
@@ -429,12 +422,6 @@ export const HOME_COPY: Record<Locale, HomeCopy> = {
           title: "Buying Strategy Insight",
           body: "Nutzen Sie Vergleichs- und Strategie-Workflows, um die Rolle einer Immobilie in Ihrem gesamten Ankaufsvorhaben zu verstehen.",
           icon: Compass,
-        },
-        {
-          id: "ask",
-          title: "Ask the Property Advisor",
-          body: "Verwenden Sie den Advisor-Chat in Analyse-Workflows, wenn Sie Folgefragen direkt im Kontext klären möchten.",
-          icon: MessageSquareText,
         },
       ],
     },
