@@ -263,13 +263,13 @@ export const translations: Record<Locale, Record<string, string>> = {
 
     // Feedback
     "feedback.title": "How can we improve?",
-    "feedback.subtitle": "Your feedback helps us build a better tool.",
+    "feedback.subtitle": "Your feedback helps us build a better platform.",
     "feedback.thanks": "Thanks! We read every message.",
     "feedback.bug": "Bug",
-    "feedback.suggestion": "Suggestion",
-    "feedback.general": "General",
+    "feedback.suggestion": "Feature",
+    "feedback.general": "Feedback",
     "feedback.rating": "Rating",
-    "feedback.placeholder": "Tell us more...",
+    "feedback.placeholder": "Tell us what you want...",
     "feedback.send": "Send Feedback",
     "feedback.sending": "Sending...",
 
@@ -713,13 +713,13 @@ export const translations: Record<Locale, Record<string, string>> = {
 
     // Feedback
     "feedback.title": "Wie k\u00F6nnen wir uns verbessern?",
-    "feedback.subtitle": "Ihr Feedback hilft uns, ein besseres Tool zu bauen.",
+    "feedback.subtitle": "Ihr Feedback hilft uns, eine bessere Plattform zu bauen.",
     "feedback.thanks": "Danke! Wir lesen jede Nachricht.",
     "feedback.bug": "Fehler",
-    "feedback.suggestion": "Vorschlag",
-    "feedback.general": "Allgemein",
+    "feedback.suggestion": "Feature",
+    "feedback.general": "Feedback",
     "feedback.rating": "Bewertung",
-    "feedback.placeholder": "Erz\u00E4hlen Sie uns mehr...",
+    "feedback.placeholder": "Sagen Sie uns, was Sie sich w\u00FCnschen...",
     "feedback.send": "Feedback senden",
     "feedback.sending": "Wird gesendet...",
 
