@@ -38,8 +38,16 @@ function normalizeSnapshotResult(raw: unknown): SnapshotResult | null {
   const candidate = pickResultPayload(raw)
   if (!candidate) return null
 
-  const summary = asString(candidate.summary) || asString(candidate.one_line_summary)
-  const verdict = asString(candidate.verdict)
+  // INVESTMENT_REVIEW_COMPACT (mode:"compact") returns property_summary + final_verdict (object)
+  // Legacy CompactAnalysisAgent returns summary/one_line_summary + verdict (string) + grade + location_rating.
+  // Try new compact skill fields first, then fall back to old names.
+  const summary =
+    asString(candidate.summary) ||
+    asString(candidate.one_line_summary) ||
+    asString(candidate.property_summary)
+  const verdict =
+    asString(candidate.verdict) ||
+    extractFinalVerdict(candidate.final_verdict)
   const locationRating = asString(candidate.location_rating)
   const strengths = asStringArray(candidate.strengths)
   const risks = asStringArray(candidate.risks)

@@ -1993,7 +1993,7 @@ function SingleAnalysisWorkspace({
                   ctaLabel="Open Advisor"
                   badge="AI · Light mode"
                   actionTestId={TEST_IDS.AI_ADVISOR_LIGHT_ACTION}
-                  onRun={() => onOpenAdvisor("light")}
+                  onRun={() => onOpenAdvisor(reviewResult ? "full" : "light")}
                 />
 
                 {/* ⑤ Ask the Property Advisor — full conversational AI */}
