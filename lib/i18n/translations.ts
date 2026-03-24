@@ -193,7 +193,7 @@ export const translations: Record<Locale, Record<string, string>> = {
 
     // Portfolio
     "portfolio.title": "Portfolio",
-    "portfolio.subtitle": "Track and manage your real estate investments.",
+    "portfolio.subtitle": "Track saved analyses, monitor active opportunities, and manage properties you already own.",
     "portfolio.metric.totalValue": "Total Value",
     "portfolio.metric.totalValueCtx": "Combined portfolio value",
     "portfolio.metric.cashFlow": "Monthly Cash Flow",
@@ -631,7 +631,7 @@ export const translations: Record<Locale, Record<string, string>> = {
 
     // Portfolio
     "portfolio.title": "Portfolio",
-    "portfolio.subtitle": "Verwalten Sie Ihre Immobilieninvestments.",
+    "portfolio.subtitle": "Verfolgen Sie gespeicherte Analysen, beobachten Sie aktive Chancen und verwalten Sie bereits gekaufte Immobilien.",
     "portfolio.metric.totalValue": "Gesamtwert",
     "portfolio.metric.totalValueCtx": "Kombinierter Portfoliowert",
     "portfolio.metric.cashFlow": "Monatlicher Cashflow",

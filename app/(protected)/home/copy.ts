@@ -154,7 +154,7 @@ export const HOME_COPY: Record<Locale, HomeCopy> = {
           id: "portfolio",
           label: "Portfolio",
           title: "Go to Portfolio when you want continuity across saved work.",
-          body: "Track watched assets, revisit manual analyses, and continue portfolio review without restarting from scratch.",
+          body: "Save analyses, track deals, and manage owned properties in one place.",
           href: "/portfolio",
           cta: "Open Portfolio",
           figures: [
