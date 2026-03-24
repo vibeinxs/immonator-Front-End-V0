@@ -53,7 +53,7 @@ function buildChartData(yearData: YearData[]): ChartRow[] {
   return TARGET_YEARS.map((y) => {
     const row = yearData.find((r) => r.year === y)
     return {
-      label: `Yr ${y}`,
+      label: `Year ${y}`,
       value: row ? Math.round(pickCashflow(row)) : 0,
     }
   })
@@ -64,7 +64,7 @@ function formatEurK(v: number): string {
   return `${EUR}${Math.round(v)}`
 }
 
-// ── Custom bar shape with value label inside ──────────────────────────────────
+// ── Custom bar shape ───────────────────────────────────────────────────────────
 interface CustomBarProps {
   x?: number
   y?: number
@@ -78,19 +78,6 @@ function CustomBar({ x = 0, y = 0, width = 0, height = 0, value = 0 }: CustomBar
   const fill = positive ? "var(--success)" : "var(--danger)"
   const absH = Math.abs(height)
 
-  // Show label inside bar only if bar is tall enough to hold the text
-  const showLabel = absH > 32
-  // For negative bars: anchor at 14px above the bar tip (furthest point from zero)
-  // For positive bars: anchor at 14px above the bar base (closest to x-axis)
-  const labelY = positive ? y + absH - 14 : y + 14
-
-  // Short format: just the sign + number (no € glyph, avoids font glyph issues)
-  const shortLabel = (() => {
-    const abs = Math.abs(value)
-    const formatted = abs >= 1000 ? `${(abs / 1000).toFixed(1)}k` : String(Math.round(abs))
-    return positive ? `+${formatted}` : `-${formatted}`
-  })()
-
   return (
     <g>
       <rect
@@ -102,20 +89,6 @@ function CustomBar({ x = 0, y = 0, width = 0, height = 0, value = 0 }: CustomBar
         fillOpacity={positive ? 0.9 : 0.88}
         rx={5}
       />
-      {showLabel && (
-        <text
-          x={x + width / 2}
-          y={labelY}
-          textAnchor="middle"
-          dominantBaseline="middle"
-          fill="rgba(255,255,255,0.95)"
-          fontSize={10}
-          fontWeight="700"
-          fontFamily="monospace"
-        >
-          {shortLabel}
-        </text>
-      )}
     </g>
   )
 }
@@ -188,11 +161,11 @@ export function CashflowChart({ yearData }: CashflowChartProps) {
   const domainBottom = minVal === 0 ? 0 : minVal * 1.2
 
   return (
-    <div className="h-52 w-full">
+    <div className="h-64 w-full md:h-72">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
           data={data}
-          margin={{ top: 8, right: 4, left: 4, bottom: 4 }}
+          margin={{ top: 10, right: 10, left: 8, bottom: 14 }}
           barCategoryGap="30%"
         >
           {/* Horizontal dashed grid lines — reduced opacity so they don't show through bars */}
@@ -207,15 +180,18 @@ export function CashflowChart({ yearData }: CashflowChartProps) {
             dataKey="label"
             axisLine={false}
             tickLine={false}
+            interval={0}
+            tickMargin={10}
             tick={{ fontSize: 11, fill: "var(--color-text-muted, #8296A8)" }}
           />
           <YAxis
             axisLine={false}
             tickLine={false}
+            tickMargin={6}
             tick={{ fontSize: 10, fill: "var(--color-text-muted, #8296A8)" }}
             tickFormatter={formatEurK}
             domain={[domainBottom, domainTop]}
-            width={52}
+            width={58}
           />
 
           <Tooltip content={<CustomTooltip />} cursor={false} />

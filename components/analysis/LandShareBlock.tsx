@@ -1,5 +1,6 @@
 "use client"
 
+import { formatEUR } from "@/lib/format"
 import { useLocale } from "@/lib/i18n/locale-context"
 
 interface LandShareBlockProps {
@@ -10,16 +11,19 @@ interface LandShareBlockProps {
 export function LandShareBlock({ landSharePct, purchasePrice }: LandShareBlockProps) {
   const { t } = useLocale()
   const good = landSharePct >= 20
-  const cls = good ? "text-success" : "text-text-muted"
+  const cls = good ? "text-success" : "text-text-secondary"
+  const landValue = purchasePrice != null ? Math.round((purchasePrice * landSharePct) / 100) : null
 
   return (
-    <p className={`text-xs font-medium ${cls}`}>
-      = {landSharePct.toFixed(1)}% {t("analyse.landShare.ofPurchase")} — {good ? t("analyse.landShare.good") : t("analyse.landShare.low")}
-      {purchasePrice != null && (
-        <span className="text-text-muted">
-          {" "}({t("analyse.landShare.landValue")}: €{Math.round((purchasePrice * landSharePct) / 100).toLocaleString("de-DE")})
-        </span>
+    <div className="space-y-1.5">
+      <p className={`text-sm font-medium leading-relaxed ${cls}`}>
+        {landSharePct.toFixed(1)}% {t("analyse.landShare.ofPurchase")}. {good ? t("analyse.landShare.good") : t("analyse.landShare.low")}
+      </p>
+      {landValue != null && (
+        <p className="text-xs text-text-muted">
+          {t("analyse.landShare.landValue")}: {formatEUR(landValue)}
+        </p>
       )}
-    </p>
+    </div>
   )
 }
