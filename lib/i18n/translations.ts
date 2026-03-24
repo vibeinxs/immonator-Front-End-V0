@@ -263,13 +263,13 @@ export const translations: Record<Locale, Record<string, string>> = {
 
     // Feedback
     "feedback.title": "How can we improve?",
-    "feedback.subtitle": "Your feedback helps us build a better tool.",
+    "feedback.subtitle": "Your feedback helps us build a better platform.",
     "feedback.thanks": "Thanks! We read every message.",
     "feedback.bug": "Bug",
-    "feedback.suggestion": "Suggestion",
-    "feedback.general": "General",
+    "feedback.suggestion": "Feature",
+    "feedback.general": "Feedback",
     "feedback.rating": "Rating",
-    "feedback.placeholder": "Tell us more...",
+    "feedback.placeholder": "Tell us what you want...",
     "feedback.send": "Send Feedback",
     "feedback.sending": "Sending...",
 
