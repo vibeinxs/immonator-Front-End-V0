@@ -1,5 +1,6 @@
 "use client"
 
+import { formatEUR } from "@/lib/format"
 import { useLocale } from "@/lib/i18n/locale-context"
 
 interface LandShareBlockProps {
@@ -20,7 +21,7 @@ export function LandShareBlock({ landSharePct, purchasePrice }: LandShareBlockPr
       </p>
       {landValue != null && (
         <p className="text-xs text-text-muted">
-          {t("analyse.landShare.landValue")}: €{landValue.toLocaleString("de-DE")}
+          {t("analyse.landShare.landValue")}: {formatEUR(landValue)}
         </p>
       )}
     </div>

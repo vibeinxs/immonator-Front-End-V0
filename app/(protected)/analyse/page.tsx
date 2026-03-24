@@ -461,7 +461,7 @@ function ResultOverview({ input, result }: { input: AnalyseRequest; result: Anal
             <p className="text-[10px] font-bold uppercase tracking-widest text-text-muted">{t("analyse.results.verdictTitle")}</p>
             <p className={`mt-1 text-3xl font-semibold ${verdictClass(result.score)}`}>{formatVerdict(result.verdict, t)}</p>
             <p className="mt-2 text-sm text-text-secondary">
-              {t("analyse.kpi.netYield")}: {result.net_yield_pct.toFixed(1)}% · {t("analyse.kpi.purchaseFactor")}: {result.kpf.toFixed(1)}× · {t("analyse.kpi.irr10")}: {result.irr_10.toFixed(1)}% · {t("analyse.kpi.cashFlowYr1")}: {result.cash_flow_monthly_yr1.toFixed(0)}€/mo
+              {t("analyse.kpi.netYield")}: {formatPct(result.net_yield_pct, 1)} · {t("analyse.kpi.purchaseFactor")}: {formatX(result.kpf, 1)} · {t("analyse.kpi.irr10")}: {formatPct(result.irr_10, 1)} · {t("analyse.kpi.cashFlowYr1")}: {formatEUR(result.cash_flow_monthly_yr1, 0)}{t("analyse.unit.perMonth")}
             </p>
           </div>
         </div>
