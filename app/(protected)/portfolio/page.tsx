@@ -311,11 +311,11 @@ export default function PortfolioPage() {
         </div>
         <EmptyState
           icon={String.fromCharCode(128278)}
-          headline="Nothing saved yet."
-          body="Save an analysis to track a deal before purchase, or add an owned property to start managing your portfolio."
-          actionLabel="Analyse a Property"
+          headline={t("portfolio.empty.dualUse.title")}
+          body={t("portfolio.empty.dualUse.body")}
+          actionLabel={t("portfolio.empty.dualUse.analyseCta")}
           onAction={() => router.push("/analyse")}
-          secondaryActionLabel="Add Owned Property"
+          secondaryActionLabel={t("portfolio.empty.dualUse.addOwnedCta")}
           onSecondaryAction={() => router.push("/properties")}
         />
         <ManualPortfolioSection activeTab={tab} onCountChange={setManualCount} />
@@ -331,7 +331,7 @@ export default function PortfolioPage() {
           <h1 className="font-display text-3xl text-text-primary">{t("portfolio.title")}</h1>
           <p className="mt-1 text-sm text-text-secondary">{t("portfolio.subtitle")}</p>
           <p className="mt-1 text-sm text-text-secondary">
-            {`${data.properties.length} properties ${String.fromCharCode(183)} Est. equity: ${EUR}${(data.equity_estimate ?? 0).toLocaleString("de-DE")}`}
+            {`${data.properties.length} ${t("portfolio.propertiesUnit")} ${String.fromCharCode(183)} ${t("portfolio.estEquityLabel")}: ${EUR}${(data.equity_estimate ?? 0).toLocaleString("de-DE")}`}
           </p>
         </div>
         <button
@@ -480,17 +480,17 @@ export default function PortfolioPage() {
           {[
             {
               key: "tracked",
-              title: "Tracked Deals",
-              description: "Saved analyses and pre-purchase opportunities you're actively evaluating.",
+              title: t("portfolio.trackedDeals.title"),
+              description: t("portfolio.trackedDeals.description"),
               items: trackedDeals,
-              empty: "No tracked deals in this view.",
+              empty: t("portfolio.trackedDeals.empty"),
             },
             {
               key: "owned",
-              title: "Owned Properties",
-              description: "Properties you've already bought and are managing in your portfolio.",
+              title: t("portfolio.ownedProperties.title"),
+              description: t("portfolio.ownedProperties.description"),
               items: ownedProperties,
-              empty: "No owned properties in this view.",
+              empty: t("portfolio.ownedProperties.empty"),
             },
           ].map((section) => (
             <section key={section.key} className="space-y-3">
