@@ -149,7 +149,7 @@ export default function HomePage() {
 
   const heroStats = [
     { id: "workflows", value: "3", label: copy.statLabels.workflows },
-    { id: "capabilities", value: "5", label: copy.statLabels.capabilities },
+    { id: "capabilities", value: String(copy.capabilities.items.length), label: copy.statLabels.capabilities },
     { id: "modes", value: "2", label: copy.statLabels.modes },
     { id: "recent", value: String(recentEntries.length), label: copy.statLabels.recent },
   ]
@@ -739,7 +739,7 @@ export default function HomePage() {
             {copy.capabilities.subheading}
           </p>
 
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {copy.capabilities.items.map((item) => {
               const Icon = item.icon
               return (

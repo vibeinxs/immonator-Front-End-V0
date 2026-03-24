@@ -156,8 +156,6 @@ interface AnalysePageState {
   snapshotError: string | null
   reviewError: string | null
   strategyError: string | null
-  // ── Advisor mode ──────────────────────────────────────────────────────────
-  advisorMode: "light" | "full"
 }
 
 type AnalysePageAction =
@@ -189,7 +187,6 @@ type AnalysePageAction =
   | { type: "strategySuccess"; result: StrategyResult; rawResult: Record<string, unknown> }
   | { type: "strategyError"; error: string }
   | { type: "strategyReset" }
-  | { type: "setAdvisorMode"; mode: "light" | "full" }
 
 function createInitialAnalysePageState({
   storeInputA,
@@ -201,7 +198,6 @@ function createInitialAnalysePageState({
   storeReviewRawResult,
   storeStrategyResult,
   storeStrategyRawResult,
-  storeAdvisorMode,
 }: {
   storeInputA: AnalyseRequest
   storeResultA: AnalyseResponse | null
@@ -212,7 +208,6 @@ function createInitialAnalysePageState({
   storeReviewRawResult: Record<string, unknown> | null
   storeStrategyResult: StrategyResult | null
   storeStrategyRawResult: Record<string, unknown> | null
-  storeAdvisorMode: "light" | "full"
 }): AnalysePageState {
   return {
     analysisMode: "single",
@@ -246,7 +241,6 @@ function createInitialAnalysePageState({
     snapshotError: null,
     reviewError: null,
     strategyError: null,
-    advisorMode: storeAdvisorMode,
   }
 }
 
@@ -445,9 +439,6 @@ function analysePageReducer(state: AnalysePageState, action: AnalysePageAction):
       return { ...state, strategyLoading: false, strategyError: action.error }
     case "strategyReset":
       return { ...state, strategyResult: null, strategyRawResult: null, strategyError: null }
-    // ── Advisor mode ─────────────────────────────────────────────────────────
-    case "setAdvisorMode":
-      return { ...state, advisorMode: action.mode }
     default:
       return state
   }
@@ -1114,11 +1105,28 @@ function isStrategyBlockedByMissingReview(error?: string | null) {
   return error.startsWith("Run Full Review first")
 }
 
+function resolveAdvisorMode({
+  hasReview,
+  hasStrategy,
+  analysisMode,
+}: {
+  hasReview: boolean
+  hasStrategy: boolean
+  analysisMode: AnalysisMode
+}): "light" | "full" {
+  if (analysisMode === "compare") return "full"
+  return hasReview || hasStrategy ? "full" : "light"
+}
+
 function AdvisorContextGuide({
+  summaryTitle,
+  summaryDescription,
   hasSnapshot,
   hasReview,
   hasStrategy,
 }: {
+  summaryTitle?: string
+  summaryDescription?: string
   hasSnapshot: boolean
   hasReview: boolean
   hasStrategy: boolean
@@ -1127,6 +1135,15 @@ function AdvisorContextGuide({
   return (
     <div className="rounded-2xl border border-border-default bg-bg-base p-4">
       <div className="flex flex-col gap-3">
+        {summaryTitle || summaryDescription ? (
+          <div className="rounded-xl border border-brand/15 bg-brand/5 px-3 py-3">
+            {summaryTitle ? <p className="text-sm font-medium text-text-primary">{summaryTitle}</p> : null}
+            {summaryDescription ? (
+              <p className="mt-1 text-sm text-text-secondary">{summaryDescription}</p>
+            ) : null}
+          </div>
+        ) : null}
+
         <div>
           <p className="text-sm font-medium text-text-primary">{t("analyse.new.askAi.contextTitle")}</p>
           <p className="mt-1 text-sm text-text-secondary">
@@ -1431,18 +1448,6 @@ function compareRecommendationSummary(resultA: AnalyseResponse, resultB: Analyse
   }
 }
 
-function AskAiShell({ context }: { context: AskAiContextPayload }) {
-  return (
-    <AnalysisChat
-      contextType={context.mode === "compare" ? "analysis_compare" : "analysis_single"}
-      contextId={context.contextId}
-      analysisContext={buildAnalysisContextPayload(context)}
-      title={context.mode === "compare" ? "comparison advisor" : "advisor"}
-      promptHints={context.promptHints}
-    />
-  )
-}
-
 function CompareAiInsightSection({
   resultA,
   resultB,
@@ -1637,10 +1642,12 @@ function CompareNegotiationSection({
 function CompareAskAiSection({
   inputs,
   results,
+  activationKey,
   t,
 }: {
   inputs: CompareInputsState
   results: CompareResultsState
+  activationKey: number
   t: (k: string) => string
 }) {
   const selectedProperty = pickCompareWinner(results.propertyA as AnalyseResponse, results.propertyB as AnalyseResponse)
@@ -1676,14 +1683,22 @@ function CompareAskAiSection({
   return (
     <SectionShell title={t("analyse.new.askAi.title")} description={t("analyse.new.askAi.description.compare")}>
       <div className="space-y-3">
-        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border-default bg-bg-base px-4 py-3 text-sm text-text-secondary">
-          <span className="font-medium text-text-primary">Comparison context</span>
-          <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${propertyTone(selectedProperty)}`}>
-            {propertyLabel(selectedProperty)} leads
-          </span>
-          <span>{recommendation.body}</span>
-        </div>
-        <AskAiShell context={context} />
+        <AdvisorContextGuide
+          summaryTitle="Comparison context"
+          summaryDescription={`${propertyLabel(selectedProperty)} leads. ${recommendation.body}`}
+          hasSnapshot={false}
+          hasReview={false}
+          hasStrategy={false}
+        />
+        <AnalysisChat
+          contextType="analysis_compare"
+          contextId={context.contextId}
+          analysisContext={buildAnalysisContextPayload(context)}
+          title="advisor"
+          promptHints={context.promptHints}
+          advisorMode={resolveAdvisorMode({ hasReview: false, hasStrategy: false, analysisMode: "compare" })}
+          activationKey={activationKey}
+        />
       </div>
     </SectionShell>
   )
@@ -1706,7 +1721,6 @@ function SingleAnalysisWorkspace({
   strategyRawResult,
   strategyLoading,
   strategyError,
-  advisorMode,
   advisorActivationKey,
   onInputChange,
   onAnalyse,
@@ -1732,7 +1746,6 @@ function SingleAnalysisWorkspace({
   strategyRawResult: Record<string, unknown> | null
   strategyLoading: boolean
   strategyError: string | null
-  advisorMode: "light" | "full"
   advisorActivationKey: number
   onInputChange: (value: AnalyseRequest) => void
   onAnalyse: () => void
@@ -1740,7 +1753,7 @@ function SingleAnalysisWorkspace({
   onRunReview: () => void
   onRunStrategy: () => void
   onResultTabChange: (tab: ResultTab) => void
-  onOpenAdvisor: (mode: "light" | "full") => void
+  onOpenAdvisor: () => void
 }) {
   const { t } = useLocale()
   const resultTopRef = useRef<HTMLDivElement | null>(null)
@@ -1821,6 +1834,11 @@ function SingleAnalysisWorkspace({
   const hasSnapshotContext = Boolean(snapshotResult)
   const hasReviewContext = Boolean(reviewResult)
   const hasStrategyContext = Boolean(strategyResult)
+  const advisorMode = resolveAdvisorMode({
+    hasReview: hasReviewContext,
+    hasStrategy: hasStrategyContext,
+    analysisMode: "single",
+  })
 
   useEffect(() => {
     if (!result) return
@@ -1853,7 +1871,7 @@ function SingleAnalysisWorkspace({
   }, [onRunReview, onRunStrategy, reviewLoading, reviewResult, strategyLoading, strategyResult])
 
   const handleOpenAdvisorSection = useCallback(() => {
-    onOpenAdvisor("full")
+    onOpenAdvisor()
     advisorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
   }, [onOpenAdvisor])
 
@@ -2025,19 +2043,6 @@ function SingleAnalysisWorkspace({
 
                 <SectionShell title={t("analyse.new.askAi.title")} description={t("analyse.new.askAi.description.single")}>
                   <div ref={advisorRef} className="space-y-3">
-                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border-default bg-bg-base px-4 py-3">
-                      <div>
-                        <p className="text-sm font-medium text-text-primary">{t("analyse.new.askAi.sharedTitle")}</p>
-                        <p className="mt-1 text-xs text-text-secondary">
-                          {t("analyse.new.askAi.sharedDescription")}
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <WorkflowActionButton label={t("analyse.new.askAi.quickMode")} onClick={() => onOpenAdvisor("light")} />
-                        <WorkflowActionButton label={t("analyse.new.askAi.deepMode")} onClick={() => onOpenAdvisor("full")} tone="brand" />
-                      </div>
-                    </div>
-
                     <AdvisorContextGuide
                       hasSnapshot={hasSnapshotContext}
                       hasReview={hasReviewContext}
@@ -2072,6 +2077,7 @@ function CompareAnalysisWorkspace({
   results,
   loading,
   error,
+  advisorActivationKey,
   onInputChange,
   onAnalyseProperty,
   onAnalyseBoth,
@@ -2081,6 +2087,7 @@ function CompareAnalysisWorkspace({
   results: CompareResultsState
   loading: CompareLoadingState
   error: string | null
+  advisorActivationKey: number
   onInputChange: (property: ComparePropertyKey, value: AnalyseRequest) => void
   onAnalyseProperty: (property: ComparePropertyKey) => void
   onAnalyseBoth: () => void
@@ -2173,7 +2180,7 @@ function CompareAnalysisWorkspace({
                 resultB={results.propertyB as AnalyseResponse}
                 t={t}
               />
-              <CompareAskAiSection inputs={inputs} results={results} t={t} />
+              <CompareAskAiSection inputs={inputs} results={results} activationKey={advisorActivationKey} t={t} />
               <CompareTable
                 resultA={results.propertyA as AnalyseResponse}
                 resultB={results.propertyB as AnalyseResponse}
@@ -2214,8 +2221,6 @@ export default function AnalysePage() {
     setStrategyResult: setStoreStrategyResult,
     strategyRawResult: storeStrategyRawResult,
     setStrategyRawResult: setStoreStrategyRawResult,
-    advisorMode: storeAdvisorMode,
-    setAdvisorMode: setStoreAdvisorMode,
   } = useAnalysisStore()
   const [state, dispatch] = useReducer(
     analysePageReducer,
@@ -2229,7 +2234,6 @@ export default function AnalysePage() {
       storeReviewRawResult,
       storeStrategyResult,
       storeStrategyRawResult,
-      storeAdvisorMode,
     },
     createInitialAnalysePageState,
   )
@@ -2378,8 +2382,7 @@ export default function AnalysePage() {
     dispatch({ type: "resetCompareProperty", property })
   }, [])
 
-  const handleOpenAdvisor = useCallback((mode: "light" | "full") => {
-    dispatch({ type: "setAdvisorMode", mode })
+  const handleOpenAdvisor = useCallback(() => {
     setAdvisorActivationKey((current) => current + 1)
   }, [])
 
@@ -2421,10 +2424,6 @@ export default function AnalysePage() {
     setStoreStrategyRawResult(state.strategyRawResult)
   }, [state.strategyRawResult, setStoreStrategyRawResult])
 
-  useEffect(() => {
-    setStoreAdvisorMode(state.advisorMode)
-  }, [state.advisorMode, setStoreAdvisorMode])
-
   return (
     <div className="h-full overflow-y-auto bg-bg-base p-4 md:p-6">
       <div className="mx-auto flex max-w-[1440px] flex-col gap-4">
@@ -2458,7 +2457,6 @@ export default function AnalysePage() {
             strategyRawResult={state.strategyRawResult}
             strategyLoading={state.strategyLoading}
             strategyError={state.strategyError}
-            advisorMode={state.advisorMode}
             advisorActivationKey={advisorActivationKey}
             onInputChange={(input) => dispatch({ type: "setSingleDraftInput", input })}
             onAnalyse={handleSingleAnalyse}
@@ -2474,6 +2472,7 @@ export default function AnalysePage() {
             results={state.compareAnalysisResults}
             loading={state.compareLoading}
             error={state.compareError}
+            advisorActivationKey={advisorActivationKey}
             onInputChange={updateCompareInput}
             onAnalyseProperty={handleCompareAnalyse}
             onAnalyseBoth={handleAnalyseBoth}

@@ -21,7 +21,6 @@ interface AnalysisState {
   reviewRawResult: Record<string, unknown> | null
   strategyResult: StrategyResult | null
   strategyRawResult: Record<string, unknown> | null
-  advisorMode: "light" | "full"
   setInputA: (input: AnalyseRequest) => void
   setInputB: (input: AnalyseRequest) => void
   setResultA: (result: AnalyseResponse | null) => void
@@ -31,7 +30,6 @@ interface AnalysisState {
   setReviewRawResult: (result: Record<string, unknown> | null) => void
   setStrategyResult: (result: StrategyResult | null) => void
   setStrategyRawResult: (result: Record<string, unknown> | null) => void
-  setAdvisorMode: (mode: "light" | "full") => void
   resetA: () => void
   resetB: () => void
 }
@@ -48,7 +46,6 @@ export function AnalysisStoreProvider({ children }: { children: ReactNode }) {
   const [reviewRawResult, setReviewRawResult] = useState<Record<string, unknown> | null>(null)
   const [strategyResult, setStrategyResult] = useState<StrategyResult | null>(null)
   const [strategyRawResult, setStrategyRawResult] = useState<Record<string, unknown> | null>(null)
-  const [advisorMode, setAdvisorMode] = useState<"light" | "full">("light")
 
   const resetA = useCallback(() => {
     setInputA(PRESET_A)
@@ -58,7 +55,6 @@ export function AnalysisStoreProvider({ children }: { children: ReactNode }) {
     setReviewRawResult(null)
     setStrategyResult(null)
     setStrategyRawResult(null)
-    setAdvisorMode("light")
   }, [])
 
   const resetB = useCallback(() => {
@@ -78,7 +74,6 @@ export function AnalysisStoreProvider({ children }: { children: ReactNode }) {
         reviewRawResult,
         strategyResult,
         strategyRawResult,
-        advisorMode,
         setInputA,
         setInputB,
         setResultA,
@@ -88,7 +83,6 @@ export function AnalysisStoreProvider({ children }: { children: ReactNode }) {
         setReviewRawResult,
         setStrategyResult,
         setStrategyRawResult,
-        setAdvisorMode,
         resetA,
         resetB,
       }}
