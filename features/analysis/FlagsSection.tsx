@@ -49,25 +49,21 @@ function buildFlags(r: AnalyseResponse, locale: "en" | "de"): Flag[] {
     return flags
   }
 
-  if (r.net_yield_pct >= FLAG_THRESHOLDS.NET_YIELD_OK) flags.push({ level: "ok", text: `Net yield ${r.net_yield_pct.toFixed(1)}% — above threshold` })
-  else if (r.net_yield_pct >= FLAG_THRESHOLDS.NET_YIELD_WARN) flags.push({ level: "warn", text: `Net yield ${r.net_yield_pct.toFixed(1)}% — below ${FLAG_THRESHOLDS.NET_YIELD_OK}% target` })
-  else flags.push({ level: "bad", text: `Net yield ${r.net_yield_pct.toFixed(1)}% — low return` })
+  if (r.net_yield_pct >= FLAG_THRESHOLDS.NET_YIELD_OK) flags.push({ level: "ok", text: "Net Yield is on target" })
+  else flags.push({ level: "bad", text: "Net Yield is below target" })
 
-  if (r.kpf < FLAG_THRESHOLDS.KPF_OK) flags.push({ level: "ok", text: `Purchase factor ${r.kpf.toFixed(1)}× — fair value` })
-  else if (r.kpf < FLAG_THRESHOLDS.KPF_WARN) flags.push({ level: "warn", text: `Purchase factor ${r.kpf.toFixed(1)}× — above ${FLAG_THRESHOLDS.KPF_OK}× threshold` })
-  else flags.push({ level: "bad", text: `Purchase factor ${r.kpf.toFixed(1)}× — above ${FLAG_THRESHOLDS.KPF_WARN}× threshold` })
+  if (r.kpf < FLAG_THRESHOLDS.KPF_OK) flags.push({ level: "ok", text: "Purchase Factor is within target" })
+  else flags.push({ level: "bad", text: "Purchase Factor is above target" })
 
-  if (r.cash_flow_monthly_yr1 >= FLAG_THRESHOLDS.CASHFLOW_OK) flags.push({ level: "ok", text: "Cashflow positive (Yr 1)" })
-  else if (r.cash_flow_monthly_yr1 >= FLAG_THRESHOLDS.CASHFLOW_WARN) flags.push({ level: "warn", text: `Cashflow slightly negative: ${formatEUR(r.cash_flow_monthly_yr1)}/mo (Yr 1)` })
-  else flags.push({ level: "bad", text: `Cashflow negative: ${formatEUR(r.cash_flow_monthly_yr1)}/mo (Yr 1)` })
+  if (r.cash_flow_monthly_yr1 >= FLAG_THRESHOLDS.CASHFLOW_OK) flags.push({ level: "ok", text: "Monthly cash flow is positive in Year 1" })
+  else flags.push({ level: "bad", text: "Monthly cash flow is negative in Year 1" })
 
   if (r.ltv_pct != null) {
-    if (r.ltv_pct < FLAG_THRESHOLDS.LTV_OK) flags.push({ level: "ok", text: `LTV ${r.ltv_pct.toFixed(0)}% — within safe range` })
-    else if (r.ltv_pct < FLAG_THRESHOLDS.LTV_WARN) flags.push({ level: "warn", text: `LTV ${r.ltv_pct.toFixed(0)}% — above ${FLAG_THRESHOLDS.LTV_OK}% threshold` })
-    else flags.push({ level: "bad", text: `LTV ${r.ltv_pct.toFixed(0)}% — high leverage` })
+    if (r.ltv_pct < FLAG_THRESHOLDS.LTV_OK) flags.push({ level: "ok", text: "Loan to Value is within the preferred range" })
+    else flags.push({ level: "bad", text: "Loan to Value is above the preferred threshold" })
   }
 
-  if (r.afa_tax_saving_yr1 != null && r.afa_tax_saving_yr1 > 0) flags.push({ level: "info", text: `AfA tax saving: ${formatEUR(r.afa_tax_saving_yr1)}/yr` })
+  if (r.afa_tax_saving_yr1 != null && r.afa_tax_saving_yr1 > 0) flags.push({ level: "info", text: `Tax depreciation provides annual savings (${formatEUR(r.afa_tax_saving_yr1)})` })
 
   return flags
 }
