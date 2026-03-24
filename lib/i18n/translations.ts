@@ -193,7 +193,7 @@ export const translations: Record<Locale, Record<string, string>> = {
 
     // Portfolio
     "portfolio.title": "Portfolio",
-    "portfolio.subtitle": "Track and manage your real estate investments.",
+    "portfolio.subtitle": "Track saved analyses, monitor active opportunities, and manage properties you already own.",
     "portfolio.metric.totalValue": "Total Value",
     "portfolio.metric.totalValueCtx": "Combined portfolio value",
     "portfolio.metric.cashFlow": "Monthly Cash Flow",
@@ -202,9 +202,21 @@ export const translations: Record<Locale, Record<string, string>> = {
     "portfolio.metric.avgYieldCtx": "Weighted portfolio yield",
     "portfolio.metric.properties": "Properties",
     "portfolio.metric.propertiesCtx": "Add your first property",
+    "portfolio.propertiesUnit": "properties",
+    "portfolio.estEquityLabel": "Est. equity",
     "portfolio.openAnalysis.error": "Failed to open analysis for this property.",
     "portfolio.empty.title": "No properties yet",
     "portfolio.empty.body": "Start building your portfolio by analyzing and saving properties from the Properties page.",
+    "portfolio.empty.dualUse.title": "Nothing saved yet.",
+    "portfolio.empty.dualUse.body": "Save an analysis to track a deal before purchase, or add an owned property to start managing your portfolio.",
+    "portfolio.empty.dualUse.analyseCta": "Analyse a Property",
+    "portfolio.empty.dualUse.addOwnedCta": "Add Owned Property",
+    "portfolio.trackedDeals.title": "Tracked Deals",
+    "portfolio.trackedDeals.description": "Saved analyses and pre-purchase opportunities you're actively evaluating.",
+    "portfolio.trackedDeals.empty": "No tracked deals in this view.",
+    "portfolio.ownedProperties.title": "Owned Properties",
+    "portfolio.ownedProperties.description": "Properties you've already bought and are managing in your portfolio.",
+    "portfolio.ownedProperties.empty": "No owned properties in this view.",
 
     // Strategy
     "strategy.title": "Strategy",
@@ -631,7 +643,7 @@ export const translations: Record<Locale, Record<string, string>> = {
 
     // Portfolio
     "portfolio.title": "Portfolio",
-    "portfolio.subtitle": "Verwalten Sie Ihre Immobilieninvestments.",
+    "portfolio.subtitle": "Verfolgen Sie gespeicherte Analysen, beobachten Sie aktive Chancen und verwalten Sie bereits gekaufte Immobilien.",
     "portfolio.metric.totalValue": "Gesamtwert",
     "portfolio.metric.totalValueCtx": "Kombinierter Portfoliowert",
     "portfolio.metric.cashFlow": "Monatlicher Cashflow",
@@ -640,9 +652,21 @@ export const translations: Record<Locale, Record<string, string>> = {
     "portfolio.metric.avgYieldCtx": "Gewichtete Portfoliorendite",
     "portfolio.metric.properties": "Immobilien",
     "portfolio.metric.propertiesCtx": "F\u00FCgen Sie Ihre erste Immobilie hinzu",
+    "portfolio.propertiesUnit": "Immobilien",
+    "portfolio.estEquityLabel": "Gesch\u00E4tztes Eigenkapital",
     "portfolio.openAnalysis.error": "Analyse f\u00FCr dieses Objekt konnte nicht ge\u00F6ffnet werden.",
     "portfolio.empty.title": "Noch keine Immobilien",
     "portfolio.empty.body": "Beginnen Sie mit dem Aufbau Ihres Portfolios, indem Sie Immobilien auf der Immobilienseite analysieren und speichern.",
+    "portfolio.empty.dualUse.title": "Noch nichts gespeichert.",
+    "portfolio.empty.dualUse.body": "Speichern Sie eine Analyse, um ein Objekt vor dem Kauf zu verfolgen, oder f\u00FCgen Sie eine bereits gekaufte Immobilie zur Verwaltung hinzu.",
+    "portfolio.empty.dualUse.analyseCta": "Immobilie analysieren",
+    "portfolio.empty.dualUse.addOwnedCta": "Bestandsimmobilie hinzuf\u00FCgen",
+    "portfolio.trackedDeals.title": "Verfolgte Deals",
+    "portfolio.trackedDeals.description": "Gespeicherte Analysen und Chancen vor dem Kauf, die Sie aktiv bewerten.",
+    "portfolio.trackedDeals.empty": "In dieser Ansicht gibt es keine verfolgten Deals.",
+    "portfolio.ownedProperties.title": "Eigene Immobilien",
+    "portfolio.ownedProperties.description": "Immobilien, die Sie bereits gekauft haben und im Portfolio verwalten.",
+    "portfolio.ownedProperties.empty": "In dieser Ansicht gibt es keine eigenen Immobilien.",
 
     // Strategy
     "strategy.title": "Strategie",
