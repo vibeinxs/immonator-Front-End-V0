@@ -26,6 +26,10 @@ export interface YearData {
 }
 
 const TARGET_YEARS = [1, 5, 10, 15, 20]
+const Y_AXIS_MIN_PADDING = 80
+const Y_AXIS_MIN_TOP_PADDING_NEGATIVE_ONLY = 120
+const Y_AXIS_PADDING_RATIO = 0.1
+const Y_AXIS_TOP_PADDING_RATIO_NEGATIVE_ONLY = 0.18
 
 function pickCashflow(row: YearData): number {
   // Prefer after-tax monthly, then pre-tax monthly, then annual / 12
@@ -138,8 +142,7 @@ function CustomTooltip({
 }) {
   if (!active || !payload?.length) return null
   const val = payload[0].value ?? 0
-  const rounded = Math.round(val)
-  const amount = `${rounded < 0 ? "-" : ""}${EUR}${Math.abs(rounded).toLocaleString("de-DE")}`
+  const amount = formatEurK(val)
   return (
     <div className="rounded-md border border-border-default bg-bg-surface px-2 py-1.5 shadow-sm">
       <p className="text-[11px] font-medium text-text-secondary">{label}</p>
@@ -182,8 +185,13 @@ export function CashflowChart({ yearData }: CashflowChartProps) {
   const maxVal = Math.max(...values, 0)
 
   const span = Math.max(maxVal - minVal, 1)
-  const bottomPadding = Math.max(80, span * 0.1)
-  const topPadding = maxVal <= 0 ? Math.max(120, Math.abs(minVal) * 0.18) : Math.max(80, span * 0.1)
+  const bottomPadding = Math.max(Y_AXIS_MIN_PADDING, span * Y_AXIS_PADDING_RATIO)
+  const topPadding = maxVal <= 0
+    ? Math.max(
+        Y_AXIS_MIN_TOP_PADDING_NEGATIVE_ONLY,
+        Math.abs(minVal) * Y_AXIS_TOP_PADDING_RATIO_NEGATIVE_ONLY
+      )
+    : Math.max(Y_AXIS_MIN_PADDING, span * Y_AXIS_PADDING_RATIO)
   const domainBottom = minVal < 0 ? minVal - bottomPadding : -topPadding
   const domainTop = maxVal > 0 ? maxVal + topPadding : topPadding
   const ticks = buildTicks(domainBottom, domainTop)
