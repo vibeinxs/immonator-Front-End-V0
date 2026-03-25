@@ -52,6 +52,33 @@ type BankabilityCard = {
   }
 }
 
+const STRESS_TEST = {
+  RENT_FACTOR: 0.9,
+  VACANCY_INCREASE_PCT: 3,
+  VACANCY_CAP_PCT: 30,
+  INTEREST_RATE_INCREASE_PCT: 1,
+} as const
+
+const DSCR_THRESHOLDS = {
+  STRONG: 1.2,
+  BREAKEVEN: 1,
+} as const
+
+const LTV_THRESHOLDS = {
+  LOW_RISK: 75,
+  WATCH: 80,
+} as const
+
+const CASHFLOW_THRESHOLDS = {
+  POSITIVE: 0,
+  NEAR_BREAKEVEN: -150,
+} as const
+
+const STRESS_SCORE_THRESHOLDS = {
+  RESILIENT: 120,
+  BORDERLINE: 100,
+} as const
+
 function formatValue(value: number, unit: string): string {
   if (unit === EUR) return `${EUR}${value.toLocaleString("de-DE")}`
   if (unit === "yr") return `${value} yr`
@@ -116,36 +143,37 @@ export function ScenarioModeller({ propertyId, askingPrice, monthlyRent }: Scena
   const dscr         = mortgage > 0 ? (effRent * 12) / (mortgage * 12) : 0
   const cashOnCash   = equity > 0 ? (cashflow * 12) / equity * 100 : 0
   const ltv          = price > 0 ? (loan / price) * 100 : 0
-  const stressedRent = rent * 0.9
-  const stressedEffRent = stressedRent * (1 - Math.min(vacancy + 3, 30) / 100)
-  const stressedRate = (rate + 1) / 100 / 12
+  const stressedRent = rent * STRESS_TEST.RENT_FACTOR
+  const stressedVacancyPct = Math.min(vacancy + STRESS_TEST.VACANCY_INCREASE_PCT, STRESS_TEST.VACANCY_CAP_PCT)
+  const stressedEffRent = stressedRent * (1 - stressedVacancyPct / 100)
+  const stressedRate = (rate + STRESS_TEST.INTEREST_RATE_INCREASE_PCT) / 100 / 12
   const stressedMortgage = stressedRate > 0
     ? loan * (stressedRate * Math.pow(1 + stressedRate, n)) / (Math.pow(1 + stressedRate, n) - 1)
     : loan / n
   const stressedDscr = stressedMortgage > 0 ? stressedEffRent / stressedMortgage : 0
-  const stressResilienceScore = Math.max(0, Math.min(100, stressedDscr * 100))
+  const stressResilienceScore = Math.max(0, stressedDscr * 100)
 
-  const dscrVerdict: BankabilityVerdict = dscr >= 1.2
+  const dscrVerdict: BankabilityVerdict = dscr >= DSCR_THRESHOLDS.STRONG
     ? { label: "Bank-friendly", tone: "positive" }
-    : dscr >= 1
+    : dscr >= DSCR_THRESHOLDS.BREAKEVEN
       ? { label: "Tight", tone: "neutral" }
       : { label: "At risk", tone: "negative" }
 
-  const ltvVerdict: BankabilityVerdict = ltv <= 75
+  const ltvVerdict: BankabilityVerdict = ltv <= LTV_THRESHOLDS.LOW_RISK
     ? { label: "Low risk", tone: "positive" }
-    : ltv <= 80
+    : ltv <= LTV_THRESHOLDS.WATCH
       ? { label: "Watch closely", tone: "neutral" }
       : { label: "High risk", tone: "negative" }
 
-  const cashflowVerdict: BankabilityVerdict = cashflow >= 0
+  const cashflowVerdict: BankabilityVerdict = cashflow >= CASHFLOW_THRESHOLDS.POSITIVE
     ? { label: "Positive", tone: "positive" }
-    : cashflow >= -150
+    : cashflow >= CASHFLOW_THRESHOLDS.NEAR_BREAKEVEN
       ? { label: "Near break-even", tone: "neutral" }
       : { label: "Negative", tone: "negative" }
 
-  const stressVerdict: BankabilityVerdict = stressResilienceScore >= 120
+  const stressVerdict: BankabilityVerdict = stressResilienceScore >= STRESS_SCORE_THRESHOLDS.RESILIENT
     ? { label: "Resilient", tone: "positive" }
-    : stressResilienceScore >= 100
+    : stressResilienceScore >= STRESS_SCORE_THRESHOLDS.BORDERLINE
       ? { label: "Borderline", tone: "neutral" }
       : { label: "Fragile", tone: "negative" }
 
@@ -158,7 +186,7 @@ export function ScenarioModeller({ propertyId, askingPrice, monthlyRent }: Scena
       explanation: "This checks whether rental income can comfortably pay the monthly debt.",
       details: {
         formula: "DSCR = Net operating rent income ÷ Annual debt service",
-        thresholds: "Typical lender comfort: ≥1.20× (1.00× means just enough to pay debt)",
+        thresholds: `Typical lender comfort: ≥${DSCR_THRESHOLDS.STRONG.toFixed(2)}× (${DSCR_THRESHOLDS.BREAKEVEN.toFixed(2)}× means just enough to pay debt)`,
         whyItMatters: "A stronger DSCR gives banks confidence that payments can still be made if income dips.",
       },
     },
@@ -170,7 +198,7 @@ export function ScenarioModeller({ propertyId, askingPrice, monthlyRent }: Scena
       explanation: "This shows how much of the purchase price is financed by debt.",
       details: {
         formula: "LTV = Loan amount ÷ Property value",
-        thresholds: "Typical lender range: ≤80% (lower is safer for both borrower and bank)",
+        thresholds: `Typical lender range: ≤${LTV_THRESHOLDS.WATCH}% (lower is safer for both borrower and bank)`,
         whyItMatters: "Lower LTV means more equity buffer if prices fall or exit takes longer.",
       },
     },
@@ -193,8 +221,8 @@ export function ScenarioModeller({ propertyId, askingPrice, monthlyRent }: Scena
       verdict: stressVerdict,
       explanation: "This stress test assumes lower rent and higher rates to see downside durability.",
       details: {
-        formula: "Stress score = Stressed DSCR × 100 (stress case: rent −10%, vacancy +3pp, rate +1pp)",
-        thresholds: "100+ means debt coverage remains at or above break-even under stress.",
+        formula: `Stress score = Stressed DSCR × 100 (stress case: rent −${Math.round((1 - STRESS_TEST.RENT_FACTOR) * 100)}%, vacancy +${STRESS_TEST.VACANCY_INCREASE_PCT}pp capped at ${STRESS_TEST.VACANCY_CAP_PCT}%, rate +${STRESS_TEST.INTEREST_RATE_INCREASE_PCT}pp)`,
+        thresholds: `${STRESS_SCORE_THRESHOLDS.BORDERLINE}+ means debt coverage remains at or above break-even under stress.`,
         whyItMatters: "Banks favor properties that still cover debt when conditions worsen.",
       },
     },
@@ -373,7 +401,11 @@ export function ScenarioModeller({ propertyId, askingPrice, monthlyRent }: Scena
         <div className="grid grid-cols-2 gap-3">
           <MetricCard label="Gross Yield" value={grossYield.toFixed(1)} suffix="%" sentiment={grossYield >= 5 ? "positive" : "neutral"} />
           <MetricCard label="Net Yield"   value={netYield.toFixed(1)}   suffix="%" sentiment={netYield >= 3.5 ? "positive" : "neutral"} />
-          <MetricCard label="Debt Service Coverage Ratio (DSCR)" value={dscr.toFixed(2)} sentiment={dscr >= 1.2 ? "positive" : dscr >= 1 ? "neutral" : "negative"} />
+          <MetricCard
+            label="Debt Service Coverage Ratio (DSCR)"
+            value={dscr.toFixed(2)}
+            sentiment={dscr >= DSCR_THRESHOLDS.STRONG ? "positive" : dscr >= DSCR_THRESHOLDS.BREAKEVEN ? "neutral" : "negative"}
+          />
           <MetricCard label="Cash-on-Cash" value={cashOnCash.toFixed(1)} suffix="%" sentiment={cashOnCash >= 5 ? "positive" : "neutral"} />
         </div>
 
