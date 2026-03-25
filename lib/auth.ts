@@ -4,6 +4,7 @@ const TOKEN_KEY = "immo_token"
 const USER_ID_KEY = "immo_user_id"
 const USER_NAME_KEY = "immo_name"
 const NEW_USER_KEY = "immo_new_user"
+const REDIRECT_AFTER_LOGIN_KEY = "immo_redirect_after_login"
 
 export function getToken(): string | null {
   if (typeof window === "undefined") return null
@@ -34,7 +35,27 @@ export function isLoggedIn(): boolean {
   return !!getToken()
 }
 
-export function getPostLoginPath(): "/home" | "/properties" {
+export function setRedirectAfterLogin(path: string): void {
+  if (typeof window === "undefined") return
+  localStorage.setItem(REDIRECT_AFTER_LOGIN_KEY, path)
+}
+
+function consumeRedirectAfterLogin(): string | null {
+  if (typeof window === "undefined") return null
+  const path = localStorage.getItem(REDIRECT_AFTER_LOGIN_KEY)
+  if (!path) return null
+  localStorage.removeItem(REDIRECT_AFTER_LOGIN_KEY)
+  return path
+}
+
+export function clearRedirectAfterLogin(): void {
+  if (typeof window === "undefined") return
+  localStorage.removeItem(REDIRECT_AFTER_LOGIN_KEY)
+}
+
+export function getPostLoginPath(): "/home" | "/properties" | string {
+  const redirectPath = consumeRedirectAfterLogin()
+  if (redirectPath && redirectPath.startsWith("/")) return redirectPath
   return isNewUser() ? "/properties" : "/home"
 }
 
@@ -58,6 +79,7 @@ export function logout(): void {
   localStorage.removeItem(USER_ID_KEY)
   localStorage.removeItem(USER_NAME_KEY)
   localStorage.removeItem(NEW_USER_KEY)
+  localStorage.removeItem(REDIRECT_AFTER_LOGIN_KEY)
   document.cookie = `${TOKEN_KEY}=; path=/; max-age=0; SameSite=Strict`
   window.location.href = "/login"
 }

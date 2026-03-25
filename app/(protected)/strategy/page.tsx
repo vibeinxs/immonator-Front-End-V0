@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { X, ChevronRight } from "lucide-react"
 import { MetricCard } from "@/components/metric-card"
 import { VerdictBadge } from "@/components/verdict-badge"
@@ -11,20 +11,15 @@ import { immoApi } from "@/lib/immonatorApi"
 import { copy } from "@/lib/copy"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { AnalysisChat } from "@/components/chat/AnalysisChat"
+import {
+  clearStrategyDraft,
+  getStrategyDraft,
+  resetLegacyStrategyWizardFlags,
+  saveStrategyDraft,
+  type StrategyDraftProfile as UserProfile,
+} from "@/lib/strategyDraft"
 
 /* ── types ───────────────────────────────────────── */
-interface UserProfile {
-  equity: number
-  income: number
-  expenses: number
-  style: string
-  horizon: string
-  focus: string
-  min_yield: number
-  cities: string[]
-  types: string[]
-}
-
 interface StrategyMatch {
   id: string; title: string; city: string; yield: number; verdict?: "strong_buy" | "worth_analysing" | "proceed_with_caution" | "avoid"
 }
@@ -44,6 +39,17 @@ interface StrategyData {
 const STYLES = ["conservative", "balanced", "growth"] as const
 const HORIZONS = ["1-3yr", "3-5yr", "5-10yr", "10yr+"] as const
 const FOCUSES = ["cashflow", "appreciation", "both"] as const
+const INITIAL_STRATEGY_PROFILE: UserProfile = {
+  equity: 0,
+  income: 0,
+  expenses: 0,
+  style: "balanced",
+  horizon: "5-10yr",
+  focus: "both",
+  min_yield: 5,
+  cities: [],
+  types: [],
+}
 const CITIES_LIST = ["Berlin", "Munich", "Hamburg", "Frankfurt", "Cologne", "Stuttgart", String.fromCharCode(68, 252, 115, 115, 101, 108, 100, 111, 114, 102), "Leipzig", "Dresden", "Other"]
 const TYPES_LIST = ["Apartment", "House", "Multi-family", "Commercial"]
 
@@ -51,13 +57,34 @@ const STYLE_ICONS: Record<string, string> = { conservative: String.fromCharCode(
 const FOCUS_ICONS: Record<string, string> = { cashflow: String.fromCharCode(128176), appreciation: String.fromCharCode(128200), both: String.fromCharCode(127919) }
 
 /* ── Wizard ──────────────────────────────────────── */
-function StrategyWizard({ open, onClose, onComplete }: { open: boolean; onClose: () => void; onComplete: (p: UserProfile) => void }) {
-  const [step, setStep] = useState(0)
-  const [profile, setProfile] = useState<UserProfile>({
-    equity: 0, income: 0, expenses: 0,
-    style: "balanced", horizon: "5-10yr", focus: "both",
-    min_yield: 5, cities: [], types: [],
-  })
+function StrategyWizard({
+  open,
+  initialStep,
+  initialProfile,
+  onClose,
+  onComplete,
+  onDraftChange,
+}: {
+  open: boolean
+  initialStep: number
+  initialProfile: UserProfile
+  onClose: () => void
+  onComplete: (p: UserProfile) => void
+  onDraftChange: (draft: { step: number; profile: UserProfile }) => void
+}) {
+  const [step, setStep] = useState(initialStep)
+  const [profile, setProfile] = useState<UserProfile>(initialProfile)
+
+  useEffect(() => {
+    if (!open) return
+    setStep(initialStep)
+    setProfile(initialProfile)
+  }, [initialProfile, initialStep, open])
+
+  useEffect(() => {
+    if (!open) return
+    onDraftChange({ step, profile })
+  }, [open, onDraftChange, profile, step])
 
   const totalSteps = 5
   const progress = ((step + 1) / totalSteps) * 100
@@ -86,7 +113,16 @@ function StrategyWizard({ open, onClose, onComplete }: { open: boolean; onClose:
         </div>
 
         {/* Close */}
-        <button onClick={onClose} className="absolute right-4 top-4 text-text-muted hover:text-text-primary" aria-label="Close">
+        <button
+          onClick={() => {
+            onDraftChange({ step, profile })
+            onClose()
+            setStep(0)
+            setProfile(INITIAL_STRATEGY_PROFILE)
+          }}
+          className="absolute right-4 top-4 text-text-muted hover:text-text-primary"
+          aria-label="Close"
+        >
           <X className="h-5 w-5" />
         </button>
 
@@ -257,11 +293,25 @@ function StrategyWizard({ open, onClose, onComplete }: { open: boolean; onClose:
 export default function StrategyPage() {
   const { t } = useLocale()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [hasProfile, setHasProfile] = useState<boolean | null>(null)
   const [wizardOpen, setWizardOpen] = useState(false)
   const [strategy, setStrategy] = useState<StrategyData | null>(null)
   const [loading, setLoading] = useState(true)
   const [banner, setBanner] = useState<string | null>(null)
+  const [draftStep, setDraftStep] = useState(0)
+  const [hasDraft, setHasDraft] = useState(false)
+  const [draftProfile, setDraftProfile] = useState<UserProfile>(INITIAL_STRATEGY_PROFILE)
+
+  useEffect(() => {
+    resetLegacyStrategyWizardFlags()
+    const existingDraft = getStrategyDraft()
+    if (existingDraft) {
+      setDraftStep(existingDraft.step)
+      setDraftProfile(existingDraft.profile)
+      setHasDraft(true)
+    }
+  }, [])
 
   useEffect(() => {
     Promise.all([
@@ -294,8 +344,26 @@ export default function StrategyPage() {
     }
   }, [strategy])
 
+  useEffect(() => {
+    const action = searchParams.get("action")
+    if (!action) return
+    if (action === "create") {
+      clearStrategyDraft()
+      setHasDraft(false)
+      setDraftStep(0)
+      setDraftProfile(INITIAL_STRATEGY_PROFILE)
+      setWizardOpen(true)
+      return
+    }
+    if ((action === "resume" || action === "continue") && hasDraft) {
+      setWizardOpen(true)
+    }
+  }, [hasDraft, searchParams])
+
   const handleWizardComplete = useCallback(async (profile: UserProfile) => {
     setWizardOpen(false)
+    clearStrategyDraft()
+    setHasDraft(false)
     setLoading(true)
     await immoApi.saveUserProfile(profile as unknown as import("@/lib/immonatorApi").UserProfileData)
     const [strategyRes, matchesRes] = await Promise.all([immoApi.getStrategy(), immoApi.getStrategyMatches()])
@@ -311,6 +379,13 @@ export default function StrategyPage() {
     }
     setHasProfile(true)
     setLoading(false)
+  }, [])
+
+  const handleDraftChange = useCallback((draft: { step: number; profile: UserProfile }) => {
+    setDraftStep(draft.step)
+    setDraftProfile(draft.profile)
+    setHasDraft(true)
+    saveStrategyDraft(draft)
   }, [])
 
   if (loading) {
@@ -329,7 +404,14 @@ export default function StrategyPage() {
   if (!hasProfile || !strategy) {
     return (
       <div className="animate-fade-in">
-        <StrategyWizard open={wizardOpen} onClose={() => setWizardOpen(false)} onComplete={handleWizardComplete} />
+        <StrategyWizard
+          open={wizardOpen}
+          initialStep={draftStep}
+          initialProfile={draftProfile}
+          onClose={() => setWizardOpen(false)}
+          onComplete={handleWizardComplete}
+          onDraftChange={handleDraftChange}
+        />
         <div className="max-w-lg mx-auto text-center py-24">
           <h1 className="font-display text-4xl text-text-primary">{copy.strategy.emptyTitle}</h1>
           <p className="text-text-secondary mt-4 leading-relaxed">
@@ -341,6 +423,14 @@ export default function StrategyPage() {
           >
             {copy.strategy.buildCta} <ChevronRight className="inline h-4 w-4 ml-1" />
           </button>
+          {hasDraft && (
+            <button
+              onClick={() => setWizardOpen(true)}
+              className="mt-3 w-full h-12 rounded-xl border border-border-default bg-bg-surface font-semibold text-text-primary transition-colors hover:border-brand/40"
+            >
+              Continue Draft <ChevronRight className="inline h-4 w-4 ml-1" />
+            </button>
+          )}
           <div className="flex justify-center gap-2 mt-5">
             {copy.strategy.pills.map((pill) => (
               <span key={pill} className="rounded-full bg-bg-elevated border border-border-default px-3 py-1.5 text-xs text-text-secondary">
@@ -356,7 +446,14 @@ export default function StrategyPage() {
   /* ── State B: Strategy exists ──────────────────── */
   return (
     <div className="flex flex-col gap-6 animate-fade-in">
-      <StrategyWizard open={wizardOpen} onClose={() => setWizardOpen(false)} onComplete={handleWizardComplete} />
+      <StrategyWizard
+        open={wizardOpen}
+        initialStep={draftStep}
+        initialProfile={draftProfile}
+        onClose={() => setWizardOpen(false)}
+        onComplete={handleWizardComplete}
+        onDraftChange={handleDraftChange}
+      />
 
       {/* Banner */}
       {banner && (
@@ -381,6 +478,16 @@ export default function StrategyPage() {
             {copy.strategy.editProfile}
           </button>
         </div>
+        {hasDraft && (
+          <div className="mt-4">
+            <button
+              onClick={() => setWizardOpen(true)}
+              className="text-sm font-medium text-brand transition-colors hover:text-brand-hover"
+            >
+              Resume Strategy Draft <ChevronRight className="inline h-3 w-3 ml-1" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Metrics */}
