@@ -192,6 +192,36 @@ export interface AnalyseYearData {
   equity_multiple?: number
 }
 
+export interface BankabilityMetricCard {
+  plain_title?: string
+  full_name?: string
+  abbreviation?: string
+  display_label?: string
+  summary?: string
+  why_it_matters?: string
+  how_to_improve?: string
+}
+
+export interface BankabilityNamedMetric extends BankabilityMetricCard {
+  value?: number | string | null
+  label?: string
+}
+
+export interface BankabilityStressScenario {
+  title?: string
+  summary?: string
+  change?: string
+  impact?: string
+}
+
+export interface BankabilityMetrics {
+  overall_summary?: string
+  primary_cards?: BankabilityMetricCard[]
+  lender_metrics?: BankabilityNamedMetric[]
+  stress_scenarios?: BankabilityStressScenario[]
+  scaling_metrics?: BankabilityNamedMetric[]
+}
+
 export interface AnalyseResponse {
   score: number
   verdict: string
@@ -226,6 +256,7 @@ export interface AnalyseResponse {
   ai_analysis?: string | null
   ai_insight?: AIInsight
   ai_deep_analysis?: AIDeepAnalysis
+  bankability_metrics?: BankabilityMetrics
   // Optional enrichment / meta
   address_resolved?: string
   market_rent_m2?: number | null

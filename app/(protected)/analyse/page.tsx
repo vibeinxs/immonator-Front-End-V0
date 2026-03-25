@@ -25,7 +25,15 @@ import { useAnalysisStore } from "@/store/analysisStore"
 import { AnalysisChat } from "@/components/chat/AnalysisChat"
 import { useLocale } from "@/lib/i18n/locale-context"
 import { runBuyingStrategy, runInvestmentReview, runPropertySnapshot } from "@/lib/skillsApi"
-import type { AnalyseRequest, AnalyseResponse, PropertySkillContextPayload } from "@/types/api"
+import type {
+  AnalyseRequest,
+  AnalyseResponse,
+  BankabilityMetricCard,
+  BankabilityMetrics,
+  BankabilityNamedMetric,
+  BankabilityStressScenario,
+  PropertySkillContextPayload,
+} from "@/types/api"
 import type { SnapshotResult, ReviewResult, StrategyResult } from "@/types/skills"
 import type {
   AIInsightPayload,
@@ -80,6 +88,78 @@ function compareMetricClass(delta: number, better: CompareMetricTone) {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+function asText(value: unknown): string | null {
+  if (typeof value !== "string") return null
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : null
+}
+
+function asMetricCard(value: unknown): BankabilityMetricCard | null {
+  if (!isRecord(value)) return null
+  return {
+    plain_title: asText(value.plain_title) ?? asText(value.title) ?? undefined,
+    full_name: asText(value.full_name) ?? undefined,
+    abbreviation: asText(value.abbreviation) ?? undefined,
+    display_label: asText(value.display_label) ?? asText(value.label) ?? undefined,
+    summary: asText(value.summary) ?? undefined,
+    why_it_matters: asText(value.why_it_matters) ?? asText(value.why) ?? undefined,
+    how_to_improve: asText(value.how_to_improve) ?? asText(value.improvement) ?? undefined,
+  }
+}
+
+function asNamedMetric(value: unknown): BankabilityNamedMetric | null {
+  if (!isRecord(value)) return null
+  const card = asMetricCard(value) ?? {}
+  const rawValue = value.value
+  return {
+    ...card,
+    value: typeof rawValue === "number" || typeof rawValue === "string" ? rawValue : null,
+    label: asText(value.label) ?? undefined,
+  }
+}
+
+function asStressScenario(value: unknown): BankabilityStressScenario | null {
+  if (!isRecord(value)) return null
+  return {
+    title: asText(value.title) ?? asText(value.name) ?? undefined,
+    summary: asText(value.summary) ?? undefined,
+    change: asText(value.change) ?? asText(value.assumption) ?? undefined,
+    impact: asText(value.impact) ?? asText(value.outcome) ?? undefined,
+  }
+}
+
+function normalizeBankabilityMetrics(value: unknown): BankabilityMetrics | null {
+  if (!isRecord(value)) return null
+  const primaryCards = Array.isArray(value.primary_cards)
+    ? value.primary_cards.map(asMetricCard).filter((card): card is BankabilityMetricCard => Boolean(card))
+    : []
+  const lenderMetrics = Array.isArray(value.lender_metrics)
+    ? value.lender_metrics.map(asNamedMetric).filter((metric): metric is BankabilityNamedMetric => Boolean(metric))
+    : []
+  const stressScenarios = Array.isArray(value.stress_scenarios)
+    ? value.stress_scenarios.map(asStressScenario).filter((scenario): scenario is BankabilityStressScenario => Boolean(scenario))
+    : []
+  const scalingMetrics = Array.isArray(value.scaling_metrics)
+    ? value.scaling_metrics.map(asNamedMetric).filter((metric): metric is BankabilityNamedMetric => Boolean(metric))
+    : []
+
+  const normalized: BankabilityMetrics = {
+    overall_summary: asText(value.overall_summary) ?? asText(value.summary) ?? undefined,
+    primary_cards: primaryCards,
+    lender_metrics: lenderMetrics,
+    stress_scenarios: stressScenarios,
+    scaling_metrics: scalingMetrics,
+  }
+
+  const hasContent = Boolean(normalized.overall_summary)
+    || primaryCards.length > 0
+    || lenderMetrics.length > 0
+    || stressScenarios.length > 0
+    || scalingMetrics.length > 0
+
+  return hasContent ? normalized : null
 }
 
 function mergeWithPreset(preset: AnalyseRequest, candidate: unknown): AnalyseRequest {
@@ -446,6 +526,7 @@ function analysePageReducer(state: AnalysePageState, action: AnalysePageAction):
 
 function ResultOverview({ input, result }: { input: AnalyseRequest; result: AnalyseResponse }) {
   const { t } = useLocale()
+  const bankability = normalizeBankabilityMetrics(result.bankability_metrics)
 
   return (
     <div className="space-y-4">
@@ -488,6 +569,98 @@ function ResultOverview({ input, result }: { input: AnalyseRequest; result: Anal
           <FlagsSection result={result} />
         </div>
       </section>
+
+      {bankability ? <BankabilitySection metrics={bankability} /> : null}
+    </div>
+  )
+}
+
+function BankabilitySection({ metrics }: { metrics: BankabilityMetrics }) {
+  const { t } = useLocale()
+  const metricCards = metrics.primary_cards ?? []
+  const lenderMetrics = metrics.lender_metrics ?? []
+  const stressScenarios = metrics.stress_scenarios ?? []
+  const scalingMetrics = metrics.scaling_metrics ?? []
+
+  return (
+    <section className="rounded-[14px] border border-border-default bg-bg-surface p-4">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{t("analyse.bankability.title")}</p>
+      {metrics.overall_summary ? (
+        <p className="mt-2 text-sm text-text-secondary">{metrics.overall_summary}</p>
+      ) : null}
+
+      {metricCards.length > 0 ? (
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          {metricCards.map((card, index) => (
+            <div key={`${card.plain_title ?? card.display_label ?? "metric"}-${index}`} className="rounded-xl border border-border-default bg-bg-base p-3">
+              <p className="text-sm font-semibold text-text-primary">{card.display_label ?? card.full_name ?? card.plain_title ?? t("analyse.bankability.metric")}</p>
+              {card.summary ? <p className="mt-1 text-sm text-text-secondary">{card.summary}</p> : null}
+              {card.why_it_matters ? <p className="mt-2 text-xs text-text-muted"><span className="font-semibold text-text-secondary">{t("analyse.bankability.whyItMatters")}:</span> {card.why_it_matters}</p> : null}
+              {card.how_to_improve ? <p className="mt-1 text-xs text-text-muted"><span className="font-semibold text-text-secondary">{t("analyse.bankability.howToImprove")}:</span> {card.how_to_improve}</p> : null}
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="mt-4 grid gap-4 xl:grid-cols-3">
+        <BankabilityList title={t("analyse.bankability.lenderMetrics")} items={lenderMetrics} />
+        <BankabilityScenarioList title={t("analyse.bankability.stressScenarios")} items={stressScenarios} />
+        <BankabilityList title={t("analyse.bankability.scalingMetrics")} items={scalingMetrics} />
+      </div>
+    </section>
+  )
+}
+
+function BankabilityList({
+  title,
+  items,
+}: {
+  title: string
+  items: BankabilityNamedMetric[]
+}) {
+  const { t } = useLocale()
+  if (items.length === 0) return null
+  return (
+    <div className="rounded-xl border border-border-default bg-bg-base p-3">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{title}</p>
+      <div className="mt-2 space-y-2">
+        {items.map((item, index) => (
+          <div key={`${item.display_label ?? item.plain_title ?? "item"}-${index}`} className="rounded-lg border border-border-default/70 bg-bg-surface p-2">
+            <p className="text-sm font-medium text-text-primary">
+              {item.display_label ?? item.full_name ?? item.plain_title ?? t("analyse.bankability.metric")}
+              {item.abbreviation ? <span className="ml-1 text-xs text-text-muted">({item.abbreviation})</span> : null}
+            </p>
+            {item.value != null ? <p className="text-sm font-semibold text-brand">{String(item.value)}</p> : null}
+            {item.summary ? <p className="text-xs text-text-secondary">{item.summary}</p> : null}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function BankabilityScenarioList({
+  title,
+  items,
+}: {
+  title: string
+  items: BankabilityStressScenario[]
+}) {
+  const { t } = useLocale()
+  if (items.length === 0) return null
+  return (
+    <div className="rounded-xl border border-border-default bg-bg-base p-3">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{title}</p>
+      <div className="mt-2 space-y-2">
+        {items.map((item, index) => (
+          <div key={`${item.title ?? "scenario"}-${index}`} className="rounded-lg border border-border-default/70 bg-bg-surface p-2">
+            <p className="text-sm font-medium text-text-primary">{item.title ?? t("analyse.bankability.scenario")}</p>
+            {item.summary ? <p className="text-xs text-text-secondary">{item.summary}</p> : null}
+            {item.change ? <p className="text-xs text-text-muted"><span className="font-semibold text-text-secondary">{t("analyse.bankability.change")}:</span> {item.change}</p> : null}
+            {item.impact ? <p className="text-xs text-text-muted"><span className="font-semibold text-text-secondary">{t("analyse.bankability.impact")}:</span> {item.impact}</p> : null}
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
