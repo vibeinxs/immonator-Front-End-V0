@@ -96,6 +96,10 @@ function asText(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null
 }
 
+function firstTextFromAliases(value: Record<string, unknown>, aliases: string[]): string | null {
+  return aliases.reduce((acc, key) => acc ?? asText(value[key]), null as string | null)
+}
+
 function asMetricCard(value: unknown): BankabilityMetricCard | null {
   if (!isRecord(value)) return null
   return {
@@ -122,25 +126,10 @@ function asNamedMetric(value: unknown): BankabilityNamedMetric | null {
 
 function asStressScenario(value: unknown): BankabilityStressScenario | null {
   if (!isRecord(value)) return null
-  const name = asText(value.name)
-    ?? asText(value.title)
-    ?? asText(value.scenario_name)
-    ?? asText(value.scenario)
-  const metricValue = asText(value.value)
-    ?? asText(value.metric_value)
-    ?? asText(value.affected_metric_value)
-    ?? asText(value.impact_value)
-    ?? asText(value.metric)
-    ?? asText(value.change)
-  const verdict = asText(value.verdict)
-    ?? asText(value.status)
-    ?? asText(value.result)
-  const explanation = asText(value.explanation)
-    ?? asText(value.summary)
-    ?? asText(value.reason)
-    ?? asText(value.impact)
-    ?? asText(value.outcome)
-    ?? asText(value.assumption)
+  const name = firstTextFromAliases(value, ["name", "title", "scenario_name", "scenario"])
+  const metricValue = firstTextFromAliases(value, ["value", "metric_value", "affected_metric_value", "impact_value", "metric", "change"])
+  const verdict = firstTextFromAliases(value, ["verdict", "status", "result"])
+  const explanation = firstTextFromAliases(value, ["explanation", "summary", "reason", "impact", "outcome", "assumption"])
 
   const hasContent = Boolean(name || metricValue || verdict || explanation)
   if (!hasContent) return null
@@ -669,15 +658,15 @@ function BankabilityScenarioList({
   title: string
   items: BankabilityStressScenario[]
 }) {
-  const populatedItems = items.filter((item) => item.name || item.value || item.verdict || item.explanation)
+  const { t } = useLocale()
   return (
     <div className="rounded-xl border border-border-default bg-bg-base p-3">
       <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{title}</p>
-      {populatedItems.length === 0 ? (
-        <p className="mt-2 text-xs text-text-muted">No stress scenarios were returned.</p>
+      {items.length === 0 ? (
+        <p className="mt-2 text-xs text-text-muted">{t("analyse.bankability.noStressScenarios")}</p>
       ) : (
         <div className="mt-2 space-y-2">
-          {populatedItems.map((item, index) => (
+          {items.map((item, index) => (
             <div key={`${item.name ?? item.value ?? "stress"}-${index}`} className="rounded-lg border border-border-default/70 bg-bg-surface p-2">
               {item.name ? <p className="text-sm font-medium text-text-primary">{item.name}</p> : null}
               <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
