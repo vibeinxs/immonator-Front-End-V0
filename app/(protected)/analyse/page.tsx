@@ -122,11 +122,34 @@ function asNamedMetric(value: unknown): BankabilityNamedMetric | null {
 
 function asStressScenario(value: unknown): BankabilityStressScenario | null {
   if (!isRecord(value)) return null
+  const name = asText(value.name)
+    ?? asText(value.title)
+    ?? asText(value.scenario_name)
+    ?? asText(value.scenario)
+  const metricValue = asText(value.value)
+    ?? asText(value.metric_value)
+    ?? asText(value.affected_metric_value)
+    ?? asText(value.impact_value)
+    ?? asText(value.metric)
+    ?? asText(value.change)
+  const verdict = asText(value.verdict)
+    ?? asText(value.status)
+    ?? asText(value.result)
+  const explanation = asText(value.explanation)
+    ?? asText(value.summary)
+    ?? asText(value.reason)
+    ?? asText(value.impact)
+    ?? asText(value.outcome)
+    ?? asText(value.assumption)
+
+  const hasContent = Boolean(name || metricValue || verdict || explanation)
+  if (!hasContent) return null
+
   return {
-    title: asText(value.title) ?? asText(value.name) ?? undefined,
-    summary: asText(value.summary) ?? undefined,
-    change: asText(value.change) ?? asText(value.assumption) ?? undefined,
-    impact: asText(value.impact) ?? asText(value.outcome) ?? undefined,
+    name: name ?? undefined,
+    value: metricValue ?? undefined,
+    verdict: verdict ?? undefined,
+    explanation: explanation ?? undefined,
   }
 }
 
@@ -646,21 +669,26 @@ function BankabilityScenarioList({
   title: string
   items: BankabilityStressScenario[]
 }) {
-  const { t } = useLocale()
-  if (items.length === 0) return null
+  const populatedItems = items.filter((item) => item.name || item.value || item.verdict || item.explanation)
   return (
     <div className="rounded-xl border border-border-default bg-bg-base p-3">
       <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{title}</p>
-      <div className="mt-2 space-y-2">
-        {items.map((item, index) => (
-          <div key={`${item.title ?? "scenario"}-${index}`} className="rounded-lg border border-border-default/70 bg-bg-surface p-2">
-            <p className="text-sm font-medium text-text-primary">{item.title ?? t("analyse.bankability.scenario")}</p>
-            {item.summary ? <p className="text-xs text-text-secondary">{item.summary}</p> : null}
-            {item.change ? <p className="text-xs text-text-muted"><span className="font-semibold text-text-secondary">{t("analyse.bankability.change")}:</span> {item.change}</p> : null}
-            {item.impact ? <p className="text-xs text-text-muted"><span className="font-semibold text-text-secondary">{t("analyse.bankability.impact")}:</span> {item.impact}</p> : null}
-          </div>
-        ))}
-      </div>
+      {populatedItems.length === 0 ? (
+        <p className="mt-2 text-xs text-text-muted">No stress scenarios were returned.</p>
+      ) : (
+        <div className="mt-2 space-y-2">
+          {populatedItems.map((item, index) => (
+            <div key={`${item.name ?? item.value ?? "stress"}-${index}`} className="rounded-lg border border-border-default/70 bg-bg-surface p-2">
+              {item.name ? <p className="text-sm font-medium text-text-primary">{item.name}</p> : null}
+              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                {item.value ? <span className="font-semibold text-brand">{item.value}</span> : null}
+                {item.verdict ? <span className="rounded-full border border-border-default px-2 py-0.5 font-medium text-text-secondary">{item.verdict}</span> : null}
+              </div>
+              {item.explanation ? <p className="mt-1 text-xs text-text-secondary">{item.explanation}</p> : null}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
