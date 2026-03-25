@@ -4,6 +4,8 @@ import { type ReactNode, useCallback, useEffect, useMemo, useReducer, useRef, us
 import { useSearchParams } from "next/navigation"
 import { AlertCircle, ChevronDown, Loader2, RotateCcw } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea"
 import { AnalysisInputPanel } from "@/features/analysis/AnalysisInputPanel"
 import { KpiGrid } from "@/features/analysis/KpiGrid"
 import { PRESET_A, PRESET_B } from "@/features/analysis/presets"
@@ -52,6 +54,27 @@ const SNAPSHOT_SUMMARY_MAX_LENGTH = 190
 const SNAPSHOT_HIGHLIGHTS_COUNT = 2
 const STRATEGY_NEXT_MOVE_MAX_LENGTH = 260
 const PRIMARY_BANKABILITY_CARDS_LIMIT = 4
+const IMPORT_REQUIRED_FIELDS: Array<keyof AnalyseRequest> = [
+  "address",
+  "sqm",
+  "year_built",
+  "purchase_price",
+  "equity",
+  "rent_monthly",
+]
+
+const IMPORT_FIELD_LABELS: Partial<Record<keyof AnalyseRequest, string>> = {
+  address: "Address",
+  sqm: "Living area (sqm)",
+  year_built: "Year built",
+  purchase_price: "Purchase price",
+  equity: "Equity",
+  rent_monthly: "Rent (monthly)",
+  interest_rate: "Interest rate",
+  repayment_rate: "Repayment rate",
+  condition: "Condition",
+  energy_class: "Energy class",
+}
 
 type CompareMetricTone = "higher" | "lower"
 type AnalysisMode = "single" | "compare"
@@ -61,6 +84,13 @@ type ComparePropertyKey = "propertyA" | "propertyB"
 type CompareInputsState = Record<ComparePropertyKey, AnalyseRequest>
 type CompareResultsState = Record<ComparePropertyKey, AnalyseResponse | null>
 type CompareLoadingState = Record<ComparePropertyKey, boolean>
+
+interface ImportedFieldPreview {
+  key: keyof AnalyseRequest
+  label: string
+  value: string
+  unverified: boolean
+}
 
 function toChartData(yearData: AnalyseResponse["year_data"]): YearData[] {
   return yearData.map((y) => ({
@@ -226,6 +256,113 @@ function isHydratableAnalyseResult(value: unknown): value is AnalyseResponse {
     Number.isFinite(value.irr_10) &&
     Array.isArray(value.year_data)
   )
+}
+
+function resolveImportFieldLabel(field: keyof AnalyseRequest): string {
+  return IMPORT_FIELD_LABELS[field] ?? String(field)
+}
+
+function parseImportedPropertyText(raw: string, base: AnalyseRequest): {
+  nextInput: AnalyseRequest
+  extracted: ImportedFieldPreview[]
+  missingFields: string[]
+  unverifiedFields: string[]
+} | null {
+  const trimmed = raw.trim()
+  if (!trimmed) return null
+
+  const nextInput: AnalyseRequest = { ...base }
+  const importedKeys = new Set<keyof AnalyseRequest>()
+  const unverifiedKeys = new Set<keyof AnalyseRequest>()
+  const setText = (field: keyof AnalyseRequest, value: string) => {
+    const text = value.trim()
+    if (!text) return
+    Object.assign(nextInput, { [field]: text })
+    importedKeys.add(field)
+  }
+  const setNumber = (field: keyof AnalyseRequest, value: unknown) => {
+    const numeric = typeof value === "number" ? value : Number(String(value).replace(/[^\d.-]/g, ""))
+    if (!Number.isFinite(numeric)) return
+    Object.assign(nextInput, { [field]: numeric })
+    importedKeys.add(field)
+  }
+
+  if (trimmed.startsWith("{")) {
+    try {
+      const parsed = JSON.parse(trimmed) as Record<string, unknown>
+      setText("address", String(parsed.address ?? parsed.location ?? ""))
+      setNumber("sqm", parsed.sqm ?? parsed.living_area_sqm ?? parsed.area)
+      setNumber("year_built", parsed.year_built ?? parsed.built_year)
+      setNumber("purchase_price", parsed.purchase_price ?? parsed.price ?? parsed.asking_price)
+      setNumber("equity", parsed.equity ?? parsed.down_payment)
+      setNumber("rent_monthly", parsed.rent_monthly ?? parsed.monthly_rent ?? parsed.rent)
+      setNumber("interest_rate", parsed.interest_rate ?? parsed.interest)
+      setNumber("repayment_rate", parsed.repayment_rate ?? parsed.repayment)
+      setText("condition", String(parsed.condition ?? ""))
+      setText("energy_class", String(parsed.energy_class ?? parsed.energy ?? ""))
+    } catch {
+      // fall through to line-based parsing below
+    }
+  }
+
+  const lines = trimmed.split(/\n+/).map((line) => line.trim()).filter(Boolean)
+  lines.forEach((line) => {
+    const [rawKey, ...rest] = line.split(":")
+    if (!rawKey || rest.length === 0) return
+    const key = rawKey.trim().toLowerCase()
+    const value = rest.join(":").trim()
+    if (!value) return
+
+    if (key.includes("address") || key.includes("location")) setText("address", value)
+    else if (key.includes("sqm") || key.includes("m2") || key.includes("area")) setNumber("sqm", value)
+    else if (key.includes("year_built") || key.includes("built_year") || key === "year") setNumber("year_built", value)
+    else if (key.includes("purchase_price") || key.includes("asking_price") || key === "price") setNumber("purchase_price", value)
+    else if (key.includes("equity")) setNumber("equity", value)
+    else if (key.includes("rent_monthly") || key.includes("monthly_rent") || key === "rent") setNumber("rent_monthly", value)
+    else if (key.includes("interest")) setNumber("interest_rate", value)
+    else if (key.includes("repayment")) setNumber("repayment_rate", value)
+    else if (key.includes("condition")) setText("condition", value)
+    else if (key.includes("energy")) setText("energy_class", value.toUpperCase())
+  })
+
+  const singleLineUrl = lines.length === 1 && /^https?:\/\//i.test(lines[0] ?? "")
+  if (singleLineUrl && !importedKeys.has("address")) {
+    setText("address", lines[0] ?? "")
+    unverifiedKeys.add("address")
+  }
+
+  if (importedKeys.size === 0) return null
+
+  IMPORT_REQUIRED_FIELDS.forEach((field) => {
+    if (!importedKeys.has(field)) return
+    if (nextInput[field] == null) {
+      importedKeys.delete(field)
+    }
+  })
+
+  const extracted = Array.from(importedKeys).map((field) => ({
+    key: field,
+    label: resolveImportFieldLabel(field),
+    value: String(nextInput[field] ?? ""),
+    unverified: unverifiedKeys.has(field),
+  }))
+
+  const missingFields = IMPORT_REQUIRED_FIELDS
+    .filter((field) => {
+      const value = nextInput[field]
+      if (typeof value === "string") return value.trim().length === 0
+      return typeof value !== "number" || !Number.isFinite(value)
+    })
+    .map(resolveImportFieldLabel)
+
+  const unverifiedFields = Array.from(unverifiedKeys).map(resolveImportFieldLabel)
+
+  return {
+    nextInput,
+    extracted,
+    missingFields,
+    unverifiedFields,
+  }
 }
 
 interface AnalysePageState {
@@ -807,10 +944,12 @@ function WorkflowActionButton({
   label,
   onClick,
   tone = "neutral",
+  testId,
 }: {
   label: string
   onClick: () => void
   tone?: "neutral" | "brand"
+  testId?: string
 }) {
   const className =
     tone === "brand"
@@ -821,6 +960,7 @@ function WorkflowActionButton({
     <button
       type="button"
       onClick={onClick}
+      data-testid={testId}
       className={`inline-flex items-center justify-center rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${className}`}
     >
       {label}
@@ -2022,6 +2162,13 @@ function SingleAnalysisWorkspace({
   const fullReviewRef = useRef<HTMLDivElement | null>(null)
   const buyingStrategyRef = useRef<HTMLDivElement | null>(null)
   const advisorRef = useRef<HTMLDivElement | null>(null)
+  const [importText, setImportText] = useState("")
+  const [importError, setImportError] = useState<string | null>(null)
+  const [importPreview, setImportPreview] = useState<{
+    extracted: ImportedFieldPreview[]
+    missingFields: string[]
+    unverifiedFields: string[]
+  } | null>(null)
 
   const aiInsightPayload = useMemo<AIInsightPayload | null>(() => {
     if (!result) return null
@@ -2137,8 +2284,104 @@ function SingleAnalysisWorkspace({
     advisorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
   }, [onOpenAdvisor])
 
+  const handleApplyImport = useCallback(() => {
+    const parsed = parseImportedPropertyText(importText, input)
+    if (!parsed) {
+      setImportError("We could not extract property fields from this import source yet.")
+      setImportPreview(null)
+      return
+    }
+
+    setImportError(null)
+    setImportPreview({
+      extracted: parsed.extracted,
+      missingFields: parsed.missingFields,
+      unverifiedFields: parsed.unverifiedFields,
+    })
+    onInputChange(parsed.nextInput)
+  }, [importText, input, onInputChange])
+
+  const handleClearImport = useCallback(() => {
+    setImportText("")
+    setImportError(null)
+    setImportPreview(null)
+  }, [])
+
   return (
     <div className="space-y-4">
+      <SectionShell
+        title="Import"
+        description="Start the AI workflow by importing a listing URL or pasted property details into the same analysis input model."
+      >
+        <div className="space-y-3 rounded-2xl border border-border-default bg-bg-base p-4">
+          <p className="text-xs text-text-muted">Paste a URL, key:value rows, or JSON object from your source document.</p>
+          <Textarea
+            value={importText}
+            onChange={(event) => setImportText(event.target.value)}
+            placeholder={"https://example.com/listing/123\naddress: Musterstraße 1, Berlin\npurchase_price: 325000\nsqm: 62"}
+            className="min-h-[120px]"
+          />
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" onClick={handleApplyImport}>Extract into property input</Button>
+            <Button type="button" variant="outline" onClick={handleClearImport}>
+              Clear
+            </Button>
+          </div>
+          {importError ? <p className="text-sm text-danger">{importError}</p> : null}
+        </div>
+
+        {importPreview ? (
+          <div data-testid={TEST_IDS.IMPORT_PREVIEW} className="grid gap-4 lg:grid-cols-2">
+            <section className="rounded-2xl border border-border-default bg-bg-base p-4">
+              <p className="text-sm font-semibold text-text-primary">Extracted property preview</p>
+              <div className="mt-3 space-y-2 text-sm">
+                {importPreview.extracted.map((field) => (
+                  <div key={field.key} className="flex items-start justify-between gap-3 rounded-lg border border-border-default bg-bg-surface px-3 py-2">
+                    <span className="text-text-secondary">{field.label}</span>
+                    <span className="text-right font-medium text-text-primary">{field.value}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section data-testid={TEST_IDS.IMPORT_MISSING_FIELDS} className="rounded-2xl border border-border-default bg-bg-base p-4">
+              <p className="text-sm font-semibold text-text-primary">Missing or unverified</p>
+              <div className="mt-3 space-y-3 text-sm">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">Missing required fields</p>
+                  {importPreview.missingFields.length > 0 ? (
+                    <ul className="mt-1 list-disc space-y-1 pl-5 text-text-secondary">
+                      {importPreview.missingFields.map((field) => <li key={field}>{field}</li>)}
+                    </ul>
+                  ) : <p className="mt-1 text-text-secondary">No required fields missing.</p>}
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">Unverified fields</p>
+                  {importPreview.unverifiedFields.length > 0 ? (
+                    <ul className="mt-1 list-disc space-y-1 pl-5 text-text-secondary">
+                      {importPreview.unverifiedFields.map((field) => <li key={field}>{field}</li>)}
+                    </ul>
+                  ) : <p className="mt-1 text-text-secondary">No unverified fields.</p>}
+                </div>
+              </div>
+            </section>
+            <div className="flex flex-wrap gap-2 lg:col-span-2">
+              <WorkflowActionButton
+                label="Run Intelligent Property Snapshot"
+                onClick={onRunSnapshot}
+                tone="brand"
+                testId={TEST_IDS.IMPORT_SNAPSHOT_ACTION}
+              />
+              <WorkflowActionButton
+                label="Run Investment Review"
+                onClick={onRunReview}
+                testId={TEST_IDS.IMPORT_REVIEW_ACTION}
+              />
+            </div>
+          </div>
+        ) : null}
+      </SectionShell>
+
       <SectionShell
         title="Single Property Analysis"
         description="Focus on one property from underwriting input through verdict, projections, and market context."
@@ -2559,15 +2802,27 @@ export default function AnalysePage() {
     }
   }, [analyseOne, state.singleDraftInput, t])
 
+  const ensureSingleAnalysisResult = useCallback(async () => {
+    if (state.singleAnalysisResult) return state.singleAnalysisResult
+    dispatch({ type: "singleAnalyseStart" })
+    const result = await analyseOne(state.singleDraftInput)
+    dispatch({ type: "singleAnalyseSuccess", result })
+    return result
+  }, [analyseOne, state.singleAnalysisResult, state.singleDraftInput])
+
   const handleRunSnapshot = useCallback(async () => {
-    if (!state.singleAnalysisResult) {
-      dispatch({ type: "snapshotError", error: "Run the property analysis first to generate a snapshot." })
+    dispatch({ type: "snapshotStart" })
+
+    let analysisResult: AnalyseResponse
+    try {
+      analysisResult = await ensureSingleAnalysisResult()
+    } catch {
+      dispatch({ type: "singleAnalyseError", error: t("analyse.error") })
+      dispatch({ type: "snapshotError", error: "Unable to run base property analysis for snapshot." })
       return
     }
 
-    dispatch({ type: "snapshotStart" })
-
-    const property = buildPropertyMetricsInput(state.singleDraftInput, state.singleAnalysisResult)
+    const property = buildPropertyMetricsInput(state.singleDraftInput, analysisResult)
     const response = await runPropertySnapshot(property)
 
     if (response.error || !response.data) {
@@ -2576,17 +2831,21 @@ export default function AnalysePage() {
     }
 
     dispatch({ type: "snapshotSuccess", result: response.data })
-  }, [state.singleAnalysisResult, state.singleDraftInput])
+  }, [ensureSingleAnalysisResult, state.singleDraftInput, t])
 
   const handleRunReview = useCallback(async () => {
-    if (!state.singleAnalysisResult) {
-      dispatch({ type: "reviewError", error: "Run the property analysis first to generate a Full Review." })
+    dispatch({ type: "reviewStart" })
+
+    let analysisResult: AnalyseResponse
+    try {
+      analysisResult = await ensureSingleAnalysisResult()
+    } catch {
+      dispatch({ type: "singleAnalyseError", error: t("analyse.error") })
+      dispatch({ type: "reviewError", error: "Unable to run base property analysis for full review." })
       return
     }
 
-    dispatch({ type: "reviewStart" })
-
-    const property = buildPropertyMetricsInput(state.singleDraftInput, state.singleAnalysisResult)
+    const property = buildPropertyMetricsInput(state.singleDraftInput, analysisResult)
     const response = await runInvestmentReview(property)
 
     if (response.error || !response.data) {
@@ -2595,7 +2854,7 @@ export default function AnalysePage() {
     }
 
     dispatch({ type: "reviewSuccess", result: response.data.normalized, rawResult: response.data.raw })
-  }, [state.singleAnalysisResult, state.singleDraftInput])
+  }, [ensureSingleAnalysisResult, state.singleDraftInput, t])
 
   const handleRunStrategy = useCallback(async () => {
     if (!state.singleAnalysisResult) {

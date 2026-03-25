@@ -1,4 +1,8 @@
 export const TEST_IDS = {
+  IMPORT_PREVIEW: "import-preview",
+  IMPORT_MISSING_FIELDS: "import-missing-fields",
+  IMPORT_SNAPSHOT_ACTION: "import-snapshot-action",
+  IMPORT_REVIEW_ACTION: "import-review-action",
   AI_SNAPSHOT_ACTION: "ai-snapshot-action",
   AI_REVIEW_ACTION: "ai-review-action",
   AI_STRATEGY_ACTION: "ai-strategy-action",
