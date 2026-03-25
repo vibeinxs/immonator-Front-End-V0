@@ -1484,16 +1484,17 @@ function CompactCompareSummary({ resultA, resultB }: { resultA: AnalyseResponse;
 }
 
 function ModeSwitcher({ mode, onChange }: { mode: AnalysisMode; onChange: (mode: AnalysisMode) => void }) {
+  const { t } = useLocale()
   const options: Array<{ id: AnalysisMode; title: string; description: string }> = [
     {
       id: "single",
-      title: "Single Analysis",
-      description: "Analyse one property end-to-end with the full underwriting results stack.",
+      title: t("analyse.modeSwitcher.singleTitle"),
+      description: t("analyse.modeSwitcher.singleDescription"),
     },
     {
       id: "compare",
-      title: "Compare Two Properties",
-      description: "Run two equal-weight property analyses and compare them side by side.",
+      title: t("analyse.modeSwitcher.compareTitle"),
+      description: t("analyse.modeSwitcher.compareDescription"),
     },
   ]
 
@@ -1544,6 +1545,7 @@ function ComparePropertyCard({
   onAnalyse: () => void
   onReset: () => void
 }) {
+  const { t } = useLocale()
   return (
     <section className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-border-default bg-bg-surface">
       <div className="flex items-start justify-between gap-3 border-b border-border-default px-4 py-4 md:px-5">
@@ -1557,7 +1559,7 @@ function ComparePropertyCard({
           className="inline-flex items-center gap-1 rounded-lg border border-border-default bg-bg-base px-3 py-2 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
         >
           <RotateCcw className="h-3.5 w-3.5" />
-          Reset
+          {t("analyse.common.reset")}
         </button>
       </div>
 
@@ -1568,7 +1570,7 @@ function ComparePropertyCard({
           onAnalyse={onAnalyse}
           loading={loading}
           idPrefix={idPrefix}
-          analyseButtonLabel={`Analyse ${label}`}
+          analyseButtonLabel={`${t("analyse.action.analyse")} ${label}`}
         />
       </div>
 
@@ -1580,12 +1582,13 @@ function ComparePropertyCard({
 }
 
 function CompareStatusCard({ label, result }: { label: string; result: AnalyseResponse | null }) {
+  const { t } = useLocale()
   return (
     <div className="rounded-xl border border-border-default bg-bg-base p-4">
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm font-semibold text-text-primary">{label}</p>
         <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${result ? "bg-success/10 text-success" : "bg-bg-elevated text-text-muted"}`}>
-          {result ? "Analysed" : "Pending"}
+          {result ? t("analyse.compare.status.analysed") : t("analyse.compare.status.pending")}
         </span>
       </div>
       <div className="mt-4">
@@ -2366,15 +2369,15 @@ function CompareAnalysisWorkspace({
   return (
     <div className="space-y-4">
       <SectionShell
-        title="Property Comparison"
-        description="Set up two properties independently, run the same analysis engine for each, and compare once both results are available."
+        title={t("analyse.compare.workspaceTitle")}
+        description={t("analyse.compare.workspaceDescription")}
       >
         <div className="space-y-5">
           <div className="flex flex-col gap-3 rounded-2xl border border-border-default bg-bg-base p-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="text-sm font-semibold text-text-primary">Compare two complete property analyses</p>
+              <p className="text-sm font-semibold text-text-primary">{t("analyse.compare.bannerTitle")}</p>
               <p className="mt-1 text-sm text-text-secondary">
-                Each property uses the full underwriting form, so neither side depends on being a secondary add-on.
+                {t("analyse.compare.bannerDescription")}
               </p>
             </div>
             <button
@@ -2384,7 +2387,7 @@ function CompareAnalysisWorkspace({
               className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-hover disabled:opacity-60"
             >
               {loading.propertyA || loading.propertyB ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              {loading.propertyA || loading.propertyB ? "Analysing…" : "Analyse both properties"}
+              {loading.propertyA || loading.propertyB ? t("analyse.action.analysing") : t("analyse.compare.action.analyseBoth")}
             </button>
           </div>
 
@@ -2392,8 +2395,8 @@ function CompareAnalysisWorkspace({
 
           <div className="grid gap-4 xl:grid-cols-2">
             <ComparePropertyCard
-              label="Property A"
-              description="Primary comparison candidate with the full underwriting input set."
+              label={t("analyse.propertyA")}
+              description={t("analyse.compare.propertyADescription")}
               input={inputs.propertyA}
               result={results.propertyA}
               loading={loading.propertyA}
@@ -2403,8 +2406,8 @@ function CompareAnalysisWorkspace({
               onReset={() => onResetProperty("propertyA")}
             />
             <ComparePropertyCard
-              label="Property B"
-              description="Second comparison candidate with the same input depth and analysis flow."
+              label={t("analyse.propertyB")}
+              description={t("analyse.compare.propertyBDescription")}
               input={inputs.propertyB}
               result={results.propertyB}
               loading={loading.propertyB}
@@ -2418,13 +2421,13 @@ function CompareAnalysisWorkspace({
       </SectionShell>
 
       <SectionShell
-        title="Comparison Results"
-        description="Comparison appears after both independent analysis results are ready."
+        title={t("analyse.compare.resultsTitle")}
+        description={t("analyse.compare.resultsDescription")}
       >
         <div className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
-            <CompareStatusCard label="Property A status" result={results.propertyA} />
-            <CompareStatusCard label="Property B status" result={results.propertyB} />
+            <CompareStatusCard label={t("analyse.compare.propertyAStatus")} result={results.propertyA} />
+            <CompareStatusCard label={t("analyse.compare.propertyBStatus")} result={results.propertyB} />
           </div>
 
           {compareReady ? (
@@ -2706,7 +2709,7 @@ export default function AnalysePage() {
         <header className="space-y-2">
           <h1 className="font-serif text-2xl font-semibold text-text-primary">{t("analyse.title")}</h1>
           <p className="text-sm text-text-secondary">
-            Choose a focused single-property underwriting flow or a dedicated two-property comparison workflow.
+            {t("analyse.modeSwitcher.subtitle")}
           </p>
         </header>
 
