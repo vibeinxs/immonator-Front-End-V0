@@ -45,11 +45,11 @@ type BankabilityCard = {
   value: string
   verdict: BankabilityVerdict
   explanation: string
-  details: {
-    formula: string
-    thresholds: string
-    whyItMatters: string
-  }
+}
+
+type BankabilityMetricRow = {
+  label: string
+  value: string
 }
 
 const STRESS_TEST = {
@@ -57,6 +57,8 @@ const STRESS_TEST = {
   VACANCY_INCREASE_PCT: 3,
   VACANCY_CAP_PCT: 30,
   INTEREST_RATE_INCREASE_PCT: 1,
+  VACANCY_SHOCK_INCREASE_PCT: 8,
+  VACANCY_SHOCK_CAP_PCT: 35,
 } as const
 
 const DSCR_THRESHOLDS = {
@@ -78,6 +80,12 @@ const STRESS_SCORE_THRESHOLDS = {
   RESILIENT: 120,
   BORDERLINE: 100,
 } as const
+
+function getDscrScenarioVerdict(dscrValue: number): { verdict: "Pass" | "Watch" | "Fail"; tone: BankabilityVerdict["tone"] } {
+  if (dscrValue >= DSCR_THRESHOLDS.STRONG) return { verdict: "Pass", tone: "positive" }
+  if (dscrValue >= DSCR_THRESHOLDS.BREAKEVEN) return { verdict: "Watch", tone: "neutral" }
+  return { verdict: "Fail", tone: "negative" }
+}
 
 function formatValue(value: number, unit: string): string {
   if (unit === EUR) return `${EUR}${value.toLocaleString("de-DE")}`
@@ -143,6 +151,18 @@ export function ScenarioModeller({ propertyId, askingPrice, monthlyRent }: Scena
   const dscr         = mortgage > 0 ? (effRent * 12) / (mortgage * 12) : 0
   const cashOnCash   = equity > 0 ? (cashflow * 12) / equity * 100 : 0
   const ltv          = price > 0 ? (loan / price) * 100 : 0
+  const annualDebtService = mortgage * 12
+  const noi = (effRent - mgmtCost) * 12 - maintenance
+  const annualInterestExpense = loan * (rate / 100)
+  const icr = annualInterestExpense > 0 ? noi / annualInterestExpense : 0
+  const debtYield = loan > 0 ? (noi / loan) * 100 : 0
+  const effectiveAnnualRent = (rent * 12) * (1 - mgmt / 100)
+  const breakEvenCostBase = annualDebtService + maintenance
+  const breakEvenOccupancyRatio = effectiveAnnualRent > 0 ? breakEvenCostBase / effectiveAnnualRent : 0
+  const breakEvenOccupancy = rent > 0
+    ? Math.max(0, Math.min(100, breakEvenOccupancyRatio * 100))
+    : 0
+  const cfadsAnnual = cashflow * 12
   const stressedRent = rent * STRESS_TEST.RENT_FACTOR
   const stressedVacancyPct = Math.min(vacancy + STRESS_TEST.VACANCY_INCREASE_PCT, STRESS_TEST.VACANCY_CAP_PCT)
   const stressedEffRent = stressedRent * (1 - stressedVacancyPct / 100)
@@ -152,6 +172,8 @@ export function ScenarioModeller({ propertyId, askingPrice, monthlyRent }: Scena
     : loan / n
   const stressedDscr = stressedMortgage > 0 ? stressedEffRent / stressedMortgage : 0
   const stressResilienceScore = Math.max(0, stressedDscr * 100)
+  const vacancyShockRate = Math.min(vacancy + STRESS_TEST.VACANCY_SHOCK_INCREASE_PCT, STRESS_TEST.VACANCY_SHOCK_CAP_PCT)
+  const vacancyShockDscr = mortgage > 0 ? (rent * (1 - vacancyShockRate / 100)) / mortgage : 0
 
   const dscrVerdict: BankabilityVerdict = dscr >= DSCR_THRESHOLDS.STRONG
     ? { label: "Bank-friendly", tone: "positive" }
@@ -179,40 +201,25 @@ export function ScenarioModeller({ propertyId, askingPrice, monthlyRent }: Scena
 
   const bankabilityCards: BankabilityCard[] = [
     {
-      plainTitle: "Can the rent cover the loan?",
+      plainTitle: "Can the property cover the loan?",
       technicalName: "Debt Service Coverage Ratio (DSCR)",
       value: `${dscr.toFixed(2)}×`,
       verdict: dscrVerdict,
       explanation: "This checks whether rental income can comfortably pay the monthly debt.",
-      details: {
-        formula: "DSCR = Net operating rent income ÷ Annual debt service",
-        thresholds: `Typical lender comfort: ≥${DSCR_THRESHOLDS.STRONG.toFixed(2)}× (${DSCR_THRESHOLDS.BREAKEVEN.toFixed(2)}× means just enough to pay debt)`,
-        whyItMatters: "A stronger DSCR gives banks confidence that payments can still be made if income dips.",
-      },
     },
     {
-      plainTitle: "How much bank risk is in this deal?",
+      plainTitle: "How risky does this look for a bank?",
       technicalName: "Loan-to-Value (LTV)",
       value: `${ltv.toFixed(1)}%`,
       verdict: ltvVerdict,
       explanation: "This shows how much of the purchase price is financed by debt.",
-      details: {
-        formula: "LTV = Loan amount ÷ Property value",
-        thresholds: `Typical lender range: ≤${LTV_THRESHOLDS.WATCH}% (lower is safer for both borrower and bank)`,
-        whyItMatters: "Lower LTV means more equity buffer if prices fall or exit takes longer.",
-      },
     },
     {
-      plainTitle: "Will money be left each month?",
+      plainTitle: "Will money be left after debt payments?",
       technicalName: "Cash Flow After Debt Service",
       value: `${cashflow >= 0 ? "+" : "-"}${EUR}${Math.round(Math.abs(cashflow)).toLocaleString("de-DE")}/mo`,
       verdict: cashflowVerdict,
       explanation: "This is monthly money left over after financing and core operating costs.",
-      details: {
-        formula: "Cash Flow After Debt Service = Effective rent − Mortgage − Opex",
-        thresholds: "Target is positive; negative values mean the owner must top up monthly.",
-        whyItMatters: "Positive cash flow improves affordability and reduces repayment stress.",
-      },
     },
     {
       plainTitle: "Could this survive worse conditions?",
@@ -220,13 +227,52 @@ export function ScenarioModeller({ propertyId, askingPrice, monthlyRent }: Scena
       value: `${Math.round(stressResilienceScore)}`,
       verdict: stressVerdict,
       explanation: "This stress test assumes lower rent and higher rates to see downside durability.",
-      details: {
-        formula: `Stress score = Stressed DSCR × 100 (stress case: rent −${Math.round((1 - STRESS_TEST.RENT_FACTOR) * 100)}%, vacancy +${STRESS_TEST.VACANCY_INCREASE_PCT}pp capped at ${STRESS_TEST.VACANCY_CAP_PCT}%, rate +${STRESS_TEST.INTEREST_RATE_INCREASE_PCT}pp)`,
-        thresholds: `${STRESS_SCORE_THRESHOLDS.BORDERLINE}+ means debt coverage remains at or above break-even under stress.`,
-        whyItMatters: "Banks favor properties that still cover debt when conditions worsen.",
-      },
     },
   ]
+
+  const advancedBankMetrics: BankabilityMetricRow[] = [
+    { label: "Debt Service Coverage Ratio (DSCR)", value: `${dscr.toFixed(2)}×` },
+    { label: "Interest Coverage Ratio (ICR)", value: `${icr.toFixed(2)}×` },
+    { label: "Loan-to-Value (LTV)", value: `${ltv.toFixed(1)}%` },
+    { label: "Debt Yield", value: `${debtYield.toFixed(2)}%` },
+    { label: "Break-even Occupancy Rate", value: `${breakEvenOccupancy.toFixed(1)}%` },
+    { label: "Net Operating Income (NOI)", value: `${EUR}${Math.round(noi).toLocaleString("de-DE")}/yr` },
+    { label: "Cash Flow After Debt Service (CFADS)", value: `${cfadsAnnual >= 0 ? "+" : "-"}${EUR}${Math.round(Math.abs(cfadsAnnual)).toLocaleString("de-DE")}/yr` },
+  ]
+
+  const stressedRentScenarioVerdict = getDscrScenarioVerdict(stressedDscr)
+  const vacancyShockScenarioVerdict = getDscrScenarioVerdict(vacancyShockDscr)
+
+  const stressScenarios = [
+    {
+      label: `Rent -${Math.round((1 - STRESS_TEST.RENT_FACTOR) * 100)}%, rate +${STRESS_TEST.INTEREST_RATE_INCREASE_PCT}%`,
+      metric: `Stressed DSCR ${stressedDscr.toFixed(2)}×`,
+      verdict: stressedRentScenarioVerdict.verdict,
+      tone: stressedRentScenarioVerdict.tone,
+    },
+    {
+      label: `Vacancy up to ${vacancyShockRate.toFixed(0)}%`,
+      metric: `DSCR ${vacancyShockDscr.toFixed(2)}×`,
+      verdict: vacancyShockScenarioVerdict.verdict,
+      tone: vacancyShockScenarioVerdict.tone,
+    },
+  ] as const
+
+  const portfolioScalingMetrics: BankabilityMetricRow[] = [
+    { label: "Cash-on-Cash Return", value: `${cashOnCash.toFixed(1)}%` },
+    { label: "Annual Cash Left to Reinvest", value: `${cfadsAnnual >= 0 ? "+" : "-"}${EUR}${Math.round(Math.abs(cfadsAnnual)).toLocaleString("de-DE")}` },
+    { label: "Total Equity Needed", value: `${EUR}${Math.round(equity).toLocaleString("de-DE")}` },
+  ]
+
+  const allVerdicts = [dscrVerdict, ltvVerdict, cashflowVerdict, stressVerdict]
+  const hasNegative = allVerdicts.some((verdict) => verdict.tone === "negative")
+  const hasNeutral = allVerdicts.some((verdict) => verdict.tone === "neutral")
+
+  const overallBankabilityVerdict: BankabilityVerdict = hasNegative
+    ? { label: "Needs caution", tone: "negative" }
+    : hasNeutral
+      ? { label: "Borderline", tone: "neutral" }
+      : { label: "Bank-friendly", tone: "positive" }
 
   const verdictChipTone: Record<BankabilityVerdict["tone"], string> = {
     positive: "bg-success-bg text-success border-success/25",
@@ -413,48 +459,67 @@ export function ScenarioModeller({ propertyId, askingPrice, monthlyRent }: Scena
         <div className="mt-5 rounded-2xl border border-border-default bg-bg-surface p-4">
           <div className="mb-3">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Bankability &amp; Financing Strength</p>
-            <p className="mt-1 text-xs text-text-secondary">Designed so non-finance users can read lender-style KPIs quickly.</p>
+            <p className="mt-1 text-sm text-text-primary">Quick read: {overallBankabilityVerdict.label}</p>
+            <p className="mt-1 text-xs text-text-secondary">A simple lender view first. Expand for full underwriting metrics.</p>
           </div>
 
           <div className="grid gap-3 md:grid-cols-2">
             {bankabilityCards.map((card) => (
-              <Collapsible key={card.technicalName} className="rounded-xl border border-border-default bg-bg-base p-3">
+              <div key={card.technicalName} className="rounded-xl border border-border-default bg-bg-base p-3">
                 <p className="text-sm font-semibold text-text-primary">{card.plainTitle}</p>
-                <p className="mt-1 text-xs text-text-secondary">{card.technicalName}</p>
                 <div className="mt-2 flex items-center justify-between gap-2">
-                  <p className="font-mono text-2xl font-bold text-text-primary">{card.value}</p>
+                  <p className="text-sm font-semibold text-text-secondary">{card.verdict.label}</p>
                   <span className={cn("inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold", verdictChipTone[card.verdict.tone])}>
-                    {card.verdict.label}
+                    {card.value}
                   </span>
                 </div>
-                <p className="mt-2 text-xs leading-relaxed text-text-secondary">{card.explanation}</p>
-                <CollapsibleTrigger className="mt-2 text-xs font-medium text-brand hover:text-brand-hover">
-                  Show formula and thresholds
-                </CollapsibleTrigger>
-                <CollapsibleContent className="mt-2 space-y-1.5 text-xs leading-relaxed text-text-muted">
-                  <p><span className="font-semibold text-text-secondary">Formula:</span> {card.details.formula}</p>
-                  <p><span className="font-semibold text-text-secondary">Thresholds:</span> {card.details.thresholds}</p>
-                  <p><span className="font-semibold text-text-secondary">Why it matters:</span> {card.details.whyItMatters}</p>
-                </CollapsibleContent>
-              </Collapsible>
+                <p className="mt-2 text-xs text-text-secondary">{card.technicalName}: <span className="font-mono">{card.value}</span></p>
+              </div>
             ))}
           </div>
 
           <div className="mt-4 rounded-xl border border-border-default bg-bg-base p-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">What Banks Care About</p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {[
-                "Debt Service Coverage Ratio (DSCR)",
-                "Interest Coverage Ratio (ICR)",
-                "Loan-to-Value (LTV)",
-                "Debt Yield",
-                "Break-even Occupancy Rate",
-              ].map((item) => (
-                <span key={item} className="rounded-full border border-border-default bg-bg-surface px-2.5 py-1 text-xs text-text-secondary">
-                  {item}
-                </span>
+            <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">Stress Scenarios</p>
+            <div className="mt-2 space-y-2">
+              {stressScenarios.map((scenario) => (
+                <div key={scenario.label} className="flex items-center justify-between gap-3 rounded-lg border border-border-default px-3 py-2">
+                  <div>
+                    <p className="text-xs font-medium text-text-primary">{scenario.label}</p>
+                    <p className="text-xs text-text-secondary">{scenario.metric}</p>
+                  </div>
+                  <span className={cn("inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold", verdictChipTone[scenario.tone])}>
+                    {scenario.verdict}
+                  </span>
+                </div>
               ))}
             </div>
+          </div>
+
+          <Collapsible className="mt-4 rounded-xl border border-border-default bg-bg-base p-3">
+            <CollapsibleTrigger className="text-xs font-semibold uppercase tracking-wide text-text-muted hover:text-text-secondary">
+              Detailed Lender Metrics
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-3 space-y-2">
+              {advancedBankMetrics.map((metric) => (
+                <div key={metric.label} className="flex items-center justify-between gap-3 rounded-lg border border-border-default px-3 py-2">
+                  <p className="text-xs text-text-secondary">{metric.label}</p>
+                  <p className="text-xs font-mono font-semibold text-text-primary">{metric.value}</p>
+                </div>
+              ))}
+            </CollapsibleContent>
+          </Collapsible>
+        </div>
+
+        <div className="mt-3 rounded-2xl border border-border-default bg-bg-surface p-4">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Portfolio Scaling Potential</p>
+          <p className="mt-1 text-xs text-text-secondary">Separate from bankability: these numbers show how quickly this deal can help fund the next one.</p>
+          <div className="mt-3 grid gap-2">
+            {portfolioScalingMetrics.map((metric) => (
+              <div key={metric.label} className="flex items-center justify-between gap-3 rounded-lg border border-border-default bg-bg-base px-3 py-2">
+                <p className="text-xs text-text-secondary">{metric.label}</p>
+                <p className="text-xs font-mono font-semibold text-text-primary">{metric.value}</p>
+              </div>
+            ))}
           </div>
         </div>
 
