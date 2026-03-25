@@ -51,6 +51,7 @@ const MIN_SENTENCE_BREAK_RATIO = 0.55
 const SNAPSHOT_SUMMARY_MAX_LENGTH = 190
 const SNAPSHOT_HIGHLIGHTS_COUNT = 2
 const STRATEGY_NEXT_MOVE_MAX_LENGTH = 260
+const PRIMARY_BANKABILITY_CARDS_LIMIT = 4
 
 type CompareMetricTone = "higher" | "lower"
 type AnalysisMode = "single" | "compare"
@@ -137,6 +138,7 @@ function asStressScenario(value: unknown): BankabilityStressScenario | null {
 
   return {
     name: name ?? undefined,
+    // Legacy fallback field preserved for backwards compatibility with existing payloads.
     value: metricValue ?? undefined,
     affected_metric: metricName ?? undefined,
     affected_metric_value: metricValue ?? undefined,
@@ -592,7 +594,7 @@ function ResultOverview({ input, result }: { input: AnalyseRequest; result: Anal
 
 function BankabilitySection({ metrics }: { metrics: BankabilityMetrics }) {
   const { t } = useLocale()
-  const metricCards = (metrics.primary_cards ?? []).slice(0, 4)
+  const metricCards = (metrics.primary_cards ?? []).slice(0, PRIMARY_BANKABILITY_CARDS_LIMIT)
   const lenderMetrics = metrics.lender_metrics ?? []
   const stressScenarios = metrics.stress_scenarios ?? []
   const scalingMetrics = metrics.scaling_metrics ?? []
@@ -662,19 +664,20 @@ function BankabilityScenarioList({
   title: string
   items: BankabilityStressScenario[]
 }) {
+  const { t } = useLocale()
   const [isExpanded, setIsExpanded] = useState(false)
   const normalizedItems = useMemo(() => {
     return items
       .map((item) => {
         const hasStructuredMetric = Boolean(item.affected_metric && item.affected_metric_value)
         const rawMetricValue = item.affected_metric_value ?? item.value ?? null
-        const metricLabel = item.affected_metric ?? "Key metric"
+        const metricLabel = item.affected_metric ?? t("analyse.bankability.keyMetric")
         const parsedPair = !hasStructuredMetric && rawMetricValue?.includes(":")
           ? rawMetricValue.split(":")
           : null
         const normalizedMetricLabel = hasStructuredMetric
           ? item.affected_metric
-          : parsedPair?.[0]?.trim() || item.affected_metric || "Key metric"
+          : parsedPair?.[0]?.trim() || metricLabel
         const normalizedMetricValue = hasStructuredMetric
           ? item.affected_metric_value
           : parsedPair && parsedPair.length > 1
@@ -686,8 +689,8 @@ function BankabilityScenarioList({
         if (!hasMeaningfulDetails) return null
 
         return {
-          title: item.name?.trim() || "Scenario",
-          verdict: item.verdict?.trim() || "Watch",
+          title: item.name?.trim() || t("analyse.bankability.scenario"),
+          verdict: item.verdict?.trim() || t("analyse.bankability.watch"),
           metricLabel: normalizedMetricLabel?.trim() || metricLabel,
           metricValue: normalizedMetricValue?.trim() ?? null,
           explanation,
@@ -700,7 +703,7 @@ function BankabilityScenarioList({
         metricValue: string | null
         explanation: string | null
       } => Boolean(item))
-  }, [items])
+  }, [items, t])
 
   return (
     <div className="mt-4 rounded-xl border border-border-default bg-bg-base p-3">
@@ -711,18 +714,18 @@ function BankabilityScenarioList({
         aria-expanded={isExpanded}
       >
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Stress test resilience</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{t("analyse.bankability.stressTestResilience")}</p>
           <p className="mt-1 text-xs text-text-secondary">{title}</p>
         </div>
         <span className="inline-flex items-center gap-2 text-xs font-semibold text-brand">
-          {isExpanded ? "Hide stress scenarios" : "View stress scenarios"}
+          {isExpanded ? t("analyse.bankability.hideStressScenarios") : t("analyse.bankability.viewStressScenarios")}
           <ChevronDown className={`h-4 w-4 transition-transform ${isExpanded ? "rotate-180" : "rotate-0"}`} />
         </span>
       </button>
       {isExpanded ? (
         normalizedItems.length === 0 ? (
           <p className="mt-3 rounded-lg border border-dashed border-border-default px-3 py-2 text-xs text-text-muted">
-            Stress scenario details are not available yet. Run a stress test to see what changed and why it matters.
+            {t("analyse.bankability.noStressScenarioDetails")}
           </p>
         ) : (
           <div className="mt-3 space-y-2">
