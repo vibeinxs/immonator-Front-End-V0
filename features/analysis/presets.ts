@@ -1,8 +1,8 @@
 import type { AnalyseRequest } from "@/types/api"
 
-/** Property A: Berlin Prenzlauer Berg apartment */
+/** Property A: Stuttgart West apartment */
 export const PRESET_A: AnalyseRequest = {
-  address: "Schönhauser Allee 36, 10435 Berlin",
+  address: "Rotebühlstraße 120, 70197 Stuttgart",
   sqm: 78,
   year_built: 1992,
   condition: "existing",
