@@ -2,7 +2,7 @@
 
 import { type ReactNode, useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { AlertCircle, Loader2, RotateCcw } from "lucide-react"
+import { AlertCircle, ChevronDown, Loader2, RotateCcw } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AnalysisInputPanel } from "@/features/analysis/AnalysisInputPanel"
 import { KpiGrid } from "@/features/analysis/KpiGrid"
@@ -51,6 +51,7 @@ const MIN_SENTENCE_BREAK_RATIO = 0.55
 const SNAPSHOT_SUMMARY_MAX_LENGTH = 190
 const SNAPSHOT_HIGHLIGHTS_COUNT = 2
 const STRATEGY_NEXT_MOVE_MAX_LENGTH = 260
+const PRIMARY_BANKABILITY_CARDS_LIMIT = 4
 
 type CompareMetricTone = "higher" | "lower"
 type AnalysisMode = "single" | "compare"
@@ -128,15 +129,19 @@ function asStressScenario(value: unknown): BankabilityStressScenario | null {
   if (!isRecord(value)) return null
   const name = firstTextFromAliases(value, ["name", "title", "scenario_name", "scenario"])
   const metricValue = firstTextFromAliases(value, ["value", "metric_value", "affected_metric_value", "impact_value", "metric", "change"])
+  const metricName = firstTextFromAliases(value, ["affected_metric", "metric_name", "metric_title", "kpi", "measure"])
   const verdict = firstTextFromAliases(value, ["verdict", "status", "result"])
   const explanation = firstTextFromAliases(value, ["explanation", "summary", "reason", "impact", "outcome", "assumption"])
 
-  const hasContent = Boolean(name || metricValue || verdict || explanation)
+  const hasContent = Boolean(name || metricName || metricValue || verdict || explanation)
   if (!hasContent) return null
 
   return {
     name: name ?? undefined,
+    // Legacy fallback field preserved for backwards compatibility with existing payloads.
     value: metricValue ?? undefined,
+    affected_metric: metricName ?? undefined,
+    affected_metric_value: metricValue ?? undefined,
     verdict: verdict ?? undefined,
     explanation: explanation ?? undefined,
   }
@@ -589,7 +594,7 @@ function ResultOverview({ input, result }: { input: AnalyseRequest; result: Anal
 
 function BankabilitySection({ metrics }: { metrics: BankabilityMetrics }) {
   const { t } = useLocale()
-  const metricCards = metrics.primary_cards ?? []
+  const metricCards = (metrics.primary_cards ?? []).slice(0, PRIMARY_BANKABILITY_CARDS_LIMIT)
   const lenderMetrics = metrics.lender_metrics ?? []
   const stressScenarios = metrics.stress_scenarios ?? []
   const scalingMetrics = metrics.scaling_metrics ?? []
@@ -616,9 +621,10 @@ function BankabilitySection({ metrics }: { metrics: BankabilityMetrics }) {
 
       <div className="mt-4 grid gap-4 xl:grid-cols-3">
         <BankabilityList title={t("analyse.bankability.lenderMetrics")} items={lenderMetrics} />
-        <BankabilityScenarioList title={t("analyse.bankability.stressScenarios")} items={stressScenarios} />
         <BankabilityList title={t("analyse.bankability.scalingMetrics")} items={scalingMetrics} />
       </div>
+
+      <BankabilityScenarioList title={t("analyse.bankability.stressScenarios")} items={stressScenarios} />
     </section>
   )
 }
@@ -659,25 +665,87 @@ function BankabilityScenarioList({
   items: BankabilityStressScenario[]
 }) {
   const { t } = useLocale()
+  const [isExpanded, setIsExpanded] = useState(false)
+  const normalizedItems = useMemo(() => {
+    return items
+      .map((item) => {
+        const hasStructuredMetric = Boolean(item.affected_metric && item.affected_metric_value)
+        const rawMetricValue = item.affected_metric_value ?? item.value ?? null
+        const metricLabel = item.affected_metric ?? t("analyse.bankability.keyMetric")
+        const parsedPair = !hasStructuredMetric && rawMetricValue?.includes(":")
+          ? rawMetricValue.split(":")
+          : null
+        const normalizedMetricLabel = hasStructuredMetric
+          ? item.affected_metric
+          : parsedPair?.[0]?.trim() || metricLabel
+        const normalizedMetricValue = hasStructuredMetric
+          ? item.affected_metric_value
+          : parsedPair && parsedPair.length > 1
+            ? parsedPair.slice(1).join(":").trim()
+            : rawMetricValue
+        const explanation = item.explanation?.trim() ?? null
+        const hasMeaningfulDetails = Boolean(normalizedMetricValue || explanation)
+
+        if (!hasMeaningfulDetails) return null
+
+        return {
+          title: item.name?.trim() || t("analyse.bankability.scenario"),
+          verdict: item.verdict?.trim() || t("analyse.bankability.watch"),
+          metricLabel: normalizedMetricLabel?.trim() || metricLabel,
+          metricValue: normalizedMetricValue?.trim() ?? null,
+          explanation,
+        }
+      })
+      .filter((item): item is {
+        title: string
+        verdict: string
+        metricLabel: string
+        metricValue: string | null
+        explanation: string | null
+      } => Boolean(item))
+  }, [items, t])
+
   return (
-    <div className="rounded-xl border border-border-default bg-bg-base p-3">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{title}</p>
-      {items.length === 0 ? (
-        <p className="mt-2 text-xs text-text-muted">{t("analyse.bankability.noStressScenarios")}</p>
-      ) : (
-        <div className="mt-2 space-y-2">
-          {items.map((item, index) => (
-            <div key={`${item.name ?? item.value ?? "stress"}-${index}`} className="rounded-lg border border-border-default/70 bg-bg-surface p-2">
-              {item.name ? <p className="text-sm font-medium text-text-primary">{item.name}</p> : null}
-              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-                {item.value ? <span className="font-semibold text-brand">{item.value}</span> : null}
-                {item.verdict ? <span className="rounded-full border border-border-default px-2 py-0.5 font-medium text-text-secondary">{item.verdict}</span> : null}
-              </div>
-              {item.explanation ? <p className="mt-1 text-xs text-text-secondary">{item.explanation}</p> : null}
-            </div>
-          ))}
+    <div className="mt-4 rounded-xl border border-border-default bg-bg-base p-3">
+      <button
+        type="button"
+        onClick={() => setIsExpanded((prev) => !prev)}
+        className="flex w-full items-center justify-between gap-3 text-left"
+        aria-expanded={isExpanded}
+      >
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{t("analyse.bankability.stressTestResilience")}</p>
+          <p className="mt-1 text-xs text-text-secondary">{title}</p>
         </div>
-      )}
+        <span className="inline-flex items-center gap-2 text-xs font-semibold text-brand">
+          {isExpanded ? t("analyse.bankability.hideStressScenarios") : t("analyse.bankability.viewStressScenarios")}
+          <ChevronDown className={`h-4 w-4 transition-transform ${isExpanded ? "rotate-180" : "rotate-0"}`} />
+        </span>
+      </button>
+      {isExpanded ? (
+        normalizedItems.length === 0 ? (
+          <p className="mt-3 rounded-lg border border-dashed border-border-default px-3 py-2 text-xs text-text-muted">
+            {t("analyse.bankability.noStressScenarioDetails")}
+          </p>
+        ) : (
+          <div className="mt-3 space-y-2">
+            {normalizedItems.map((item, index) => (
+              <div key={`${item.title}-${item.metricValue ?? "stress"}-${index}`} className="rounded-lg border border-border-default/70 bg-bg-surface p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-medium text-text-primary">{item.title}</p>
+                  <span className="rounded-full border border-border-default px-2 py-0.5 text-xs font-medium text-text-secondary">{item.verdict}</span>
+                </div>
+                {item.metricValue ? (
+                  <p className="mt-1 text-sm font-semibold text-brand">
+                    {item.metricLabel}: {item.metricValue}
+                  </p>
+                ) : null}
+                {item.explanation ? <p className="mt-1 text-xs text-text-secondary">{item.explanation}</p> : null}
+              </div>
+            ))}
+          </div>
+        )
+      ) : null}
     </div>
   )
 }

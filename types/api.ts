@@ -209,7 +209,10 @@ export interface BankabilityNamedMetric extends BankabilityMetricCard {
 
 export interface BankabilityStressScenario {
   name?: string
+  // Legacy field kept for backwards compatibility with older stress scenario payloads.
   value?: string
+  affected_metric?: string
+  affected_metric_value?: string
   verdict?: string
   explanation?: string
 }
