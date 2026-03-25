@@ -576,6 +576,7 @@ function ResultOverview({ input, result }: { input: AnalyseRequest; result: Anal
 }
 
 function BankabilitySection({ metrics }: { metrics: BankabilityMetrics }) {
+  const { t } = useLocale()
   const metricCards = metrics.primary_cards ?? []
   const lenderMetrics = metrics.lender_metrics ?? []
   const stressScenarios = metrics.stress_scenarios ?? []
@@ -583,7 +584,7 @@ function BankabilitySection({ metrics }: { metrics: BankabilityMetrics }) {
 
   return (
     <section className="rounded-[14px] border border-border-default bg-bg-surface p-4">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Bankability &amp; Financing Strength</p>
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{t("analyse.bankability.title")}</p>
       {metrics.overall_summary ? (
         <p className="mt-2 text-sm text-text-secondary">{metrics.overall_summary}</p>
       ) : null}
@@ -592,19 +593,19 @@ function BankabilitySection({ metrics }: { metrics: BankabilityMetrics }) {
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           {metricCards.map((card, index) => (
             <div key={`${card.plain_title ?? card.display_label ?? "metric"}-${index}`} className="rounded-xl border border-border-default bg-bg-base p-3">
-              <p className="text-sm font-semibold text-text-primary">{card.display_label ?? card.full_name ?? card.plain_title ?? "Metric"}</p>
+              <p className="text-sm font-semibold text-text-primary">{card.display_label ?? card.full_name ?? card.plain_title ?? t("analyse.bankability.metric")}</p>
               {card.summary ? <p className="mt-1 text-sm text-text-secondary">{card.summary}</p> : null}
-              {card.why_it_matters ? <p className="mt-2 text-xs text-text-muted"><span className="font-semibold text-text-secondary">Why it matters:</span> {card.why_it_matters}</p> : null}
-              {card.how_to_improve ? <p className="mt-1 text-xs text-text-muted"><span className="font-semibold text-text-secondary">How to improve:</span> {card.how_to_improve}</p> : null}
+              {card.why_it_matters ? <p className="mt-2 text-xs text-text-muted"><span className="font-semibold text-text-secondary">{t("analyse.bankability.whyItMatters")}:</span> {card.why_it_matters}</p> : null}
+              {card.how_to_improve ? <p className="mt-1 text-xs text-text-muted"><span className="font-semibold text-text-secondary">{t("analyse.bankability.howToImprove")}:</span> {card.how_to_improve}</p> : null}
             </div>
           ))}
         </div>
       ) : null}
 
       <div className="mt-4 grid gap-4 xl:grid-cols-3">
-        <BankabilityList title="Lender Metrics" items={lenderMetrics} />
-        <BankabilityScenarioList title="Stress Scenarios" items={stressScenarios} />
-        <BankabilityList title="Scaling Metrics" items={scalingMetrics} />
+        <BankabilityList title={t("analyse.bankability.lenderMetrics")} items={lenderMetrics} />
+        <BankabilityScenarioList title={t("analyse.bankability.stressScenarios")} items={stressScenarios} />
+        <BankabilityList title={t("analyse.bankability.scalingMetrics")} items={scalingMetrics} />
       </div>
     </section>
   )
@@ -617,6 +618,7 @@ function BankabilityList({
   title: string
   items: BankabilityNamedMetric[]
 }) {
+  const { t } = useLocale()
   if (items.length === 0) return null
   return (
     <div className="rounded-xl border border-border-default bg-bg-base p-3">
@@ -625,7 +627,7 @@ function BankabilityList({
         {items.map((item, index) => (
           <div key={`${item.display_label ?? item.plain_title ?? "item"}-${index}`} className="rounded-lg border border-border-default/70 bg-bg-surface p-2">
             <p className="text-sm font-medium text-text-primary">
-              {item.display_label ?? item.full_name ?? item.plain_title ?? "Metric"}
+              {item.display_label ?? item.full_name ?? item.plain_title ?? t("analyse.bankability.metric")}
               {item.abbreviation ? <span className="ml-1 text-xs text-text-muted">({item.abbreviation})</span> : null}
             </p>
             {item.value != null ? <p className="text-sm font-semibold text-brand">{String(item.value)}</p> : null}
@@ -644,6 +646,7 @@ function BankabilityScenarioList({
   title: string
   items: BankabilityStressScenario[]
 }) {
+  const { t } = useLocale()
   if (items.length === 0) return null
   return (
     <div className="rounded-xl border border-border-default bg-bg-base p-3">
@@ -651,10 +654,10 @@ function BankabilityScenarioList({
       <div className="mt-2 space-y-2">
         {items.map((item, index) => (
           <div key={`${item.title ?? "scenario"}-${index}`} className="rounded-lg border border-border-default/70 bg-bg-surface p-2">
-            <p className="text-sm font-medium text-text-primary">{item.title ?? "Scenario"}</p>
+            <p className="text-sm font-medium text-text-primary">{item.title ?? t("analyse.bankability.scenario")}</p>
             {item.summary ? <p className="text-xs text-text-secondary">{item.summary}</p> : null}
-            {item.change ? <p className="text-xs text-text-muted"><span className="font-semibold text-text-secondary">Change:</span> {item.change}</p> : null}
-            {item.impact ? <p className="text-xs text-text-muted"><span className="font-semibold text-text-secondary">Impact:</span> {item.impact}</p> : null}
+            {item.change ? <p className="text-xs text-text-muted"><span className="font-semibold text-text-secondary">{t("analyse.bankability.change")}:</span> {item.change}</p> : null}
+            {item.impact ? <p className="text-xs text-text-muted"><span className="font-semibold text-text-secondary">{t("analyse.bankability.impact")}:</span> {item.impact}</p> : null}
           </div>
         ))}
       </div>
