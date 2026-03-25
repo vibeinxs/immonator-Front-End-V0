@@ -7,6 +7,12 @@ import { Button } from "@/components/ui/button"
 import { listEntries, type ManualPortfolioEntry } from "@/lib/manualPortfolio"
 import { useLocale } from "@/lib/i18n/locale-context"
 import { HOME_COPY } from "./copy"
+import {
+  clearStrategyDraft,
+  dismissStrategyDraftPrompt,
+  getStrategyDraft,
+  isStrategyDraftPromptDismissed,
+} from "@/lib/strategyDraft"
 
 function formatSavedAt(value: string, locale: string) {
   const date = new Date(value)
@@ -124,12 +130,18 @@ export default function HomePage() {
   const copy = HOME_COPY[locale]
   const [recentEntries, setRecentEntries] = useState<ManualPortfolioEntry[]>([])
   const [activeFocusId, setActiveFocusId] = useState(copy.focus.items[0]?.id ?? "analysis")
+  const [showStrategyDraftPrompt, setShowStrategyDraftPrompt] = useState(false)
 
   useEffect(() => {
     const syncEntries = () => setRecentEntries(listEntries().slice(0, 3))
     syncEntries()
     window.addEventListener("storage", syncEntries)
     return () => window.removeEventListener("storage", syncEntries)
+  }, [])
+
+  useEffect(() => {
+    const draft = getStrategyDraft()
+    setShowStrategyDraftPrompt(Boolean(draft) && !isStrategyDraftPromptDismissed())
   }, [])
 
   useEffect(() => {
@@ -156,6 +168,41 @@ export default function HomePage() {
 
   return (
     <div className="space-y-6">
+      {showStrategyDraftPrompt && (
+        <section className="rounded-xl border border-brand/20 bg-brand-subtle p-4 md:p-5">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-brand">Unfinished strategy draft</p>
+              <p className="text-xs text-text-secondary">You have an unfinished strategy questionnaire. Continue only when you want to.</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href="/strategy?action=resume"
+                className="rounded-lg bg-brand px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-brand-hover"
+              >
+                Resume strategy
+              </Link>
+              <Link
+                href="/strategy?action=create"
+                onClick={() => clearStrategyDraft()}
+                className="rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-xs font-semibold text-text-primary transition-colors hover:border-brand/40"
+              >
+                Start new
+              </Link>
+              <button
+                onClick={() => {
+                  dismissStrategyDraftPrompt()
+                  setShowStrategyDraftPrompt(false)
+                }}
+                className="rounded-lg border border-transparent px-3 py-2 text-xs font-semibold text-text-muted transition-colors hover:text-text-primary"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* ── DARK HERO ─────────────────────────────────────────────────────────── */}
       <section
         style={{
