@@ -137,7 +137,7 @@ export default function ImportListingsPage() {
             </div>
 
             {status === "error" && (
-              <div className="flex flex-col gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              <div role="alert" className="flex flex-col gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
                 <div className="flex items-start gap-2">
                   <AlertCircle className="mt-0.5 size-4" />
                   <p>{errorMessage}</p>
@@ -189,7 +189,7 @@ export default function ImportListingsPage() {
               <Checkbox
                 id="manual-confirm"
                 checked={manualConfirmation}
-                onCheckedChange={(checked) => setManualConfirmation(Boolean(checked))}
+                onCheckedChange={(checked) => setManualConfirmation(checked === true)}
               />
               <label htmlFor="manual-confirm" className="text-sm text-text-secondary">
                 I confirm the input is complete and can be used even if extraction is unavailable.
