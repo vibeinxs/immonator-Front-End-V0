@@ -57,6 +57,8 @@ const STRESS_TEST = {
   VACANCY_INCREASE_PCT: 3,
   VACANCY_CAP_PCT: 30,
   INTEREST_RATE_INCREASE_PCT: 1,
+  VACANCY_SHOCK_INCREASE_PCT: 8,
+  VACANCY_SHOCK_CAP_PCT: 35,
 } as const
 
 const DSCR_THRESHOLDS = {
@@ -78,6 +80,12 @@ const STRESS_SCORE_THRESHOLDS = {
   RESILIENT: 120,
   BORDERLINE: 100,
 } as const
+
+function getDscrScenarioVerdict(dscrValue: number): { verdict: "Pass" | "Watch" | "Fail"; tone: BankabilityVerdict["tone"] } {
+  if (dscrValue >= DSCR_THRESHOLDS.STRONG) return { verdict: "Pass", tone: "positive" }
+  if (dscrValue >= DSCR_THRESHOLDS.BREAKEVEN) return { verdict: "Watch", tone: "neutral" }
+  return { verdict: "Fail", tone: "negative" }
+}
 
 function formatValue(value: number, unit: string): string {
   if (unit === EUR) return `${EUR}${value.toLocaleString("de-DE")}`
@@ -148,8 +156,11 @@ export function ScenarioModeller({ propertyId, askingPrice, monthlyRent }: Scena
   const annualInterestExpense = loan * (rate / 100)
   const icr = annualInterestExpense > 0 ? noi / annualInterestExpense : 0
   const debtYield = loan > 0 ? (noi / loan) * 100 : 0
+  const effectiveAnnualRent = (rent * 12) * (1 - mgmt / 100)
+  const breakEvenCostBase = annualDebtService + maintenance
+  const breakEvenOccupancyRatio = effectiveAnnualRent > 0 ? breakEvenCostBase / effectiveAnnualRent : 0
   const breakEvenOccupancy = rent > 0
-    ? Math.max(0, Math.min(100, ((annualDebtService + maintenance) / ((rent * 12) * (1 - mgmt / 100))) * 100))
+    ? Math.max(0, Math.min(100, breakEvenOccupancyRatio * 100))
     : 0
   const cfadsAnnual = cashflow * 12
   const stressedRent = rent * STRESS_TEST.RENT_FACTOR
@@ -161,7 +172,7 @@ export function ScenarioModeller({ propertyId, askingPrice, monthlyRent }: Scena
     : loan / n
   const stressedDscr = stressedMortgage > 0 ? stressedEffRent / stressedMortgage : 0
   const stressResilienceScore = Math.max(0, stressedDscr * 100)
-  const vacancyShockRate = Math.min(vacancy + 8, 35)
+  const vacancyShockRate = Math.min(vacancy + STRESS_TEST.VACANCY_SHOCK_INCREASE_PCT, STRESS_TEST.VACANCY_SHOCK_CAP_PCT)
   const vacancyShockDscr = mortgage > 0 ? (rent * (1 - vacancyShockRate / 100)) / mortgage : 0
 
   const dscrVerdict: BankabilityVerdict = dscr >= DSCR_THRESHOLDS.STRONG
@@ -229,18 +240,21 @@ export function ScenarioModeller({ propertyId, askingPrice, monthlyRent }: Scena
     { label: "Cash Flow After Debt Service (CFADS)", value: `${cfadsAnnual >= 0 ? "+" : "-"}${EUR}${Math.round(Math.abs(cfadsAnnual)).toLocaleString("de-DE")}/yr` },
   ]
 
+  const stressedRentScenarioVerdict = getDscrScenarioVerdict(stressedDscr)
+  const vacancyShockScenarioVerdict = getDscrScenarioVerdict(vacancyShockDscr)
+
   const stressScenarios = [
     {
       label: `Rent -${Math.round((1 - STRESS_TEST.RENT_FACTOR) * 100)}%, rate +${STRESS_TEST.INTEREST_RATE_INCREASE_PCT}%`,
       metric: `Stressed DSCR ${stressedDscr.toFixed(2)}×`,
-      verdict: stressedDscr >= DSCR_THRESHOLDS.STRONG ? "Pass" : stressedDscr >= DSCR_THRESHOLDS.BREAKEVEN ? "Watch" : "Fail",
-      tone: stressedDscr >= DSCR_THRESHOLDS.STRONG ? "positive" : stressedDscr >= DSCR_THRESHOLDS.BREAKEVEN ? "neutral" : "negative",
+      verdict: stressedRentScenarioVerdict.verdict,
+      tone: stressedRentScenarioVerdict.tone,
     },
     {
       label: `Vacancy up to ${vacancyShockRate.toFixed(0)}%`,
       metric: `DSCR ${vacancyShockDscr.toFixed(2)}×`,
-      verdict: vacancyShockDscr >= DSCR_THRESHOLDS.STRONG ? "Pass" : vacancyShockDscr >= DSCR_THRESHOLDS.BREAKEVEN ? "Watch" : "Fail",
-      tone: vacancyShockDscr >= DSCR_THRESHOLDS.STRONG ? "positive" : vacancyShockDscr >= DSCR_THRESHOLDS.BREAKEVEN ? "neutral" : "negative",
+      verdict: vacancyShockScenarioVerdict.verdict,
+      tone: vacancyShockScenarioVerdict.tone,
     },
   ] as const
 
@@ -250,12 +264,15 @@ export function ScenarioModeller({ propertyId, askingPrice, monthlyRent }: Scena
     { label: "Total Equity Needed", value: `${EUR}${Math.round(equity).toLocaleString("de-DE")}` },
   ]
 
-  const overallBankabilityVerdict: BankabilityVerdict =
-    dscrVerdict.tone === "negative" || ltvVerdict.tone === "negative" || cashflowVerdict.tone === "negative" || stressVerdict.tone === "negative"
-      ? { label: "Needs caution", tone: "negative" }
-      : dscrVerdict.tone === "neutral" || ltvVerdict.tone === "neutral" || cashflowVerdict.tone === "neutral" || stressVerdict.tone === "neutral"
-        ? { label: "Borderline", tone: "neutral" }
-        : { label: "Bank-friendly", tone: "positive" }
+  const allVerdicts = [dscrVerdict, ltvVerdict, cashflowVerdict, stressVerdict]
+  const hasNegative = allVerdicts.some((verdict) => verdict.tone === "negative")
+  const hasNeutral = allVerdicts.some((verdict) => verdict.tone === "neutral")
+
+  const overallBankabilityVerdict: BankabilityVerdict = hasNegative
+    ? { label: "Needs caution", tone: "negative" }
+    : hasNeutral
+      ? { label: "Borderline", tone: "neutral" }
+      : { label: "Bank-friendly", tone: "positive" }
 
   const verdictChipTone: Record<BankabilityVerdict["tone"], string> = {
     positive: "bg-success-bg text-success border-success/25",
