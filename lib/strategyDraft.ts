@@ -22,6 +22,30 @@ const DRAFT_KEY = "immo_strategy_draft"
 const DISMISSED_KEY = "immo_strategy_draft_prompt_dismissed"
 const LEGACY_WIZARD_OPEN_KEYS = ["immo_strategy_wizard_open", "strategyWizardOpen"] as const
 
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === "string")
+}
+
+function isValidStrategyDraftProfile(value: unknown): value is StrategyDraftProfile {
+  if (!value || typeof value !== "object") return false
+  const candidate = value as Partial<StrategyDraftProfile>
+  return (
+    typeof candidate.equity === "number" &&
+    Number.isFinite(candidate.equity) &&
+    typeof candidate.income === "number" &&
+    Number.isFinite(candidate.income) &&
+    typeof candidate.expenses === "number" &&
+    Number.isFinite(candidate.expenses) &&
+    typeof candidate.style === "string" &&
+    typeof candidate.horizon === "string" &&
+    typeof candidate.focus === "string" &&
+    typeof candidate.min_yield === "number" &&
+    Number.isFinite(candidate.min_yield) &&
+    isStringArray(candidate.cities) &&
+    isStringArray(candidate.types)
+  )
+}
+
 export function getStrategyDraft(): StrategyDraft | null {
   if (typeof window === "undefined") return null
   const raw = localStorage.getItem(DRAFT_KEY)
@@ -29,10 +53,10 @@ export function getStrategyDraft(): StrategyDraft | null {
   try {
     const parsed = JSON.parse(raw) as Partial<StrategyDraft>
     if (!parsed || typeof parsed !== "object") return null
-    if (typeof parsed.step !== "number" || !parsed.profile || typeof parsed.profile !== "object") return null
+    if (typeof parsed.step !== "number" || !isValidStrategyDraftProfile(parsed.profile)) return null
     return {
       step: Math.max(0, Math.min(4, Math.floor(parsed.step))),
-      profile: parsed.profile as StrategyDraftProfile,
+      profile: parsed.profile,
       updatedAt: typeof parsed.updatedAt === "string" ? parsed.updatedAt : new Date().toISOString(),
     }
   } catch {

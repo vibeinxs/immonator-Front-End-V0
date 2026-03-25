@@ -86,6 +86,13 @@ export type HomeCopy = {
     savedFallback: string
     empty: string
   }
+  draftPrompt: {
+    title: string
+    body: string
+    resume: string
+    startNew: string
+    dismiss: string
+  }
 }
 
 export const HOME_COPY: Record<Locale, HomeCopy> = {
@@ -274,6 +281,13 @@ export const HOME_COPY: Record<Locale, HomeCopy> = {
       savedFallback: "Saved recently",
       empty: "No recent manual analyses yet. Run an analysis and save it to see it here.",
     },
+    draftPrompt: {
+      title: "Unfinished strategy draft",
+      body: "You have an unfinished strategy questionnaire. Continue only when you want to.",
+      resume: "Resume strategy",
+      startNew: "Start new",
+      dismiss: "Dismiss",
+    },
   },
   de: {
     eyebrow: "Produktstart",
@@ -459,6 +473,13 @@ export const HOME_COPY: Record<Locale, HomeCopy> = {
       untitled: "Unbenannte Analyse",
       savedFallback: "Kürzlich gespeichert",
       empty: "Noch keine letzten manuellen Analysen. Führen Sie eine Analyse aus und speichern Sie sie, damit sie hier erscheint.",
+    },
+    draftPrompt: {
+      title: "Unfertiger Strategie-Entwurf",
+      body: "Sie haben einen unvollständigen Strategie-Fragebogen. Fahren Sie nur fort, wenn Sie möchten.",
+      resume: "Strategie fortsetzen",
+      startNew: "Neu starten",
+      dismiss: "Schließen",
     },
   },
 }

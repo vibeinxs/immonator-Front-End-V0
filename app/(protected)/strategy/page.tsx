@@ -16,21 +16,10 @@ import {
   getStrategyDraft,
   resetLegacyStrategyWizardFlags,
   saveStrategyDraft,
+  type StrategyDraftProfile as UserProfile,
 } from "@/lib/strategyDraft"
 
 /* ── types ───────────────────────────────────────── */
-interface UserProfile {
-  equity: number
-  income: number
-  expenses: number
-  style: string
-  horizon: string
-  focus: string
-  min_yield: number
-  cities: string[]
-  types: string[]
-}
-
 interface StrategyMatch {
   id: string; title: string; city: string; yield: number; verdict?: "strong_buy" | "worth_analysing" | "proceed_with_caution" | "avoid"
 }
@@ -50,6 +39,17 @@ interface StrategyData {
 const STYLES = ["conservative", "balanced", "growth"] as const
 const HORIZONS = ["1-3yr", "3-5yr", "5-10yr", "10yr+"] as const
 const FOCUSES = ["cashflow", "appreciation", "both"] as const
+const INITIAL_STRATEGY_PROFILE: UserProfile = {
+  equity: 0,
+  income: 0,
+  expenses: 0,
+  style: "balanced",
+  horizon: "5-10yr",
+  focus: "both",
+  min_yield: 5,
+  cities: [],
+  types: [],
+}
 const CITIES_LIST = ["Berlin", "Munich", "Hamburg", "Frankfurt", "Cologne", "Stuttgart", String.fromCharCode(68, 252, 115, 115, 101, 108, 100, 111, 114, 102), "Leipzig", "Dresden", "Other"]
 const TYPES_LIST = ["Apartment", "House", "Multi-family", "Commercial"]
 
@@ -86,12 +86,6 @@ function StrategyWizard({
     onDraftChange({ step, profile })
   }, [open, onDraftChange, profile, step])
 
-  const defaultProfile: UserProfile = {
-    equity: 0, income: 0, expenses: 0,
-    style: "balanced", horizon: "5-10yr", focus: "both",
-    min_yield: 5, cities: [], types: [],
-  }
-
   const totalSteps = 5
   const progress = ((step + 1) / totalSteps) * 100
 
@@ -124,7 +118,7 @@ function StrategyWizard({
             onDraftChange({ step, profile })
             onClose()
             setStep(0)
-            setProfile(defaultProfile)
+            setProfile(INITIAL_STRATEGY_PROFILE)
           }}
           className="absolute right-4 top-4 text-text-muted hover:text-text-primary"
           aria-label="Close"
@@ -307,18 +301,14 @@ export default function StrategyPage() {
   const [banner, setBanner] = useState<string | null>(null)
   const [draftStep, setDraftStep] = useState(0)
   const [hasDraft, setHasDraft] = useState(false)
-  const [draftProfile, setDraftProfile] = useState<UserProfile>({
-    equity: 0, income: 0, expenses: 0,
-    style: "balanced", horizon: "5-10yr", focus: "both",
-    min_yield: 5, cities: [], types: [],
-  })
+  const [draftProfile, setDraftProfile] = useState<UserProfile>(INITIAL_STRATEGY_PROFILE)
 
   useEffect(() => {
     resetLegacyStrategyWizardFlags()
     const existingDraft = getStrategyDraft()
     if (existingDraft) {
       setDraftStep(existingDraft.step)
-      setDraftProfile(existingDraft.profile as UserProfile)
+      setDraftProfile(existingDraft.profile)
       setHasDraft(true)
     }
   }, [])
@@ -361,11 +351,7 @@ export default function StrategyPage() {
       clearStrategyDraft()
       setHasDraft(false)
       setDraftStep(0)
-      setDraftProfile({
-        equity: 0, income: 0, expenses: 0,
-        style: "balanced", horizon: "5-10yr", focus: "both",
-        min_yield: 5, cities: [], types: [],
-      })
+      setDraftProfile(INITIAL_STRATEGY_PROFILE)
       setWizardOpen(true)
       return
     }

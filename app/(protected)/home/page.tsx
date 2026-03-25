@@ -172,22 +172,22 @@ export default function HomePage() {
         <section className="rounded-xl border border-brand/20 bg-brand-subtle p-4 md:p-5">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="text-sm font-semibold text-brand">Unfinished strategy draft</p>
-              <p className="text-xs text-text-secondary">You have an unfinished strategy questionnaire. Continue only when you want to.</p>
+              <p className="text-sm font-semibold text-brand">{copy.draftPrompt.title}</p>
+              <p className="text-xs text-text-secondary">{copy.draftPrompt.body}</p>
             </div>
             <div className="flex flex-wrap gap-2">
               <Link
                 href="/strategy?action=resume"
                 className="rounded-lg bg-brand px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-brand-hover"
               >
-                Resume strategy
+                {copy.draftPrompt.resume}
               </Link>
               <Link
                 href="/strategy?action=create"
                 onClick={() => clearStrategyDraft()}
                 className="rounded-lg border border-border-default bg-bg-surface px-3 py-2 text-xs font-semibold text-text-primary transition-colors hover:border-brand/40"
               >
-                Start new
+                {copy.draftPrompt.startNew}
               </Link>
               <button
                 onClick={() => {
@@ -196,7 +196,7 @@ export default function HomePage() {
                 }}
                 className="rounded-lg border border-transparent px-3 py-2 text-xs font-semibold text-text-muted transition-colors hover:text-text-primary"
               >
-                Dismiss
+                {copy.draftPrompt.dismiss}
               </button>
             </div>
           </div>
