@@ -890,7 +890,6 @@ function SnapshotEmptyState({
   title: string
   message: string
 }) {
-  const { t } = useLocale()
   return (
     <div className="rounded-xl border border-dashed border-border-default bg-bg-base p-4">
       <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{title}</p>
@@ -1571,7 +1570,7 @@ function ComparePropertyCard({
           onAnalyse={onAnalyse}
           loading={loading}
           idPrefix={idPrefix}
-          analyseButtonLabel={`Analyse ${label}`}
+          analyseButtonLabel={`${t("analyse.action.analyse")} ${label}`}
         />
       </div>
 
