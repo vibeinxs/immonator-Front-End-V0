@@ -210,6 +210,8 @@ export interface BankabilityNamedMetric extends BankabilityMetricCard {
 export interface BankabilityStressScenario {
   name?: string
   value?: string
+  affected_metric?: string
+  affected_metric_value?: string
   verdict?: string
   explanation?: string
 }
