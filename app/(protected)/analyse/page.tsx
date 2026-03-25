@@ -315,19 +315,19 @@ function parseImportedPropertyText(raw: string, base: AnalyseRequest): {
 
     if (key.includes("address") || key.includes("location")) setText("address", value)
     else if (key.includes("sqm") || key.includes("m2") || key.includes("area")) setNumber("sqm", value)
-    else if (key.includes("year")) setNumber("year_built", value)
-    else if (key.includes("price")) setNumber("purchase_price", value)
+    else if (key.includes("year_built") || key.includes("built_year") || key === "year") setNumber("year_built", value)
+    else if (key.includes("purchase_price") || key.includes("asking_price") || key === "price") setNumber("purchase_price", value)
     else if (key.includes("equity")) setNumber("equity", value)
-    else if (key.includes("rent")) setNumber("rent_monthly", value)
+    else if (key.includes("rent_monthly") || key.includes("monthly_rent") || key === "rent") setNumber("rent_monthly", value)
     else if (key.includes("interest")) setNumber("interest_rate", value)
     else if (key.includes("repayment")) setNumber("repayment_rate", value)
     else if (key.includes("condition")) setText("condition", value)
     else if (key.includes("energy")) setText("energy_class", value.toUpperCase())
   })
 
-  const sourceLooksLikeUrl = /^https?:\/\//i.test(trimmed)
-  if (sourceLooksLikeUrl) {
-    setText("address", trimmed)
+  const singleLineUrl = lines.length === 1 && /^https?:\/\//i.test(lines[0] ?? "")
+  if (singleLineUrl && !importedKeys.has("address")) {
+    setText("address", lines[0] ?? "")
     unverifiedKeys.add("address")
   }
 
@@ -335,7 +335,7 @@ function parseImportedPropertyText(raw: string, base: AnalyseRequest): {
 
   IMPORT_REQUIRED_FIELDS.forEach((field) => {
     if (!importedKeys.has(field)) return
-    if (!nextInput[field]) {
+    if (nextInput[field] == null) {
       importedKeys.delete(field)
     }
   })
@@ -2301,6 +2301,12 @@ function SingleAnalysisWorkspace({
     onInputChange(parsed.nextInput)
   }, [importText, input, onInputChange])
 
+  const handleClearImport = useCallback(() => {
+    setImportText("")
+    setImportError(null)
+    setImportPreview(null)
+  }, [])
+
   return (
     <div className="space-y-4">
       <SectionShell
@@ -2317,7 +2323,7 @@ function SingleAnalysisWorkspace({
           />
           <div className="flex flex-wrap gap-2">
             <Button type="button" onClick={handleApplyImport}>Extract into property input</Button>
-            <Button type="button" variant="outline" onClick={() => { setImportText(""); setImportError(null); setImportPreview(null) }}>
+            <Button type="button" variant="outline" onClick={handleClearImport}>
               Clear
             </Button>
           </div>
