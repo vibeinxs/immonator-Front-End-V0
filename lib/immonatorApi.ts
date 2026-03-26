@@ -1,11 +1,12 @@
 "use client"
 
-import { apiCall, apiStream } from "./api"
+import { apiCall, apiCallFile, apiStream } from "./api"
 import type {
   ApiResult,
   BetaLoginRequest,
   BetaLoginResponse,
   CompactAnalysis,
+  ImportExtractResponse,
   NegotiationBrief,
   NegotiationBriefResponse,
   RawNegotiationBrief,
@@ -163,6 +164,25 @@ export function createManualProperty(
     method: "POST",
     body: JSON.stringify(body),
   })
+}
+
+// ─── Import / Listing extraction ──────────────────────────────────────────────
+
+export function extractListingFromUrl(
+  url: string
+): Promise<ApiResult<ImportExtractResponse>> {
+  return apiCall<ImportExtractResponse>("/api/import/extract-url", {
+    method: "POST",
+    body: JSON.stringify({ url }),
+  })
+}
+
+export function extractListingFromFile(
+  file: File
+): Promise<ApiResult<ImportExtractResponse>> {
+  const formData = new FormData()
+  formData.append("file", file)
+  return apiCallFile<ImportExtractResponse>("/api/import/extract-file", formData)
 }
 
 // ─── Portfolio ────────────────────────────────────────────────────────────────
@@ -606,6 +626,8 @@ export async function translateTexts(
 export const immoApi = {
   betaLogin,
   getMe,
+  extractListingFromUrl,
+  extractListingFromFile,
   fetchProperties,
   fetchPropertyById,
   fetchPropertyStats,

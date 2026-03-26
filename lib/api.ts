@@ -116,6 +116,47 @@ export async function apiStream(
   }
 }
 
+/** POST a FormData (multipart) payload. Does NOT set Content-Type so the browser
+ *  can inject the multipart boundary automatically. */
+export async function apiCallFile<T>(
+  endpoint: string,
+  formData: FormData
+): Promise<ApiResult<T>> {
+  const token = getToken()
+  const userId = getUserId()
+
+  const headers: Record<string, string> = {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(userId ? { "X-User-ID": userId } : {}),
+  }
+
+  try {
+    const response = await fetch(buildApiUrl(endpoint), {
+      method: "POST",
+      headers,
+      body: formData,
+    })
+
+    if (response.status === 401) {
+      logout()
+      return { data: null, error: "Session expired" }
+    }
+    if (response.status === 403) return { data: null, error: "Access denied" }
+    if (response.status === 404) return { data: null, error: "Not found" }
+
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => ({}))
+      if (response.status >= 500) return { data: null, error: "Server error — please try again" }
+      return { data: null, error: errorBody.detail || `Error ${response.status}` }
+    }
+
+    const data = await response.json()
+    return { data, error: null }
+  } catch {
+    return { data: null, error: "Network error. Check your connection." }
+  }
+}
+
 // HTTP verb wrappers used by immonatorApi.ts
 export const api = {
   get: <T>(endpoint: string) => apiCall<T>(endpoint, { method: "GET" }),
