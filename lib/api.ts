@@ -31,18 +31,42 @@ function buildApiUrl(endpoint: string): string {
   }
 }
 
+/** Shared response → ApiResult handler used by apiCall and apiCallFile. */
+async function handleApiResponse<T>(response: Response): Promise<ApiResult<T>> {
+  if (response.status === 401) {
+    logout()
+    return { data: null, error: "Session expired" }
+  }
+  if (response.status === 403) return { data: null, error: "Access denied" }
+  if (response.status === 404) return { data: null, error: "Not found" }
+
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({}))
+    if (response.status >= 500) return { data: null, error: "Server error — please try again" }
+    return { data: null, error: errorBody.detail || `Error ${response.status}` }
+  }
+
+  const data = await response.json()
+  return { data, error: null }
+}
+
+function buildAuthHeaders(extra?: Record<string, string>): Record<string, string> {
+  const token = getToken()
+  const userId = getUserId()
+  return {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(userId ? { "X-User-ID": userId } : {}),
+    ...extra,
+  }
+}
+
 export async function apiCall<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<ApiResult<T>> {
-  const token = getToken()
-  const userId = getUserId()
-
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...(userId ? { "X-User-ID": userId } : {}),
-    ...(options.headers ? (options.headers as Record<string, string>) : {}),
+    ...buildAuthHeaders(options.headers as Record<string, string> | undefined),
   }
 
   try {
@@ -50,38 +74,9 @@ export async function apiCall<T>(
       ...options,
       headers,
     })
-
-    if (response.status === 401) {
-      logout()
-      return { data: null, error: "Session expired" }
-    }
-
-    if (response.status === 403) {
-      return { data: null, error: "Access denied" }
-    }
-
-    if (response.status === 404) {
-      return { data: null, error: "Not found" }
-    }
-
-    if (!response.ok) {
-      const errorBody = await response.json().catch(() => ({}))
-      if (response.status >= 500) {
-        return { data: null, error: "Server error — please try again" }
-      }
-      return {
-        data: null,
-        error: errorBody.detail || `Error ${response.status}`,
-      }
-    }
-
-    const data = await response.json()
-    return { data, error: null }
+    return handleApiResponse<T>(response)
   } catch {
-    return {
-      data: null,
-      error: "Network error. Check your connection.",
-    }
+    return { data: null, error: "Network error. Check your connection." }
   }
 }
 
@@ -89,14 +84,7 @@ export async function apiStream(
   endpoint: string,
   body: object
 ): Promise<Response | null> {
-  const token = getToken()
-  const userId = getUserId()
-
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...(userId ? { "X-User-ID": userId } : {}),
-  }
+  const headers = buildAuthHeaders({ "Content-Type": "application/json" })
 
   try {
     const response = await fetch(buildApiUrl(endpoint), {
@@ -113,6 +101,24 @@ export async function apiStream(
     return response
   } catch {
     return null
+  }
+}
+
+/** POST a FormData (multipart) payload. Does NOT set Content-Type so the browser
+ *  can inject the multipart boundary automatically. */
+export async function apiCallFile<T>(
+  endpoint: string,
+  formData: FormData
+): Promise<ApiResult<T>> {
+  try {
+    const response = await fetch(buildApiUrl(endpoint), {
+      method: "POST",
+      headers: buildAuthHeaders(),
+      body: formData,
+    })
+    return handleApiResponse<T>(response)
+  } catch {
+    return { data: null, error: "Network error. Check your connection." }
   }
 }
 

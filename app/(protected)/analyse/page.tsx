@@ -2546,8 +2546,34 @@ function SingleAnalysisWorkspace({
                   </div>
                 </SectionShell>
 
-                <SectionShell title={t("analyse.new.askAi.title")} description={t("analyse.new.askAi.description.single")}>
-                  <div ref={advisorRef} className="space-y-3">
+                {/* ③ Buying Strategy Insight */}
+                {strategyLoading ? (
+                  <StrategyStatusPanel loading onRetry={onRunStrategy} />
+                ) : strategyError ? (
+                  <StrategyStatusPanel error={strategyError} onRetry={onRunStrategy} />
+                ) : strategyResult ? (
+                  <StrategyResultPanel result={strategyResult} onRefresh={onRunStrategy} />
+                ) : (
+                  <StrategyPrerequisitePanel canRun={Boolean(reviewResult)} onRun={onRunStrategy} />
+                )}
+
+                {/* ④ Intelligent Property Advisor */}
+                <SkillCardPlaceholder
+                  title="Intelligent Property Advisor"
+                  description="Guided analysis with short answers and next-step prompts."
+                  featureDescription="Ask a focused question and get a direct, concise answer. Lighter than the full chat — designed for quick clarifications and decision checkpoints. Investment review and buying strategy context are added automatically when available."
+                  ctaLabel="Open Advisor"
+                  badge="AI · Light mode"
+                  actionTestId={TEST_IDS.AI_ADVISOR_LIGHT_ACTION}
+                  onRun={() => onOpenAdvisor(reviewResult ? "full" : "light")}
+                />
+
+                {/* ⑤ Ask the Property Advisor — full conversational AI */}
+                <SectionShell
+                  title="Ask the Property Advisor"
+                  description="Deep conversational AI — test scenarios, challenge assumptions and explore the numbers."
+                >
+                  <div className="space-y-3">
                     <AdvisorContextGuide
                       hasSnapshot={hasSnapshotContext}
                       hasReview={hasReviewContext}

@@ -559,6 +559,33 @@ export interface NegotiationBriefResponse {
   created_at: string
 }
 
+// ─── Import / Listing extraction ──────────────────────────────────────────────
+
+export interface ImportExtractProperty {
+  title?: string | null
+  address?: string | null
+  city?: string | null
+  zip?: string | null
+  purchase_price?: number | null
+  living_area_sqm?: number | null
+  rooms?: number | null
+  year_built?: number | null
+  cold_rent?: number | null
+  warm_rent?: number | null
+  rent_per_sqm?: number | null
+  maintenance_reserve?: number | null
+  parking?: string | null
+  notes?: string | null
+}
+
+export interface ImportExtractResponse {
+  source_type: "url" | "pdf" | "xlsx" | "csv" | "image"
+  source_name: string
+  property: ImportExtractProperty
+  extraction_warnings: string[]
+  missing_fields: string[]
+}
+
 // ─── Generic wrapper ──────────────────────────────────────────────────────────
 
 export interface ApiResult<T> {
