@@ -80,23 +80,49 @@ function ContextHint({ hintId, headline, body }: { hintId: string; headline: str
 }
 
 /* ── EmptyState ──────────────────────────────────── */
-function EmptyState({ icon, headline, body, actionLabel, onAction, disabled }: {
-  icon: string; headline: string; body: string; actionLabel?: string; onAction?: () => void; disabled?: boolean
+function EmptyState({
+  icon,
+  headline,
+  body,
+  actionLabel,
+  onAction,
+  disabled,
+  secondaryActionLabel,
+  onSecondaryAction,
+}: {
+  icon: string
+  headline: string
+  body: string
+  actionLabel?: string
+  onAction?: () => void
+  disabled?: boolean
+  secondaryActionLabel?: string
+  onSecondaryAction?: () => void
 }) {
   return (
     <div className="flex flex-col items-center justify-center rounded-[14px] border border-dashed border-border-default bg-bg-surface py-20">
       <span className="text-4xl" role="img" aria-hidden="true">{icon}</span>
       <h3 className="mt-4 font-serif text-lg text-text-primary">{headline}</h3>
       <p className="mt-2 max-w-sm text-center text-sm text-text-secondary">{body}</p>
-      {actionLabel && onAction && (
-        <button
-          onClick={onAction}
-          disabled={disabled}
-          className="mt-5 rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-hover disabled:opacity-50"
-        >
-          {actionLabel}
-        </button>
-      )}
+      <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+        {actionLabel && onAction && (
+          <button
+            onClick={onAction}
+            disabled={disabled}
+            className="rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-hover disabled:opacity-50"
+          >
+            {actionLabel}
+          </button>
+        )}
+        {secondaryActionLabel && onSecondaryAction && (
+          <button
+            onClick={onSecondaryAction}
+            className="rounded-xl border border-border-default bg-transparent px-5 py-2.5 text-sm font-semibold text-text-primary transition-colors hover:bg-bg-hover"
+          >
+            {secondaryActionLabel}
+          </button>
+        )}
+      </div>
     </div>
   )
 }
@@ -213,6 +239,8 @@ export default function PortfolioPage() {
   }, [])
 
   const filtered = data?.properties.filter((p) => tab === "all" || p.status === tab) ?? []
+  const trackedDeals = filtered.filter((property) => property.status !== "purchased")
+  const ownedProperties = filtered.filter((property) => property.status === "purchased")
 
   /* ── Loading skeleton ─────────────────────────── */
   if (loading) {
@@ -235,6 +263,7 @@ export default function PortfolioPage() {
       <div className="flex flex-col gap-8 animate-fade-in">
         <div>
           <h1 className="font-display text-3xl text-text-primary">{t("portfolio.title")}</h1>
+          <p className="mt-1 text-sm text-text-secondary">{t("portfolio.subtitle")}</p>
         </div>
         <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
           <MetricCard label={t("portfolio.metric.totalValue")} value={0} prefix={EUR} sentiment="neutral" />
@@ -272,6 +301,7 @@ export default function PortfolioPage() {
       <div className="flex flex-col gap-8 animate-fade-in">
         <div>
           <h1 className="font-display text-3xl text-text-primary">{t("portfolio.title")}</h1>
+          <p className="mt-1 text-sm text-text-secondary">{t("portfolio.subtitle")}</p>
         </div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <MetricCard label={t("portfolio.metric.totalValue")} value={0} prefix={EUR} sentiment="neutral" />
@@ -281,10 +311,12 @@ export default function PortfolioPage() {
         </div>
         <EmptyState
           icon={String.fromCharCode(128278)}
-          headline={t("portfolio.empty.title")}
-          body={t("portfolio.empty.body")}
-          actionLabel={copy.portfolio.browseCta}
-          onAction={() => router.push("/properties")}
+          headline={t("portfolio.empty.dualUse.title")}
+          body={t("portfolio.empty.dualUse.body")}
+          actionLabel={t("portfolio.empty.dualUse.analyseCta")}
+          onAction={() => router.push("/analyse")}
+          secondaryActionLabel={t("portfolio.empty.dualUse.addOwnedCta")}
+          onSecondaryAction={() => router.push("/properties")}
         />
         <ManualPortfolioSection activeTab={tab} onCountChange={setManualCount} />
       </div>
@@ -297,8 +329,9 @@ export default function PortfolioPage() {
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
           <h1 className="font-display text-3xl text-text-primary">{t("portfolio.title")}</h1>
+          <p className="mt-1 text-sm text-text-secondary">{t("portfolio.subtitle")}</p>
           <p className="mt-1 text-sm text-text-secondary">
-            {`${data.properties.length} ${t("portfolio.subtitle")} ${String.fromCharCode(183)} Est. equity: ${EUR}${(data.equity_estimate ?? 0).toLocaleString("de-DE")}`}
+            {`${data.properties.length} ${t("portfolio.propertiesUnit")} ${String.fromCharCode(183)} ${t("portfolio.estEquityLabel")}: ${EUR}${(data.equity_estimate ?? 0).toLocaleString("de-DE")}`}
           </p>
         </div>
         <button
@@ -441,99 +474,129 @@ export default function PortfolioPage() {
         </TabsList>
       </Tabs>
 
-      {/* Desktop Table */}
+      {/* Grouped portfolio lists */}
       {filtered.length > 0 ? (
         <>
-          <div className="hidden md:block overflow-hidden rounded-xl border border-border-default bg-bg-surface">
-            <table className="w-full text-sm">
-              <thead className="bg-bg-elevated">
-                <tr>
-                  <th className="px-4 py-2.5 text-left text-[11px] font-medium uppercase tracking-wider text-text-muted">{copy.portfolio.tableHeaders.property}</th>
-                  <th className="px-4 py-2.5 text-left text-[11px] font-medium uppercase tracking-wider text-text-muted">{copy.portfolio.tableHeaders.status}</th>
-                  <th className="px-4 py-2.5 text-right text-[11px] font-medium uppercase tracking-wider text-text-muted">{copy.portfolio.tableHeaders.price}</th>
-                  <th className="px-4 py-2.5 text-left text-[11px] font-medium uppercase tracking-wider text-text-muted">{copy.portfolio.tableHeaders.verdict}</th>
-                  <th className="px-4 py-2.5 text-right text-[11px] font-medium uppercase tracking-wider text-text-muted">{copy.portfolio.tableHeaders.yield}</th>
-                  <th className="px-4 py-2.5 text-right text-[11px] font-medium uppercase tracking-wider text-text-muted">{copy.portfolio.tableHeaders.days}</th>
-                  <th className="px-4 py-2.5 text-right text-[11px] font-medium uppercase tracking-wider text-text-muted">{copy.portfolio.tableHeaders.gap}</th>
-                  <th className="px-4 py-2.5 text-right text-[11px] font-medium uppercase tracking-wider text-text-muted">···</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((p) => (
-                  <tr
-                    key={p.id}
-                    onClick={() => router.push(`/properties/${p.id}`)}
-                    className="cursor-pointer border-t border-border-default transition-colors hover:bg-bg-hover"
-                  >
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-text-primary">{p.title}</div>
-                      <div className="text-xs text-text-muted">{p.city}</div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="rounded-full bg-bg-elevated px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-text-secondary">
-                        {p.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono text-text-primary">{EUR}{(p.price ?? 0).toLocaleString("de-DE")}</td>
-                    <td className="px-4 py-3"><VerdictBadge verdict={p.verdict} /></td>
-                    <td className="px-4 py-3 text-right font-mono text-text-primary">{(p.gross_yield ?? 0).toFixed(1)}%</td>
-                    <td className="px-4 py-3 text-right font-mono text-text-muted">{p.days_listed ?? 0}</td>
-                    <td className={cn("px-4 py-3 text-right font-mono", p.gap_percent < 0 ? "text-success" : "text-danger")}>
-                      {(p.gap_percent ?? 0) > 0 ? "+" : ""}{(p.gap_percent ?? 0).toFixed(1)}%
-                    </td>
-                    <td className="px-4 py-3 text-right text-text-muted">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          void handleOpenBackendAnalysis(p.id)
-                        }}
-                        disabled={openingPropertyId !== null}
-                        className="text-xs text-brand hover:underline disabled:opacity-50"
-                      >
-                        {openingPropertyId === p.id ? "Opening..." : "Open Analysis"}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Mobile Cards */}
-          <div className="space-y-3 md:hidden">
-            {filtered.map((p) => (
-              <div
-                key={p.id}
-                onClick={() => router.push(`/properties/${p.id}`)}
-                className="cursor-pointer rounded-xl border border-border-default bg-bg-surface p-4 transition-colors hover:bg-bg-hover"
-              >
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="font-medium text-text-primary">{p.title}</p>
-                    <p className="text-xs text-text-muted">{p.city}</p>
-                  </div>
-                  <VerdictBadge verdict={p.verdict} />
-                </div>
-                <div className="mt-3 flex items-center gap-4 text-sm">
-                  <span className="font-mono text-text-primary">{EUR}{(p.price ?? 0).toLocaleString("de-DE")}</span>
-                  <span className="font-mono text-text-secondary">{(p.gross_yield ?? 0).toFixed(1)}%</span>
-                  <span className={cn("ml-auto font-mono text-xs", p.gap_percent < 0 ? "text-success" : "text-danger")}>
-                    {(p.gap_percent ?? 0) > 0 ? "+" : ""}{(p.gap_percent ?? 0).toFixed(1)}%
-                  </span>
-                </div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    void handleOpenBackendAnalysis(p.id)
-                  }}
-                  disabled={openingPropertyId !== null}
-                  className="mt-3 text-xs text-brand hover:underline disabled:opacity-50"
-                >
-                  {openingPropertyId === p.id ? "Opening..." : "Open Analysis"}
-                </button>
+          {[
+            {
+              key: "tracked",
+              title: t("portfolio.trackedDeals.title"),
+              description: t("portfolio.trackedDeals.description"),
+              items: trackedDeals,
+              empty: t("portfolio.trackedDeals.empty"),
+            },
+            {
+              key: "owned",
+              title: t("portfolio.ownedProperties.title"),
+              description: t("portfolio.ownedProperties.description"),
+              items: ownedProperties,
+              empty: t("portfolio.ownedProperties.empty"),
+            },
+          ].map((section) => (
+            <section key={section.key} className="space-y-3">
+              <div>
+                <h3 className="font-display text-xl text-text-primary">{section.title}</h3>
+                <p className="text-sm text-text-secondary">{section.description}</p>
               </div>
-            ))}
-          </div>
+              {section.items.length === 0 ? (
+                <div className="rounded-xl border border-border-default bg-bg-surface px-5 py-6 text-sm text-text-secondary">
+                  {section.empty}
+                </div>
+              ) : (
+                <>
+                  <div className="hidden md:block overflow-hidden rounded-xl border border-border-default bg-bg-surface">
+                    <table className="w-full text-sm">
+                      <thead className="bg-bg-elevated">
+                        <tr>
+                          <th className="px-4 py-2.5 text-left text-[11px] font-medium uppercase tracking-wider text-text-muted">{copy.portfolio.tableHeaders.property}</th>
+                          <th className="px-4 py-2.5 text-left text-[11px] font-medium uppercase tracking-wider text-text-muted">{copy.portfolio.tableHeaders.status}</th>
+                          <th className="px-4 py-2.5 text-right text-[11px] font-medium uppercase tracking-wider text-text-muted">{copy.portfolio.tableHeaders.price}</th>
+                          <th className="px-4 py-2.5 text-left text-[11px] font-medium uppercase tracking-wider text-text-muted">{copy.portfolio.tableHeaders.verdict}</th>
+                          <th className="px-4 py-2.5 text-right text-[11px] font-medium uppercase tracking-wider text-text-muted">{copy.portfolio.tableHeaders.yield}</th>
+                          <th className="px-4 py-2.5 text-right text-[11px] font-medium uppercase tracking-wider text-text-muted">{copy.portfolio.tableHeaders.days}</th>
+                          <th className="px-4 py-2.5 text-right text-[11px] font-medium uppercase tracking-wider text-text-muted">{copy.portfolio.tableHeaders.gap}</th>
+                          <th className="px-4 py-2.5 text-right text-[11px] font-medium uppercase tracking-wider text-text-muted">···</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {section.items.map((p) => (
+                          <tr
+                            key={p.id}
+                            onClick={() => router.push(`/properties/${p.id}`)}
+                            className="cursor-pointer border-t border-border-default transition-colors hover:bg-bg-hover"
+                          >
+                            <td className="px-4 py-3">
+                              <div className="font-medium text-text-primary">{p.title}</div>
+                              <div className="text-xs text-text-muted">{p.city}</div>
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className="rounded-full bg-bg-elevated px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-text-secondary">
+                                {p.status}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-right font-mono text-text-primary">{EUR}{(p.price ?? 0).toLocaleString("de-DE")}</td>
+                            <td className="px-4 py-3"><VerdictBadge verdict={p.verdict} /></td>
+                            <td className="px-4 py-3 text-right font-mono text-text-primary">{(p.gross_yield ?? 0).toFixed(1)}%</td>
+                            <td className="px-4 py-3 text-right font-mono text-text-muted">{p.days_listed ?? 0}</td>
+                            <td className={cn("px-4 py-3 text-right font-mono", p.gap_percent < 0 ? "text-success" : "text-danger")}>
+                              {(p.gap_percent ?? 0) > 0 ? "+" : ""}{(p.gap_percent ?? 0).toFixed(1)}%
+                            </td>
+                            <td className="px-4 py-3 text-right text-text-muted">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  void handleOpenBackendAnalysis(p.id)
+                                }}
+                                disabled={openingPropertyId !== null}
+                                className="text-xs text-brand hover:underline disabled:opacity-50"
+                              >
+                                {openingPropertyId === p.id ? "Opening..." : "Open Analysis"}
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="space-y-3 md:hidden">
+                    {section.items.map((p) => (
+                      <div
+                        key={p.id}
+                        onClick={() => router.push(`/properties/${p.id}`)}
+                        className="cursor-pointer rounded-xl border border-border-default bg-bg-surface p-4 transition-colors hover:bg-bg-hover"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <p className="font-medium text-text-primary">{p.title}</p>
+                            <p className="text-xs text-text-muted">{p.city}</p>
+                          </div>
+                          <VerdictBadge verdict={p.verdict} />
+                        </div>
+                        <div className="mt-3 flex items-center gap-4 text-sm">
+                          <span className="font-mono text-text-primary">{EUR}{(p.price ?? 0).toLocaleString("de-DE")}</span>
+                          <span className="font-mono text-text-secondary">{(p.gross_yield ?? 0).toFixed(1)}%</span>
+                          <span className={cn("ml-auto font-mono text-xs", p.gap_percent < 0 ? "text-success" : "text-danger")}>
+                            {(p.gap_percent ?? 0) > 0 ? "+" : ""}{(p.gap_percent ?? 0).toFixed(1)}%
+                          </span>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            void handleOpenBackendAnalysis(p.id)
+                          }}
+                          disabled={openingPropertyId !== null}
+                          className="mt-3 text-xs text-brand hover:underline disabled:opacity-50"
+                        >
+                          {openingPropertyId === p.id ? "Opening..." : "Open Analysis"}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </section>
+          ))}
         </>
       ) : (
         <EmptyState

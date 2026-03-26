@@ -18,16 +18,18 @@ interface AnalysisState {
   resultB: AnalyseResponse | null
   snapshotResult: SnapshotResult | null
   reviewResult: ReviewResult | null
+  reviewRawResult: Record<string, unknown> | null
   strategyResult: StrategyResult | null
-  advisorMode: "light" | "full"
+  strategyRawResult: Record<string, unknown> | null
   setInputA: (input: AnalyseRequest) => void
   setInputB: (input: AnalyseRequest) => void
   setResultA: (result: AnalyseResponse | null) => void
   setResultB: (result: AnalyseResponse | null) => void
   setSnapshotResult: (result: SnapshotResult | null) => void
   setReviewResult: (result: ReviewResult | null) => void
+  setReviewRawResult: (result: Record<string, unknown> | null) => void
   setStrategyResult: (result: StrategyResult | null) => void
-  setAdvisorMode: (mode: "light" | "full") => void
+  setStrategyRawResult: (result: Record<string, unknown> | null) => void
   resetA: () => void
   resetB: () => void
 }
@@ -41,16 +43,18 @@ export function AnalysisStoreProvider({ children }: { children: ReactNode }) {
   const [resultB, setResultB] = useState<AnalyseResponse | null>(null)
   const [snapshotResult, setSnapshotResult] = useState<SnapshotResult | null>(null)
   const [reviewResult, setReviewResult] = useState<ReviewResult | null>(null)
+  const [reviewRawResult, setReviewRawResult] = useState<Record<string, unknown> | null>(null)
   const [strategyResult, setStrategyResult] = useState<StrategyResult | null>(null)
-  const [advisorMode, setAdvisorMode] = useState<"light" | "full">("light")
+  const [strategyRawResult, setStrategyRawResult] = useState<Record<string, unknown> | null>(null)
 
   const resetA = useCallback(() => {
     setInputA(PRESET_A)
     setResultA(null)
     setSnapshotResult(null)
     setReviewResult(null)
+    setReviewRawResult(null)
     setStrategyResult(null)
-    setAdvisorMode("light")
+    setStrategyRawResult(null)
   }, [])
 
   const resetB = useCallback(() => {
@@ -67,16 +71,18 @@ export function AnalysisStoreProvider({ children }: { children: ReactNode }) {
         resultB,
         snapshotResult,
         reviewResult,
+        reviewRawResult,
         strategyResult,
-        advisorMode,
+        strategyRawResult,
         setInputA,
         setInputB,
         setResultA,
         setResultB,
         setSnapshotResult,
         setReviewResult,
+        setReviewRawResult,
         setStrategyResult,
-        setAdvisorMode,
+        setStrategyRawResult,
         resetA,
         resetB,
       }}

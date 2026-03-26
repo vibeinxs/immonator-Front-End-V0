@@ -15,7 +15,33 @@ import { useToast } from "@/hooks/use-toast"
 
 type ChatMessage = Pick<ConversationMessage, "role" | "message">
 
+type PropertySkillContextInput = Omit<PropertySkillContextPayload, "mode" | "history">
+
 const SUGGESTION_CHIPS = copy.chat.suggestions
+
+function buildPropertySkillPayload({
+  propertySkillContext,
+  advisorMode,
+  history,
+}: {
+  propertySkillContext?: PropertySkillContextInput
+  advisorMode: "light" | "full"
+  history: ChatMessage[]
+}): Pick<ChatRequest, "property" | "analysis_result" | "strategy_result" | "history" | "mode"> {
+  if (!propertySkillContext) return {}
+
+  return {
+    property: propertySkillContext.property,
+    ...(propertySkillContext.analysis_result !== undefined
+      ? { analysis_result: propertySkillContext.analysis_result }
+      : {}),
+    ...(propertySkillContext.strategy_result !== undefined
+      ? { strategy_result: propertySkillContext.strategy_result }
+      : {}),
+    history,
+    mode: advisorMode,
+  }
+}
 
 // ── AI avatar ─────────────────────────────────────────────────────────────────
 function AiAvatar({ size = 24 }: { size?: number }) {
@@ -113,7 +139,7 @@ export function AnalysisChat({
    * has the current property snapshot.
    */
   analysisContext?: AnalysisContextPayload
-  propertySkillContext?: Omit<PropertySkillContextPayload, "mode" | "history">
+  propertySkillContext?: PropertySkillContextInput
   title: string
   promptHints?: string[]
   advisorMode?: "light" | "full"
@@ -224,15 +250,11 @@ export function AnalysisChat({
           ...(analysisContext !== undefined ? { analysis_context: analysisContext } : {}),
           // Backend ChatRequest (PR #63) expects these at the top level — not
           // inside a property_skill_context wrapper.
-          ...(propertySkillContext
-            ? {
-                property: propertySkillContext.property,
-                analysis_result: propertySkillContext.analysis_result ?? null,
-                strategy_result: propertySkillContext.strategy_result ?? null,
-                mode: advisorMode,
-                history: nextHistory,
-              }
-            : {}),
+          ...buildPropertySkillPayload({
+            propertySkillContext,
+            advisorMode,
+            history: nextHistory,
+          }),
         }
 
         const res = await immoApi.sendChatMessage(chatRequest)
@@ -315,7 +337,7 @@ export function AnalysisChat({
     streaming && messages.length > 0 && messages[messages.length - 1].message === ""
   const requiresPropertySkillContext = propertySkillContext !== undefined
   const hasContextData = Boolean(propertySkillContext?.property)
-  const advisorCopy = copy.chat.advisor[advisorMode]
+  const advisorCopy = copy.chat.advisor
 
   return (
     <div
@@ -332,13 +354,8 @@ export function AnalysisChat({
         <div className="flex items-center gap-3">
           <AiAvatar size={30} />
           <div className="text-left">
-            <p className="text-sm font-semibold text-text-primary">AI Property Advisor</p>
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="text-[11px] text-text-muted capitalize">{title}</p>
-              <span className="rounded-full border border-brand/20 bg-brand/5 px-2 py-0.5 text-[10px] font-medium text-brand">
-                {advisorCopy.badge}
-              </span>
-            </div>
+            <p className="text-sm font-semibold text-text-primary">Advisor</p>
+            <p className="text-[11px] text-text-muted capitalize">{title}</p>
             <p className="mt-1 text-[11px] text-text-muted">{advisorCopy.subtitle}</p>
           </div>
         </div>

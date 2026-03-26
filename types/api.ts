@@ -192,6 +192,39 @@ export interface AnalyseYearData {
   equity_multiple?: number
 }
 
+export interface BankabilityMetricCard {
+  plain_title?: string
+  full_name?: string
+  abbreviation?: string
+  display_label?: string
+  summary?: string
+  why_it_matters?: string
+  how_to_improve?: string
+}
+
+export interface BankabilityNamedMetric extends BankabilityMetricCard {
+  value?: number | string | null
+  label?: string
+}
+
+export interface BankabilityStressScenario {
+  name?: string
+  // Legacy field kept for backwards compatibility with older stress scenario payloads.
+  value?: string
+  affected_metric?: string
+  affected_metric_value?: string
+  verdict?: string
+  explanation?: string
+}
+
+export interface BankabilityMetrics {
+  overall_summary?: string
+  primary_cards?: BankabilityMetricCard[]
+  lender_metrics?: BankabilityNamedMetric[]
+  stress_scenarios?: BankabilityStressScenario[]
+  scaling_metrics?: BankabilityNamedMetric[]
+}
+
 export interface AnalyseResponse {
   score: number
   verdict: string
@@ -226,6 +259,7 @@ export interface AnalyseResponse {
   ai_analysis?: string | null
   ai_insight?: AIInsight
   ai_deep_analysis?: AIDeepAnalysis
+  bankability_metrics?: BankabilityMetrics
   // Optional enrichment / meta
   address_resolved?: string
   market_rent_m2?: number | null
@@ -400,9 +434,9 @@ export interface ChatRequest {
   mode?: "light" | "full"
   /** Compact property snapshot forwarded to the advisor. */
   property?: PropertyMetricsInput
-  /** Normalized analysis result forwarded to the advisor (not persisted). */
+  /** Raw backend investment review result forwarded to the advisor (not persisted). */
   analysis_result?: Record<string, unknown> | null
-  /** Normalized strategy result forwarded to the advisor (not persisted). */
+  /** Raw backend buying strategy result forwarded to the advisor (not persisted). */
   strategy_result?: Record<string, unknown> | null
   /** Inline conversation turns sent by the caller (oldest-first). */
   history?: PropertySkillHistoryMessage[]
@@ -557,4 +591,9 @@ export interface ImportExtractResponse {
 export interface ApiResult<T> {
   data: T | null
   error: string | null
+}
+
+export interface CanonicalSkillResult<T> {
+  normalized: T
+  raw: Record<string, unknown>
 }

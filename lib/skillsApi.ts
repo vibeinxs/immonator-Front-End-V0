@@ -1,6 +1,7 @@
 import { apiCall, apiStream } from "@/lib/api"
 import type {
   ApiResult,
+  CanonicalSkillResult,
   ChatRequest,
   PropertyMetricsInput,
 } from "@/types/api"
@@ -282,6 +283,32 @@ async function postSkillResult<T>(
   return { data: normalized, error: null }
 }
 
+async function postCanonicalSkillResult<T>(
+  endpoint: string,
+  body: unknown,
+  normalize: (raw: unknown) => T | null,
+  missingFieldsMessage: string
+): Promise<ApiResult<CanonicalSkillResult<T>>> {
+  const response = await apiCall<unknown>(endpoint, {
+    method: "POST",
+    body: JSON.stringify(body),
+  })
+
+  if (!response.data) return { data: null, error: response.error }
+
+  const raw = pickResultPayload(response.data)
+  if (!raw) {
+    return { data: null, error: missingFieldsMessage }
+  }
+
+  const normalized = normalize(raw)
+  if (!normalized) {
+    return { data: null, error: missingFieldsMessage }
+  }
+
+  return { data: { normalized, raw }, error: null }
+}
+
 export function runAnalysis(
   property: PropertyMetricsInput,
   mode: "compact"
@@ -319,15 +346,20 @@ export function runPropertySnapshot(
 
 export function runInvestmentReview(
   property: PropertyMetricsInput
-): Promise<ApiResult<ReviewResult>> {
-  return runAnalysis(property, "full")
+): Promise<ApiResult<CanonicalSkillResult<ReviewResult>>> {
+  return postCanonicalSkillResult(
+    "/analysis/run",
+    { property, mode: "full" },
+    normalizeReviewResult,
+    "Investment review response was missing the expected fields."
+  )
 }
 
 export function runStrategy(
   property: PropertyMetricsInput,
-  analysisResult: ReviewResult
-): Promise<ApiResult<StrategyResult>> {
-  return postSkillResult(
+  analysisResult: Record<string, unknown>
+): Promise<ApiResult<CanonicalSkillResult<StrategyResult>>> {
+  return postCanonicalSkillResult(
     "/strategy/run",
     { property, analysis_result: analysisResult },
     normalizeStrategyResult,
@@ -340,8 +372,8 @@ export function runStrategy(
  */
 export function runBuyingStrategy(
   property: PropertyMetricsInput,
-  analysisResult: ReviewResult
-): Promise<ApiResult<StrategyResult>> {
+  analysisResult: Record<string, unknown>
+): Promise<ApiResult<CanonicalSkillResult<StrategyResult>>> {
   return runStrategy(property, analysisResult)
 }
 

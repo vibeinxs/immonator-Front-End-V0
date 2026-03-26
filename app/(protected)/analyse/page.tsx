@@ -2,8 +2,10 @@
 
 import { type ReactNode, useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { AlertCircle, Loader2, RotateCcw } from "lucide-react"
+import { AlertCircle, ChevronDown, Loader2, RotateCcw } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea"
 import { AnalysisInputPanel } from "@/features/analysis/AnalysisInputPanel"
 import { KpiGrid } from "@/features/analysis/KpiGrid"
 import { PRESET_A, PRESET_B } from "@/features/analysis/presets"
@@ -25,7 +27,15 @@ import { useAnalysisStore } from "@/store/analysisStore"
 import { AnalysisChat } from "@/components/chat/AnalysisChat"
 import { useLocale } from "@/lib/i18n/locale-context"
 import { runBuyingStrategy, runInvestmentReview, runPropertySnapshot } from "@/lib/skillsApi"
-import type { AnalyseRequest, AnalyseResponse, PropertySkillContextPayload } from "@/types/api"
+import type {
+  AnalyseRequest,
+  AnalyseResponse,
+  BankabilityMetricCard,
+  BankabilityMetrics,
+  BankabilityNamedMetric,
+  BankabilityStressScenario,
+  PropertySkillContextPayload,
+} from "@/types/api"
 import type { SnapshotResult, ReviewResult, StrategyResult } from "@/types/skills"
 import type {
   AIInsightPayload,
@@ -43,6 +53,28 @@ const MIN_SENTENCE_BREAK_RATIO = 0.55
 const SNAPSHOT_SUMMARY_MAX_LENGTH = 190
 const SNAPSHOT_HIGHLIGHTS_COUNT = 2
 const STRATEGY_NEXT_MOVE_MAX_LENGTH = 260
+const PRIMARY_BANKABILITY_CARDS_LIMIT = 4
+const IMPORT_REQUIRED_FIELDS: Array<keyof AnalyseRequest> = [
+  "address",
+  "sqm",
+  "year_built",
+  "purchase_price",
+  "equity",
+  "rent_monthly",
+]
+
+const IMPORT_FIELD_LABELS: Partial<Record<keyof AnalyseRequest, string>> = {
+  address: "Address",
+  sqm: "Living area (sqm)",
+  year_built: "Year built",
+  purchase_price: "Purchase price",
+  equity: "Equity",
+  rent_monthly: "Rent (monthly)",
+  interest_rate: "Interest rate",
+  repayment_rate: "Repayment rate",
+  condition: "Condition",
+  energy_class: "Energy class",
+}
 
 type CompareMetricTone = "higher" | "lower"
 type AnalysisMode = "single" | "compare"
@@ -52,6 +84,13 @@ type ComparePropertyKey = "propertyA" | "propertyB"
 type CompareInputsState = Record<ComparePropertyKey, AnalyseRequest>
 type CompareResultsState = Record<ComparePropertyKey, AnalyseResponse | null>
 type CompareLoadingState = Record<ComparePropertyKey, boolean>
+
+interface ImportedFieldPreview {
+  key: keyof AnalyseRequest
+  label: string
+  value: string
+  unverified: boolean
+}
 
 function toChartData(yearData: AnalyseResponse["year_data"]): YearData[] {
   return yearData.map((y) => ({
@@ -80,6 +119,94 @@ function compareMetricClass(delta: number, better: CompareMetricTone) {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+function asText(value: unknown): string | null {
+  if (typeof value !== "string") return null
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : null
+}
+
+function firstTextFromAliases(value: Record<string, unknown>, aliases: string[]): string | null {
+  return aliases.reduce((acc, key) => acc ?? asText(value[key]), null as string | null)
+}
+
+function asMetricCard(value: unknown): BankabilityMetricCard | null {
+  if (!isRecord(value)) return null
+  return {
+    plain_title: asText(value.plain_title) ?? asText(value.title) ?? undefined,
+    full_name: asText(value.full_name) ?? undefined,
+    abbreviation: asText(value.abbreviation) ?? undefined,
+    display_label: asText(value.display_label) ?? asText(value.label) ?? undefined,
+    summary: asText(value.summary) ?? undefined,
+    why_it_matters: asText(value.why_it_matters) ?? asText(value.why) ?? undefined,
+    how_to_improve: asText(value.how_to_improve) ?? asText(value.improvement) ?? undefined,
+  }
+}
+
+function asNamedMetric(value: unknown): BankabilityNamedMetric | null {
+  if (!isRecord(value)) return null
+  const card = asMetricCard(value) ?? {}
+  const rawValue = value.value
+  return {
+    ...card,
+    value: typeof rawValue === "number" || typeof rawValue === "string" ? rawValue : null,
+    label: asText(value.label) ?? undefined,
+  }
+}
+
+function asStressScenario(value: unknown): BankabilityStressScenario | null {
+  if (!isRecord(value)) return null
+  const name = firstTextFromAliases(value, ["name", "title", "scenario_name", "scenario"])
+  const metricValue = firstTextFromAliases(value, ["value", "metric_value", "affected_metric_value", "impact_value", "metric", "change"])
+  const metricName = firstTextFromAliases(value, ["affected_metric", "metric_name", "metric_title", "kpi", "measure"])
+  const verdict = firstTextFromAliases(value, ["verdict", "status", "result"])
+  const explanation = firstTextFromAliases(value, ["explanation", "summary", "reason", "impact", "outcome", "assumption"])
+
+  const hasContent = Boolean(name || metricName || metricValue || verdict || explanation)
+  if (!hasContent) return null
+
+  return {
+    name: name ?? undefined,
+    // Legacy fallback field preserved for backwards compatibility with existing payloads.
+    value: metricValue ?? undefined,
+    affected_metric: metricName ?? undefined,
+    affected_metric_value: metricValue ?? undefined,
+    verdict: verdict ?? undefined,
+    explanation: explanation ?? undefined,
+  }
+}
+
+function normalizeBankabilityMetrics(value: unknown): BankabilityMetrics | null {
+  if (!isRecord(value)) return null
+  const primaryCards = Array.isArray(value.primary_cards)
+    ? value.primary_cards.map(asMetricCard).filter((card): card is BankabilityMetricCard => Boolean(card))
+    : []
+  const lenderMetrics = Array.isArray(value.lender_metrics)
+    ? value.lender_metrics.map(asNamedMetric).filter((metric): metric is BankabilityNamedMetric => Boolean(metric))
+    : []
+  const stressScenarios = Array.isArray(value.stress_scenarios)
+    ? value.stress_scenarios.map(asStressScenario).filter((scenario): scenario is BankabilityStressScenario => Boolean(scenario))
+    : []
+  const scalingMetrics = Array.isArray(value.scaling_metrics)
+    ? value.scaling_metrics.map(asNamedMetric).filter((metric): metric is BankabilityNamedMetric => Boolean(metric))
+    : []
+
+  const normalized: BankabilityMetrics = {
+    overall_summary: asText(value.overall_summary) ?? asText(value.summary) ?? undefined,
+    primary_cards: primaryCards,
+    lender_metrics: lenderMetrics,
+    stress_scenarios: stressScenarios,
+    scaling_metrics: scalingMetrics,
+  }
+
+  const hasContent = Boolean(normalized.overall_summary)
+    || primaryCards.length > 0
+    || lenderMetrics.length > 0
+    || stressScenarios.length > 0
+    || scalingMetrics.length > 0
+
+  return hasContent ? normalized : null
 }
 
 function mergeWithPreset(preset: AnalyseRequest, candidate: unknown): AnalyseRequest {
@@ -131,6 +258,113 @@ function isHydratableAnalyseResult(value: unknown): value is AnalyseResponse {
   )
 }
 
+function resolveImportFieldLabel(field: keyof AnalyseRequest): string {
+  return IMPORT_FIELD_LABELS[field] ?? String(field)
+}
+
+function parseImportedPropertyText(raw: string, base: AnalyseRequest): {
+  nextInput: AnalyseRequest
+  extracted: ImportedFieldPreview[]
+  missingFields: string[]
+  unverifiedFields: string[]
+} | null {
+  const trimmed = raw.trim()
+  if (!trimmed) return null
+
+  const nextInput: AnalyseRequest = { ...base }
+  const importedKeys = new Set<keyof AnalyseRequest>()
+  const unverifiedKeys = new Set<keyof AnalyseRequest>()
+  const setText = (field: keyof AnalyseRequest, value: string) => {
+    const text = value.trim()
+    if (!text) return
+    Object.assign(nextInput, { [field]: text })
+    importedKeys.add(field)
+  }
+  const setNumber = (field: keyof AnalyseRequest, value: unknown) => {
+    const numeric = typeof value === "number" ? value : Number(String(value).replace(/[^\d.-]/g, ""))
+    if (!Number.isFinite(numeric)) return
+    Object.assign(nextInput, { [field]: numeric })
+    importedKeys.add(field)
+  }
+
+  if (trimmed.startsWith("{")) {
+    try {
+      const parsed = JSON.parse(trimmed) as Record<string, unknown>
+      setText("address", String(parsed.address ?? parsed.location ?? ""))
+      setNumber("sqm", parsed.sqm ?? parsed.living_area_sqm ?? parsed.area)
+      setNumber("year_built", parsed.year_built ?? parsed.built_year)
+      setNumber("purchase_price", parsed.purchase_price ?? parsed.price ?? parsed.asking_price)
+      setNumber("equity", parsed.equity ?? parsed.down_payment)
+      setNumber("rent_monthly", parsed.rent_monthly ?? parsed.monthly_rent ?? parsed.rent)
+      setNumber("interest_rate", parsed.interest_rate ?? parsed.interest)
+      setNumber("repayment_rate", parsed.repayment_rate ?? parsed.repayment)
+      setText("condition", String(parsed.condition ?? ""))
+      setText("energy_class", String(parsed.energy_class ?? parsed.energy ?? ""))
+    } catch {
+      // fall through to line-based parsing below
+    }
+  }
+
+  const lines = trimmed.split(/\n+/).map((line) => line.trim()).filter(Boolean)
+  lines.forEach((line) => {
+    const [rawKey, ...rest] = line.split(":")
+    if (!rawKey || rest.length === 0) return
+    const key = rawKey.trim().toLowerCase()
+    const value = rest.join(":").trim()
+    if (!value) return
+
+    if (key.includes("address") || key.includes("location")) setText("address", value)
+    else if (key.includes("sqm") || key.includes("m2") || key.includes("area")) setNumber("sqm", value)
+    else if (key.includes("year_built") || key.includes("built_year") || key === "year") setNumber("year_built", value)
+    else if (key.includes("purchase_price") || key.includes("asking_price") || key === "price") setNumber("purchase_price", value)
+    else if (key.includes("equity")) setNumber("equity", value)
+    else if (key.includes("rent_monthly") || key.includes("monthly_rent") || key === "rent") setNumber("rent_monthly", value)
+    else if (key.includes("interest")) setNumber("interest_rate", value)
+    else if (key.includes("repayment")) setNumber("repayment_rate", value)
+    else if (key.includes("condition")) setText("condition", value)
+    else if (key.includes("energy")) setText("energy_class", value.toUpperCase())
+  })
+
+  const singleLineUrl = lines.length === 1 && /^https?:\/\//i.test(lines[0] ?? "")
+  if (singleLineUrl && !importedKeys.has("address")) {
+    setText("address", lines[0] ?? "")
+    unverifiedKeys.add("address")
+  }
+
+  if (importedKeys.size === 0) return null
+
+  IMPORT_REQUIRED_FIELDS.forEach((field) => {
+    if (!importedKeys.has(field)) return
+    if (nextInput[field] == null) {
+      importedKeys.delete(field)
+    }
+  })
+
+  const extracted = Array.from(importedKeys).map((field) => ({
+    key: field,
+    label: resolveImportFieldLabel(field),
+    value: String(nextInput[field] ?? ""),
+    unverified: unverifiedKeys.has(field),
+  }))
+
+  const missingFields = IMPORT_REQUIRED_FIELDS
+    .filter((field) => {
+      const value = nextInput[field]
+      if (typeof value === "string") return value.trim().length === 0
+      return typeof value !== "number" || !Number.isFinite(value)
+    })
+    .map(resolveImportFieldLabel)
+
+  const unverifiedFields = Array.from(unverifiedKeys).map(resolveImportFieldLabel)
+
+  return {
+    nextInput,
+    extracted,
+    missingFields,
+    unverifiedFields,
+  }
+}
+
 interface AnalysePageState {
   analysisMode: AnalysisMode
   singleDraftInput: AnalyseRequest
@@ -145,7 +379,9 @@ interface AnalysePageState {
   // ── Skill results ─────────────────────────────────────────────────────────
   snapshotResult: SnapshotResult | null
   reviewResult: ReviewResult | null
+  reviewRawResult: Record<string, unknown> | null
   strategyResult: StrategyResult | null
+  strategyRawResult: Record<string, unknown> | null
   // ── Skill loading states ──────────────────────────────────────────────────
   snapshotLoading: boolean
   reviewLoading: boolean
@@ -154,8 +390,6 @@ interface AnalysePageState {
   snapshotError: string | null
   reviewError: string | null
   strategyError: string | null
-  // ── Advisor mode ──────────────────────────────────────────────────────────
-  advisorMode: "light" | "full"
 }
 
 type AnalysePageAction =
@@ -180,14 +414,13 @@ type AnalysePageAction =
   | { type: "snapshotError"; error: string }
   | { type: "snapshotReset" }
   | { type: "reviewStart" }
-  | { type: "reviewSuccess"; result: ReviewResult }
+  | { type: "reviewSuccess"; result: ReviewResult; rawResult: Record<string, unknown> }
   | { type: "reviewError"; error: string }
   | { type: "reviewReset" }
   | { type: "strategyStart" }
-  | { type: "strategySuccess"; result: StrategyResult }
+  | { type: "strategySuccess"; result: StrategyResult; rawResult: Record<string, unknown> }
   | { type: "strategyError"; error: string }
   | { type: "strategyReset" }
-  | { type: "setAdvisorMode"; mode: "light" | "full" }
 
 function createInitialAnalysePageState({
   storeInputA,
@@ -196,8 +429,9 @@ function createInitialAnalysePageState({
   storeResultB,
   storeSnapshotResult,
   storeReviewResult,
+  storeReviewRawResult,
   storeStrategyResult,
-  storeAdvisorMode,
+  storeStrategyRawResult,
 }: {
   storeInputA: AnalyseRequest
   storeResultA: AnalyseResponse | null
@@ -205,8 +439,9 @@ function createInitialAnalysePageState({
   storeResultB: AnalyseResponse | null
   storeSnapshotResult: SnapshotResult | null
   storeReviewResult: ReviewResult | null
+  storeReviewRawResult: Record<string, unknown> | null
   storeStrategyResult: StrategyResult | null
-  storeAdvisorMode: "light" | "full"
+  storeStrategyRawResult: Record<string, unknown> | null
 }): AnalysePageState {
   return {
     analysisMode: "single",
@@ -231,14 +466,15 @@ function createInitialAnalysePageState({
     // Skill state defaults
     snapshotResult: storeSnapshotResult,
     reviewResult: storeReviewResult,
+    reviewRawResult: storeReviewRawResult,
     strategyResult: storeStrategyResult,
+    strategyRawResult: storeStrategyRawResult,
     snapshotLoading: false,
     reviewLoading: false,
     strategyLoading: false,
     snapshotError: null,
     reviewError: null,
     strategyError: null,
-    advisorMode: storeAdvisorMode,
   }
 }
 
@@ -268,8 +504,10 @@ function analysePageReducer(state: AnalysePageState, action: AnalysePageAction):
         snapshotResult: null,
         snapshotError: null,
         reviewResult: null,
+        reviewRawResult: null,
         reviewError: null,
         strategyResult: null,
+        strategyRawResult: null,
         strategyError: null,
       }
     case "singleAnalyseSuccess":
@@ -295,8 +533,10 @@ function analysePageReducer(state: AnalysePageState, action: AnalysePageAction):
         snapshotResult: null,
         snapshotError: null,
         reviewResult: null,
+        reviewRawResult: null,
         reviewError: null,
         strategyResult: null,
+        strategyRawResult: null,
         strategyError: null,
         compareDraftInputs: {
           ...state.compareDraftInputs,
@@ -407,26 +647,32 @@ function analysePageReducer(state: AnalysePageState, action: AnalysePageAction):
         reviewLoading: true,
         reviewError: null,
         strategyResult: null,
+        strategyRawResult: null,
         strategyError: null,
       }
     case "reviewSuccess":
-      return { ...state, reviewLoading: false, reviewResult: action.result }
+      return { ...state, reviewLoading: false, reviewResult: action.result, reviewRawResult: action.rawResult }
     case "reviewError":
       return { ...state, reviewLoading: false, reviewError: action.error }
     case "reviewReset":
-      return { ...state, reviewResult: null, reviewError: null }
+      return {
+        ...state,
+        reviewResult: null,
+        reviewRawResult: null,
+        reviewError: null,
+        strategyResult: null,
+        strategyRawResult: null,
+        strategyError: null,
+      }
     // ── Buying Strategy ──────────────────────────────────────────────────────
     case "strategyStart":
       return { ...state, strategyLoading: true, strategyError: null }
     case "strategySuccess":
-      return { ...state, strategyLoading: false, strategyResult: action.result }
+      return { ...state, strategyLoading: false, strategyResult: action.result, strategyRawResult: action.rawResult }
     case "strategyError":
       return { ...state, strategyLoading: false, strategyError: action.error }
     case "strategyReset":
-      return { ...state, strategyResult: null, strategyError: null }
-    // ── Advisor mode ─────────────────────────────────────────────────────────
-    case "setAdvisorMode":
-      return { ...state, advisorMode: action.mode }
+      return { ...state, strategyResult: null, strategyRawResult: null, strategyError: null }
     default:
       return state
   }
@@ -434,6 +680,7 @@ function analysePageReducer(state: AnalysePageState, action: AnalysePageAction):
 
 function ResultOverview({ input, result }: { input: AnalyseRequest; result: AnalyseResponse }) {
   const { t } = useLocale()
+  const bankability = normalizeBankabilityMetrics(result.bankability_metrics)
 
   return (
     <div className="space-y-4">
@@ -449,7 +696,7 @@ function ResultOverview({ input, result }: { input: AnalyseRequest; result: Anal
             <p className="text-[10px] font-bold uppercase tracking-widest text-text-muted">{t("analyse.results.verdictTitle")}</p>
             <p className={`mt-1 text-3xl font-semibold ${verdictClass(result.score)}`}>{formatVerdict(result.verdict, t)}</p>
             <p className="mt-2 text-sm text-text-secondary">
-              {t("analyse.kpi.netYield")}: {result.net_yield_pct.toFixed(1)}% · {t("analyse.kpi.purchaseFactor")}: {result.kpf.toFixed(1)}× · IRR 10y: {result.irr_10.toFixed(1)}% · {t("analyse.kpi.cashFlowYr1")}: {result.cash_flow_monthly_yr1.toFixed(0)}€/mo
+              {t("analyse.kpi.netYield")}: {formatPct(result.net_yield_pct, 1)} · {t("analyse.kpi.purchaseFactor")}: {formatX(result.kpf, 1)} · {t("analyse.kpi.irr10")}: {formatPct(result.irr_10, 1)} · {t("analyse.kpi.cashFlowYr1")}: {formatEUR(result.cash_flow_monthly_yr1, 0)}{t("analyse.unit.perMonth")}
             </p>
           </div>
         </div>
@@ -464,10 +711,11 @@ function ResultOverview({ input, result }: { input: AnalyseRequest; result: Anal
         <LandShareBlock landSharePct={input.land_share_pct ?? 20} purchasePrice={input.purchase_price} />
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-2">
+      <section className="grid gap-4 md:grid-cols-2">
         <div className="rounded-[14px] border border-border-default bg-bg-surface p-4">
           <h3 className="mb-2 text-sm font-semibold text-text-primary">{t("analyse.results.annualCashflow")}</h3>
-          <p className="mb-3 text-[11px] text-text-muted">{t("analyse.results.cashflowSubtitle")}</p>
+          <p className="text-[11px] text-text-muted">{t("analyse.results.cashflowSubtitle")}</p>
+          <p className="mb-3 mt-1 text-[11px] text-text-secondary">{t("analyse.results.cashflowHelper")}</p>
           <CashflowChart yearData={toChartData(result.year_data)} />
         </div>
         <div className="rounded-[14px] border border-border-default bg-bg-surface p-4">
@@ -475,6 +723,166 @@ function ResultOverview({ input, result }: { input: AnalyseRequest; result: Anal
           <FlagsSection result={result} />
         </div>
       </section>
+
+      {bankability ? <BankabilitySection metrics={bankability} /> : null}
+    </div>
+  )
+}
+
+function BankabilitySection({ metrics }: { metrics: BankabilityMetrics }) {
+  const { t } = useLocale()
+  const metricCards = (metrics.primary_cards ?? []).slice(0, PRIMARY_BANKABILITY_CARDS_LIMIT)
+  const lenderMetrics = metrics.lender_metrics ?? []
+  const stressScenarios = metrics.stress_scenarios ?? []
+  const scalingMetrics = metrics.scaling_metrics ?? []
+
+  return (
+    <section className="rounded-[14px] border border-border-default bg-bg-surface p-4">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{t("analyse.bankability.title")}</p>
+      {metrics.overall_summary ? (
+        <p className="mt-2 text-sm text-text-secondary">{metrics.overall_summary}</p>
+      ) : null}
+
+      {metricCards.length > 0 ? (
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          {metricCards.map((card, index) => (
+            <div key={`${card.plain_title ?? card.display_label ?? "metric"}-${index}`} className="rounded-xl border border-border-default bg-bg-base p-3">
+              <p className="text-sm font-semibold text-text-primary">{card.display_label ?? card.full_name ?? card.plain_title ?? t("analyse.bankability.metric")}</p>
+              {card.summary ? <p className="mt-1 text-sm text-text-secondary">{card.summary}</p> : null}
+              {card.why_it_matters ? <p className="mt-2 text-xs text-text-muted"><span className="font-semibold text-text-secondary">{t("analyse.bankability.whyItMatters")}:</span> {card.why_it_matters}</p> : null}
+              {card.how_to_improve ? <p className="mt-1 text-xs text-text-muted"><span className="font-semibold text-text-secondary">{t("analyse.bankability.howToImprove")}:</span> {card.how_to_improve}</p> : null}
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="mt-4 grid gap-4 xl:grid-cols-3">
+        <BankabilityList title={t("analyse.bankability.lenderMetrics")} items={lenderMetrics} />
+        <BankabilityList title={t("analyse.bankability.scalingMetrics")} items={scalingMetrics} />
+      </div>
+
+      <BankabilityScenarioList title={t("analyse.bankability.stressScenarios")} items={stressScenarios} />
+    </section>
+  )
+}
+
+function BankabilityList({
+  title,
+  items,
+}: {
+  title: string
+  items: BankabilityNamedMetric[]
+}) {
+  const { t } = useLocale()
+  if (items.length === 0) return null
+  return (
+    <div className="rounded-xl border border-border-default bg-bg-base p-3">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{title}</p>
+      <div className="mt-2 space-y-2">
+        {items.map((item, index) => (
+          <div key={`${item.display_label ?? item.plain_title ?? "item"}-${index}`} className="rounded-lg border border-border-default/70 bg-bg-surface p-2">
+            <p className="text-sm font-medium text-text-primary">
+              {item.display_label ?? item.full_name ?? item.plain_title ?? t("analyse.bankability.metric")}
+              {item.abbreviation ? <span className="ml-1 text-xs text-text-muted">({item.abbreviation})</span> : null}
+            </p>
+            {item.value != null ? <p className="text-sm font-semibold text-brand">{String(item.value)}</p> : null}
+            {item.summary ? <p className="text-xs text-text-secondary">{item.summary}</p> : null}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function BankabilityScenarioList({
+  title,
+  items,
+}: {
+  title: string
+  items: BankabilityStressScenario[]
+}) {
+  const { t } = useLocale()
+  const [isExpanded, setIsExpanded] = useState(false)
+  const normalizedItems = useMemo(() => {
+    return items
+      .map((item) => {
+        const hasStructuredMetric = Boolean(item.affected_metric && item.affected_metric_value)
+        const rawMetricValue = item.affected_metric_value ?? item.value ?? null
+        const metricLabel = item.affected_metric ?? t("analyse.bankability.keyMetric")
+        const parsedPair = !hasStructuredMetric && rawMetricValue?.includes(":")
+          ? rawMetricValue.split(":")
+          : null
+        const normalizedMetricLabel = hasStructuredMetric
+          ? item.affected_metric
+          : parsedPair?.[0]?.trim() || metricLabel
+        const normalizedMetricValue = hasStructuredMetric
+          ? item.affected_metric_value
+          : parsedPair && parsedPair.length > 1
+            ? parsedPair.slice(1).join(":").trim()
+            : rawMetricValue
+        const explanation = item.explanation?.trim() ?? null
+        const hasMeaningfulDetails = Boolean(normalizedMetricValue || explanation)
+
+        if (!hasMeaningfulDetails) return null
+
+        return {
+          title: item.name?.trim() || t("analyse.bankability.scenario"),
+          verdict: item.verdict?.trim() || t("analyse.bankability.watch"),
+          metricLabel: normalizedMetricLabel?.trim() || metricLabel,
+          metricValue: normalizedMetricValue?.trim() ?? null,
+          explanation,
+        }
+      })
+      .filter((item): item is {
+        title: string
+        verdict: string
+        metricLabel: string
+        metricValue: string | null
+        explanation: string | null
+      } => Boolean(item))
+  }, [items, t])
+
+  return (
+    <div className="mt-4 rounded-xl border border-border-default bg-bg-base p-3">
+      <button
+        type="button"
+        onClick={() => setIsExpanded((prev) => !prev)}
+        className="flex w-full items-center justify-between gap-3 text-left"
+        aria-expanded={isExpanded}
+      >
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{t("analyse.bankability.stressTestResilience")}</p>
+          <p className="mt-1 text-xs text-text-secondary">{title}</p>
+        </div>
+        <span className="inline-flex items-center gap-2 text-xs font-semibold text-brand">
+          {isExpanded ? t("analyse.bankability.hideStressScenarios") : t("analyse.bankability.viewStressScenarios")}
+          <ChevronDown className={`h-4 w-4 transition-transform ${isExpanded ? "rotate-180" : "rotate-0"}`} />
+        </span>
+      </button>
+      {isExpanded ? (
+        normalizedItems.length === 0 ? (
+          <p className="mt-3 rounded-lg border border-dashed border-border-default px-3 py-2 text-xs text-text-muted">
+            {t("analyse.bankability.noStressScenarioDetails")}
+          </p>
+        ) : (
+          <div className="mt-3 space-y-2">
+            {normalizedItems.map((item, index) => (
+              <div key={`${item.title}-${item.metricValue ?? "stress"}-${index}`} className="rounded-lg border border-border-default/70 bg-bg-surface p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-medium text-text-primary">{item.title}</p>
+                  <span className="rounded-full border border-border-default px-2 py-0.5 text-xs font-medium text-text-secondary">{item.verdict}</span>
+                </div>
+                {item.metricValue ? (
+                  <p className="mt-1 text-sm font-semibold text-brand">
+                    {item.metricLabel}: {item.metricValue}
+                  </p>
+                ) : null}
+                {item.explanation ? <p className="mt-1 text-xs text-text-secondary">{item.explanation}</p> : null}
+              </div>
+            ))}
+          </div>
+        )
+      ) : null}
     </div>
   )
 }
@@ -529,6 +937,34 @@ function MetricMiniCard({ label, value }: { label: string; value: string }) {
       <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{label}</p>
       <p className="mt-1 font-mono text-lg font-semibold text-text-primary">{value}</p>
     </div>
+  )
+}
+
+function WorkflowActionButton({
+  label,
+  onClick,
+  tone = "neutral",
+  testId,
+}: {
+  label: string
+  onClick: () => void
+  tone?: "neutral" | "brand"
+  testId?: string
+}) {
+  const className =
+    tone === "brand"
+      ? "border-brand/30 bg-brand text-white hover:bg-brand-hover"
+      : "border-border-default bg-bg-base text-text-primary hover:bg-bg-elevated"
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      data-testid={testId}
+      className={`inline-flex items-center justify-center rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${className}`}
+    >
+      {label}
+    </button>
   )
 }
 
@@ -609,6 +1045,7 @@ function SnapshotResultPanel({
   result: SnapshotResult
   onRefresh: () => void
 }) {
+  const { t } = useLocale()
   const summary = compactText(
     result.summary ?? result.one_line_summary,
     "Snapshot generated, but no summary text was returned.",
@@ -623,52 +1060,47 @@ function SnapshotResultPanel({
   ]
 
   return (
-    <SectionShell
-      title="Intelligent Property Snapshot"
-      description="Compact AI readout generated from the current property metrics and analysis data."
-    >
-      <div className="space-y-4" data-testid={TEST_IDS.AI_SNAPSHOT_RESULT}>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="inline-flex items-center gap-2 rounded-full border border-success/20 bg-success/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-success">
-            Snapshot ready
-          </div>
-          <button
-            type="button"
-            onClick={onRefresh}
-            data-testid={TEST_IDS.AI_SNAPSHOT_ACTION}
-            className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-bg-base px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-            Refresh Snapshot
-          </button>
+    <div className="space-y-4" data-testid={TEST_IDS.AI_SNAPSHOT_RESULT}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="inline-flex items-center gap-2 rounded-full border border-success/20 bg-success/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-success">
+          Ready
         </div>
+        <button
+          type="button"
+          onClick={onRefresh}
+          data-testid={TEST_IDS.AI_SNAPSHOT_ACTION}
+          className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-bg-base px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
+        >
+          <RotateCcw className="h-3.5 w-3.5" />
+          {t("analyse.new.aiInsight.ctaRefresh")}
+        </button>
+      </div>
 
-        <div className="grid gap-3 md:grid-cols-[minmax(0,1.3fr)_minmax(220px,0.7fr)]">
-          <div className="rounded-2xl border border-brand/15 bg-gradient-to-br from-brand/10 via-bg-base to-bg-surface p-4">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">At a Glance</p>
-            <p className="mt-2 text-sm leading-relaxed text-text-secondary">{summary}</p>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-1 xl:grid-cols-2">
-            {metrics.map((metric) => (
-              <MetricMiniCard key={metric.label} label={metric.label} value={metric.value} />
-            ))}
-          </div>
+      <div className="grid gap-3 md:grid-cols-[minmax(0,1.3fr)_minmax(220px,0.7fr)]">
+        <div className="rounded-2xl border border-brand/15 bg-gradient-to-br from-brand/10 via-bg-base to-bg-surface p-4">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">At a glance</p>
+          <p className="mt-2 text-sm leading-relaxed text-text-secondary">{summary}</p>
         </div>
-
-        <div className="grid gap-4 xl:grid-cols-2">
-          {strengths.length > 0 ? (
-            <SnapshotBulletList title="Strengths" items={strengths} tone="success" />
-          ) : (
-            <SnapshotEmptyState title="Strengths" message="No strengths were returned for this snapshot." />
-          )}
-          {risks.length > 0 ? (
-            <SnapshotBulletList title="Risks" items={risks} tone="danger" />
-          ) : (
-            <SnapshotEmptyState title="Risks" message="No risks were returned for this snapshot." />
-          )}
+        <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-1 xl:grid-cols-2">
+          {metrics.map((metric) => (
+            <MetricMiniCard key={metric.label} label={metric.label} value={metric.value} />
+          ))}
         </div>
       </div>
-    </SectionShell>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        {strengths.length > 0 ? (
+          <SnapshotBulletList title="Strengths" items={strengths} tone="success" />
+        ) : (
+          <SnapshotEmptyState title="Strengths" message="No strengths were returned for this quick take." />
+        )}
+        {risks.length > 0 ? (
+          <SnapshotBulletList title="Risks" items={risks} tone="danger" />
+        ) : (
+          <SnapshotEmptyState title="Risks" message="No risks were returned for this quick take." />
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -681,39 +1113,36 @@ function SnapshotStatusPanel({
   error?: string | null
   onRetry: () => void
 }) {
+  const { t } = useLocale()
   if (loading) {
     return (
-      <SectionShell title="Intelligent Property Snapshot" description="Compact AI readout generated from the current property metrics and analysis data.">
-        <div className="flex items-center gap-3 rounded-xl border border-border-default bg-bg-base px-4 py-4 text-sm text-text-secondary">
-          <Loader2 className="h-4 w-4 animate-spin text-brand" />
-          Generating property snapshot…
-        </div>
-      </SectionShell>
+      <div className="flex items-center gap-3 rounded-xl border border-border-default bg-bg-base px-4 py-4 text-sm text-text-secondary">
+        <Loader2 className="h-4 w-4 animate-spin text-brand" />
+        {t("analyse.new.aiInsight.loading")}
+      </div>
     )
   }
 
   return (
-    <SectionShell title="Intelligent Property Snapshot" description="Compact AI readout generated from the current property metrics and analysis data.">
-      <div className="space-y-4">
-        <div className="flex items-start gap-3 rounded-xl border border-danger/30 bg-danger/10 px-4 py-4 text-sm text-danger">
-          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-          <div>
-            <p className="font-medium">Snapshot could not be generated.</p>
-            <p className="mt-1 text-danger/90">{error}</p>
-          </div>
-        </div>
+    <div className="space-y-4">
+      <div className="flex items-start gap-3 rounded-xl border border-danger/30 bg-danger/10 px-4 py-4 text-sm text-danger">
+        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
         <div>
-          <button
-            type="button"
-            onClick={onRetry}
-            className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-bg-base px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-            Try Again
-          </button>
+          <p className="font-medium">{t("analyse.new.aiInsight.errorTitle")}</p>
+          <p className="mt-1 text-danger/90">{error}</p>
         </div>
       </div>
-    </SectionShell>
+      <div>
+        <button
+          type="button"
+          onClick={onRetry}
+          className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-bg-base px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
+        >
+          <RotateCcw className="h-3.5 w-3.5" />
+          Try Again
+        </button>
+      </div>
+    </div>
   )
 }
 
@@ -752,6 +1181,7 @@ function ReviewResultPanel({
   result: ReviewResult
   onRefresh: () => void
 }) {
+  const { t } = useLocale()
   const narrativeSections = [
     { index: "01", title: "Property Summary", body: result.property_summary },
     { index: "02", title: "Location Analysis", body: result.location_analysis },
@@ -765,65 +1195,60 @@ function ReviewResultPanel({
   ]
 
   return (
-    <SectionShell
-      title="Investment Review"
-      description="Full structured AI analysis generated from the current property metrics and underwriting output."
-    >
-      <div className="space-y-4" data-testid={TEST_IDS.AI_REVIEW_RESULT}>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="inline-flex items-center gap-2 rounded-full border border-brand/20 bg-brand/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-brand">
-            Review ready
-          </div>
-          <button
-            type="button"
-            onClick={onRefresh}
-            data-testid={TEST_IDS.AI_REVIEW_ACTION}
-            className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-bg-base px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-            Refresh Review
-          </button>
+    <div className="space-y-4" data-testid={TEST_IDS.AI_REVIEW_RESULT}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="inline-flex items-center gap-2 rounded-full border border-brand/20 bg-brand/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-brand">
+          Ready
         </div>
+        <button
+          type="button"
+          onClick={onRefresh}
+          data-testid={TEST_IDS.AI_REVIEW_ACTION}
+          className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-bg-base px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
+        >
+          <RotateCcw className="h-3.5 w-3.5" />
+          {t("analyse.new.analysis.ctaRefresh")}
+        </button>
+      </div>
 
-        <div className="grid gap-4 xl:grid-cols-2">
-          {narrativeSections.map((section) => (
-            <ReviewNarrativeBlock
-              key={section.title}
-              index={section.index}
-              title={section.title}
-              body={section.body}
-            />
-          ))}
-          <div className="rounded-xl border border-brand/15 bg-gradient-to-br from-brand/10 via-bg-base to-bg-surface p-4 xl:col-span-2">
-            <div className="flex items-center gap-2">
-              <span className="rounded-full border border-brand/15 bg-brand/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-brand">
-                Final take
-              </span>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">AI Verdict</p>
-            </div>
-            <div className="mt-3 space-y-3 text-sm leading-relaxed text-text-secondary">
-              {narrativeParagraphs(result.final_verdict, "No final verdict was returned for this review.").map((paragraph) => (
-                <p key={`final-verdict-${paragraph}`}>{paragraph}</p>
-              ))}
-            </div>
+      <div className="grid gap-4 xl:grid-cols-2">
+        {narrativeSections.map((section) => (
+          <ReviewNarrativeBlock
+            key={section.title}
+            index={section.index}
+            title={section.title}
+            body={section.body}
+          />
+        ))}
+        <div className="rounded-xl border border-brand/15 bg-gradient-to-br from-brand/10 via-bg-base to-bg-surface p-4 xl:col-span-2">
+          <div className="flex items-center gap-2">
+            <span className="rounded-full border border-brand/15 bg-brand/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-brand">
+              Final take
+            </span>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Verdict</p>
           </div>
-        </div>
-
-        <div className="grid gap-4 xl:grid-cols-2">
-          {sections.map((section) =>
-            section.items.length > 0 ? (
-              <SnapshotBulletList key={section.title} title={section.title} items={section.items} tone={section.tone} />
-            ) : (
-              <SnapshotEmptyState
-                key={section.title}
-                title={section.title}
-                message={section.emptyMessage}
-              />
-            ),
-          )}
+          <div className="mt-3 space-y-3 text-sm leading-relaxed text-text-secondary">
+            {narrativeParagraphs(result.final_verdict, "No final verdict was returned for this review.").map((paragraph) => (
+              <p key={`final-verdict-${paragraph}`}>{paragraph}</p>
+            ))}
+          </div>
         </div>
       </div>
-    </SectionShell>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        {sections.map((section) =>
+          section.items.length > 0 ? (
+            <SnapshotBulletList key={section.title} title={section.title} items={section.items} tone={section.tone} />
+          ) : (
+            <SnapshotEmptyState
+              key={section.title}
+              title={section.title}
+              message={section.emptyMessage}
+            />
+          ),
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -836,39 +1261,36 @@ function ReviewStatusPanel({
   error?: string | null
   onRetry: () => void
 }) {
+  const { t } = useLocale()
   if (loading) {
     return (
-      <SectionShell title="Investment Review" description="Full structured AI analysis generated from the current property metrics and underwriting output.">
-        <div className="flex items-center gap-3 rounded-xl border border-border-default bg-bg-base px-4 py-4 text-sm text-text-secondary">
-          <Loader2 className="h-4 w-4 animate-spin text-brand" />
-          Generating investment review…
-        </div>
-      </SectionShell>
+      <div className="flex items-center gap-3 rounded-xl border border-border-default bg-bg-base px-4 py-4 text-sm text-text-secondary">
+        <Loader2 className="h-4 w-4 animate-spin text-brand" />
+        {t("analyse.new.analysis.loading")}
+      </div>
     )
   }
 
   return (
-    <SectionShell title="Investment Review" description="Full structured AI analysis generated from the current property metrics and underwriting output.">
-      <div className="space-y-4">
-        <div className="flex items-start gap-3 rounded-xl border border-danger/30 bg-danger/10 px-4 py-4 text-sm text-danger">
-          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-          <div>
-            <p className="font-medium">Investment review could not be generated.</p>
-            <p className="mt-1 text-danger/90">{error}</p>
-          </div>
-        </div>
+    <div className="space-y-4">
+      <div className="flex items-start gap-3 rounded-xl border border-danger/30 bg-danger/10 px-4 py-4 text-sm text-danger">
+        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
         <div>
-          <button
-            type="button"
-            onClick={onRetry}
-            className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-bg-base px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-            Try Again
-          </button>
+          <p className="font-medium">{t("analyse.new.analysis.errorTitle")}</p>
+          <p className="mt-1 text-danger/90">{error}</p>
         </div>
       </div>
-    </SectionShell>
+      <div>
+        <button
+          type="button"
+          onClick={onRetry}
+          className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-bg-base px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
+        >
+          <RotateCcw className="h-3.5 w-3.5" />
+          Try Again
+        </button>
+      </div>
+    </div>
   )
 }
 
@@ -879,6 +1301,7 @@ function StrategyResultPanel({
   result: StrategyResult
   onRefresh: () => void
 }) {
+  const { t } = useLocale()
   const sections: Array<{ title: string; items: string[]; tone: "success" | "danger"; emptyMessage: string }> = [
     {
       title: "Use in Negotiation",
@@ -907,66 +1330,61 @@ function StrategyResultPanel({
   ]
 
   return (
-    <SectionShell
-      title="Buying Strategy Insight"
-      description="How to approach this deal using the current property metrics and the latest full investment review."
-    >
-      <div className="space-y-4" data-testid={TEST_IDS.AI_STRATEGY_RESULT}>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="inline-flex items-center gap-2 rounded-full border border-brand/20 bg-brand/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-brand">
-            Strategy ready
-          </div>
-          <button
-            type="button"
-            onClick={onRefresh}
-            data-testid={TEST_IDS.AI_STRATEGY_ACTION}
-            className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-bg-base px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-            Refresh Strategy
-          </button>
+    <div className="space-y-4" data-testid={TEST_IDS.AI_STRATEGY_RESULT}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="inline-flex items-center gap-2 rounded-full border border-brand/20 bg-brand/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-brand">
+          Ready
+        </div>
+        <button
+          type="button"
+          onClick={onRefresh}
+          data-testid={TEST_IDS.AI_STRATEGY_ACTION}
+          className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-bg-base px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
+        >
+          <RotateCcw className="h-3.5 w-3.5" />
+          {t("analyse.new.negotiation.ctaRefresh")}
+        </button>
+      </div>
+
+      <div className="grid gap-3 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+          <MetricMiniCard
+            label="Anchor Price"
+            value={result.anchor_price != null ? formatEUR(result.anchor_price) : "—"}
+          />
+          <MetricMiniCard
+            label="Walk-Away Price"
+            value={result.walk_away_price != null ? formatEUR(result.walk_away_price) : "—"}
+          />
         </div>
 
-        <div className="grid gap-3 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-            <MetricMiniCard
-              label="Anchor Price"
-              value={result.anchor_price != null ? formatEUR(result.anchor_price) : "—"}
-            />
-            <MetricMiniCard
-              label="Walk-Away Price"
-              value={result.walk_away_price != null ? formatEUR(result.walk_away_price) : "—"}
-            />
+        <div className="rounded-2xl border border-brand/15 bg-gradient-to-br from-brand/10 via-bg-base to-bg-surface p-4">
+          <div className="flex items-center gap-2">
+            <span className="rounded-full border border-brand/15 bg-brand/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-brand">
+              Next move
+            </span>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">What to do now</p>
           </div>
-
-          <div className="rounded-2xl border border-brand/15 bg-gradient-to-br from-brand/10 via-bg-base to-bg-surface p-4">
-            <div className="flex items-center gap-2">
-              <span className="rounded-full border border-brand/15 bg-brand/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-brand">
-                Next move
-              </span>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">What to do now</p>
-            </div>
-            <p className="mt-3 text-sm leading-relaxed text-text-secondary">
-              {compactText(
-                result.recommended_next_move,
-                "No recommended next move was returned for this buying strategy.",
-                STRATEGY_NEXT_MOVE_MAX_LENGTH,
-              )}
-            </p>
-          </div>
-        </div>
-
-        <div className="grid gap-4 xl:grid-cols-2">
-          {sections.map((section) =>
-            section.items.length > 0 ? (
-              <SnapshotBulletList key={section.title} title={section.title} items={section.items} tone={section.tone} />
-            ) : (
-              <SnapshotEmptyState key={section.title} title={section.title} message={section.emptyMessage} />
-            ),
-          )}
+          <p className="mt-3 text-sm leading-relaxed text-text-secondary">
+            {compactText(
+              result.recommended_next_move,
+              "No recommended next move was returned for this buying strategy.",
+              STRATEGY_NEXT_MOVE_MAX_LENGTH,
+            )}
+          </p>
         </div>
       </div>
-    </SectionShell>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        {sections.map((section) =>
+          section.items.length > 0 ? (
+            <SnapshotBulletList key={section.title} title={section.title} items={section.items} tone={section.tone} />
+          ) : (
+            <SnapshotEmptyState key={section.title} title={section.title} message={section.emptyMessage} />
+          ),
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -979,76 +1397,77 @@ function StrategyStatusPanel({
   error?: string | null
   onRetry: () => void
 }) {
+  const { t } = useLocale()
   if (loading) {
     return (
-      <SectionShell title="Buying Strategy Insight" description="How to approach this deal using the current property metrics and the latest full investment review.">
-        <div className="flex items-center gap-3 rounded-xl border border-border-default bg-bg-base px-4 py-4 text-sm text-text-secondary">
-          <Loader2 className="h-4 w-4 animate-spin text-brand" />
-          Generating buying strategy…
-        </div>
-      </SectionShell>
+      <div className="flex items-center gap-3 rounded-xl border border-border-default bg-bg-base px-4 py-4 text-sm text-text-secondary">
+        <Loader2 className="h-4 w-4 animate-spin text-brand" />
+        {t("analyse.new.negotiation.loading")}
+      </div>
     )
   }
 
   return (
-    <SectionShell title="Buying Strategy Insight" description="How to approach this deal using the current property metrics and the latest full investment review.">
-      <div className="space-y-4">
-        <div className="flex items-start gap-3 rounded-xl border border-danger/30 bg-danger/10 px-4 py-4 text-sm text-danger">
-          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-          <div>
-            <p className="font-medium">Buying strategy could not be generated.</p>
-            <p className="mt-1 text-danger/90">{error}</p>
-          </div>
-        </div>
+    <div className="space-y-4">
+      <div className="flex items-start gap-3 rounded-xl border border-danger/30 bg-danger/10 px-4 py-4 text-sm text-danger">
+        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
         <div>
-          <button
-            type="button"
-            onClick={onRetry}
-            className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-bg-base px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-            Try Again
-          </button>
+          <p className="font-medium">{t("analyse.new.negotiation.errorTitle")}</p>
+          <p className="mt-1 text-danger/90">{error}</p>
         </div>
       </div>
-    </SectionShell>
+      <div>
+        <button
+          type="button"
+          onClick={onRetry}
+          className="inline-flex items-center gap-2 rounded-lg border border-border-default bg-bg-base px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
+        >
+          <RotateCcw className="h-3.5 w-3.5" />
+          Try Again
+        </button>
+      </div>
+    </div>
   )
 }
 
 function StrategyPrerequisitePanel({
   canRun,
   onRun,
+  inlineMessage,
 }: {
   canRun: boolean
   onRun?: () => void
+  inlineMessage?: string | null
 }) {
+  const { t } = useLocale()
   return (
-    <SectionShell
-      title="Buying Strategy Insight"
-      description="How to approach this deal using the current property metrics and the latest full investment review."
-    >
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-2">
-          <p className="text-sm leading-relaxed text-text-secondary">
-            Generate anchor price, walk-away price, leverage points, seller questions, diligence priorities, red flags and a recommended next move for this deal.
-          </p>
-          <div className="rounded-xl border border-dashed border-border-default bg-bg-base px-4 py-3 text-sm text-text-secondary">
-            {canRun
-              ? "Run Buying Strategy Insight when you're ready to turn the latest investment review into a negotiation plan."
-              : "Run Investment Review first. Buying Strategy Insight needs the latest full review result before it can generate a negotiation plan."}
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="space-y-2">
+        <p className="text-sm leading-relaxed text-text-secondary">
+          Turn the analysis into an offer plan, due diligence checklist, and walk-away range.
+        </p>
+        {inlineMessage ? (
+          <div className="flex items-start gap-3 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            <p>{inlineMessage}</p>
           </div>
+        ) : null}
+        <div className="rounded-xl border border-dashed border-border-default bg-bg-base px-4 py-3 text-sm text-text-secondary">
+          {canRun
+            ? t("analyse.new.negotiation.readyPrompt")
+            : t("analyse.new.negotiation.prerequisitePrompt")}
         </div>
-        <button
-          type="button"
-          onClick={canRun ? onRun : undefined}
-          disabled={!canRun}
-          data-testid={TEST_IDS.AI_STRATEGY_ACTION}
-          className="inline-flex items-center justify-center gap-2 rounded-lg border border-brand/30 bg-brand/5 px-4 py-2 text-sm font-medium text-brand transition-colors hover:bg-brand/10 disabled:cursor-not-allowed disabled:border-border-default disabled:bg-bg-base disabled:text-text-muted disabled:opacity-60"
-        >
-          Generate Strategy
-        </button>
       </div>
-    </SectionShell>
+      <button
+        type="button"
+        onClick={canRun ? onRun : undefined}
+        disabled={!canRun}
+        data-testid={TEST_IDS.AI_STRATEGY_ACTION}
+        className="inline-flex items-center justify-center gap-2 rounded-lg border border-brand/30 bg-brand/5 px-4 py-2 text-sm font-medium text-brand transition-colors hover:bg-brand/10 disabled:cursor-not-allowed disabled:border-border-default disabled:bg-bg-base disabled:text-text-muted disabled:opacity-60"
+      >
+        {t("analyse.new.negotiation.ctaGenerate")}
+      </button>
+    </div>
   )
 }
 
@@ -1079,88 +1498,64 @@ function getDependencyStatusToneClassName(tone: "success" | "warning" | "neutral
   }
 }
 
-function getAdvisorNextStep({
+function isStrategyBlockedByMissingReview(error?: string | null) {
+  if (!error) return false
+
+  return error.startsWith("Run Full Review first")
+}
+
+function resolveAdvisorMode({
   hasReview,
   hasStrategy,
-  onRunReview,
-  onRunStrategy,
+  analysisMode,
 }: {
   hasReview: boolean
   hasStrategy: boolean
-  onRunReview: () => void
-  onRunStrategy: () => void
-}) {
-  switch (true) {
-    case !hasReview:
-      return {
-        message: "Run Investment Review to give the advisor full underwriting context before you ask deeper questions.",
-        ctaLabel: "Run Investment Review",
-        onClick: onRunReview,
-      }
-    case !hasStrategy:
-      return {
-        message: "The advisor already has your investment review. Run Buying Strategy Insight if you also want negotiation context in the chat.",
-        ctaLabel: "Run Buying Strategy Insight",
-        onClick: onRunStrategy,
-      }
-    default:
-      return null
-  }
+  analysisMode: AnalysisMode
+}): "light" | "full" {
+  if (analysisMode === "compare") return "full"
+  return hasReview || hasStrategy ? "full" : "light"
 }
 
 function AdvisorContextGuide({
+  summaryTitle,
+  summaryDescription,
   hasSnapshot,
   hasReview,
   hasStrategy,
-  onRunReview,
-  onRunStrategy,
 }: {
+  summaryTitle?: string
+  summaryDescription?: string
   hasSnapshot: boolean
   hasReview: boolean
   hasStrategy: boolean
-  onRunReview: () => void
-  onRunStrategy: () => void
 }) {
-  const nextStep = getAdvisorNextStep({
-    hasReview,
-    hasStrategy,
-    onRunReview,
-    onRunStrategy,
-  })
-
+  const { t } = useLocale()
   return (
     <div className="rounded-2xl border border-border-default bg-bg-base p-4">
       <div className="flex flex-col gap-3">
+        {summaryTitle || summaryDescription ? (
+          <div className="rounded-xl border border-brand/15 bg-brand/5 px-3 py-3">
+            {summaryTitle ? <p className="text-sm font-medium text-text-primary">{summaryTitle}</p> : null}
+            {summaryDescription ? (
+              <p className="mt-1 text-sm text-text-secondary">{summaryDescription}</p>
+            ) : null}
+          </div>
+        ) : null}
+
         <div>
-          <p className="text-sm font-medium text-text-primary">Context the advisor can use</p>
+          <p className="text-sm font-medium text-text-primary">{t("analyse.new.askAi.contextTitle")}</p>
           <p className="mt-1 text-sm text-text-secondary">
-            The advisor always works from the current property analysis. When available, it automatically adds investment review and buying strategy context. Snapshot remains optional and never blocks the flow.
+            {t("analyse.new.askAi.contextDescription")}
           </p>
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <DependencyStatusPill label="Core analysis ready" tone="success" />
-          <DependencyStatusPill label={hasSnapshot ? "Snapshot available" : "Snapshot optional"} tone={hasSnapshot ? "success" : "neutral"} />
-          <DependencyStatusPill label={hasReview ? "Investment review attached" : "Investment review pending"} tone={hasReview ? "success" : "warning"} />
-          <DependencyStatusPill label={hasStrategy ? "Buying strategy attached" : "Buying strategy not run yet"} tone={hasStrategy ? "success" : "neutral"} />
+          <DependencyStatusPill label={t("analyse.new.askAi.status.analysisReady")} tone="success" />
+          <DependencyStatusPill label={hasSnapshot ? t("analyse.new.askAi.status.quickTakeReady") : t("analyse.new.askAi.status.quickTakeOptional")} tone={hasSnapshot ? "success" : "neutral"} />
+          <DependencyStatusPill label={hasReview ? t("analyse.new.askAi.status.fullReviewReady") : t("analyse.new.askAi.status.fullReviewPending")} tone={hasReview ? "success" : "warning"} />
+          <DependencyStatusPill label={hasStrategy ? t("analyse.new.askAi.status.buyingStrategyReady") : t("analyse.new.askAi.status.buyingStrategyPending")} tone={hasStrategy ? "success" : "neutral"} />
         </div>
-
-        {nextStep ? (
-          <div className="flex flex-col gap-3 rounded-xl border border-dashed border-border-default bg-bg-surface px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-text-secondary">{nextStep.message}</p>
-            <button
-              type="button"
-              onClick={nextStep.onClick}
-              className="inline-flex items-center justify-center rounded-lg border border-brand/30 bg-brand/5 px-3 py-2 text-sm font-medium text-brand transition-colors hover:bg-brand/10"
-            >
-              {nextStep.ctaLabel}
-            </button>
-          </div>
-        ) : (
-          <div className="rounded-xl border border-brand/20 bg-brand/5 px-4 py-3 text-sm text-text-secondary">
-            Review and strategy context are already available, so the advisor will answer with both underwriting and negotiation context in view.
-          </div>
-        )}
       </div>
     </div>
   )
@@ -1229,16 +1624,17 @@ function CompactCompareSummary({ resultA, resultB }: { resultA: AnalyseResponse;
 }
 
 function ModeSwitcher({ mode, onChange }: { mode: AnalysisMode; onChange: (mode: AnalysisMode) => void }) {
+  const { t } = useLocale()
   const options: Array<{ id: AnalysisMode; title: string; description: string }> = [
     {
       id: "single",
-      title: "Single Analysis",
-      description: "Analyse one property end-to-end with the full underwriting results stack.",
+      title: t("analyse.modeSwitcher.singleTitle"),
+      description: t("analyse.modeSwitcher.singleDescription"),
     },
     {
       id: "compare",
-      title: "Compare Two Properties",
-      description: "Run two equal-weight property analyses and compare them side by side.",
+      title: t("analyse.modeSwitcher.compareTitle"),
+      description: t("analyse.modeSwitcher.compareDescription"),
     },
   ]
 
@@ -1289,6 +1685,7 @@ function ComparePropertyCard({
   onAnalyse: () => void
   onReset: () => void
 }) {
+  const { t } = useLocale()
   return (
     <section className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-border-default bg-bg-surface">
       <div className="flex items-start justify-between gap-3 border-b border-border-default px-4 py-4 md:px-5">
@@ -1302,7 +1699,7 @@ function ComparePropertyCard({
           className="inline-flex items-center gap-1 rounded-lg border border-border-default bg-bg-base px-3 py-2 text-xs font-medium text-text-secondary transition-colors hover:bg-bg-elevated hover:text-text-primary"
         >
           <RotateCcw className="h-3.5 w-3.5" />
-          Reset
+          {t("analyse.common.reset")}
         </button>
       </div>
 
@@ -1313,7 +1710,7 @@ function ComparePropertyCard({
           onAnalyse={onAnalyse}
           loading={loading}
           idPrefix={idPrefix}
-          analyseButtonLabel={`Analyse ${label}`}
+          analyseButtonLabel={`${t("analyse.action.analyse")} ${label}`}
         />
       </div>
 
@@ -1325,12 +1722,13 @@ function ComparePropertyCard({
 }
 
 function CompareStatusCard({ label, result }: { label: string; result: AnalyseResponse | null }) {
+  const { t } = useLocale()
   return (
     <div className="rounded-xl border border-border-default bg-bg-base p-4">
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm font-semibold text-text-primary">{label}</p>
         <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${result ? "bg-success/10 text-success" : "bg-bg-elevated text-text-muted"}`}>
-          {result ? "Analysed" : "Pending"}
+          {result ? t("analyse.compare.status.analysed") : t("analyse.compare.status.pending")}
         </span>
       </div>
       <div className="mt-4">
@@ -1452,18 +1850,6 @@ function compareRecommendationSummary(resultA: AnalyseResponse, resultB: Analyse
   }
 }
 
-function AskAiShell({ context }: { context: AskAiContextPayload }) {
-  return (
-    <AnalysisChat
-      contextType={context.mode === "compare" ? "analysis_compare" : "analysis_single"}
-      contextId={context.contextId}
-      analysisContext={buildAnalysisContextPayload(context)}
-      title={context.mode === "compare" ? "comparison" : "analysis"}
-      promptHints={context.promptHints}
-    />
-  )
-}
-
 function CompareAiInsightSection({
   resultA,
   resultB,
@@ -1503,7 +1889,7 @@ function CompareAiInsightSection({
   ]
 
   return (
-    <SectionShell title={t("analyse.new.aiInsight.title")} description={t("analyse.new.aiInsight.description")}>
+    <SectionShell title={t("analyse.new.aiInsight.title")} description={t("analyse.new.aiInsight.description.compare")}>
       <div className="space-y-4">
         <div className="rounded-2xl border border-brand/15 bg-gradient-to-br from-brand/10 via-bg-base to-bg-surface p-4">
           <div className="flex flex-wrap items-center gap-2">
@@ -1577,10 +1963,10 @@ function CompareAiAnalysisSection({
   ]
 
   return (
-    <SectionShell title={t("analyse.new.aiAnalysis.title")} description={t("analyse.new.aiAnalysis.description")}>
+    <SectionShell title={t("analyse.new.analysis.title")} description={t("analyse.new.analysis.description.compare")}>
       <div className="space-y-4">
         <div className="rounded-2xl border border-border-default bg-bg-base p-4">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Recommendation</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">Executive summary</p>
           <p className="mt-2 text-lg font-semibold text-text-primary">{recommendation.headline}</p>
           <p className="mt-2 text-sm leading-relaxed text-text-secondary">{recommendation.body}</p>
         </div>
@@ -1628,7 +2014,7 @@ function CompareNegotiationSection({
   ]
 
   return (
-    <SectionShell title={t("analyse.new.negotiation.title")} description={t("analyse.new.negotiation.description")}>
+    <SectionShell title={t("analyse.new.negotiation.title")} description={t("analyse.new.negotiation.description.compare")}>
       <div className="grid gap-4 xl:grid-cols-2">
         {cards.map(({ slot, items }) => (
           <article key={slot} className="rounded-2xl border border-border-default bg-bg-base p-4">
@@ -1658,10 +2044,12 @@ function CompareNegotiationSection({
 function CompareAskAiSection({
   inputs,
   results,
+  activationKey,
   t,
 }: {
   inputs: CompareInputsState
   results: CompareResultsState
+  activationKey: number
   t: (k: string) => string
 }) {
   const selectedProperty = pickCompareWinner(results.propertyA as AnalyseResponse, results.propertyB as AnalyseResponse)
@@ -1695,16 +2083,24 @@ function CompareAskAiSection({
   }
 
   return (
-    <SectionShell title={t("analyse.new.askAi.title")} description={t("analyse.new.askAi.description")}>
+    <SectionShell title={t("analyse.new.askAi.title")} description={t("analyse.new.askAi.description.compare")}>
       <div className="space-y-3">
-        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border-default bg-bg-base px-4 py-3 text-sm text-text-secondary">
-          <span className="font-medium text-text-primary">Comparison context</span>
-          <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${propertyTone(selectedProperty)}`}>
-            {propertyLabel(selectedProperty)} leads
-          </span>
-          <span>{recommendation.body}</span>
-        </div>
-        <AskAiShell context={context} />
+        <AdvisorContextGuide
+          summaryTitle="Comparison context"
+          summaryDescription={`${propertyLabel(selectedProperty)} leads. ${recommendation.body}`}
+          hasSnapshot={false}
+          hasReview={false}
+          hasStrategy={false}
+        />
+        <AnalysisChat
+          contextType="analysis_compare"
+          contextId={context.contextId}
+          analysisContext={buildAnalysisContextPayload(context)}
+          title="advisor"
+          promptHints={context.promptHints}
+          advisorMode={resolveAdvisorMode({ hasReview: false, hasStrategy: false, analysisMode: "compare" })}
+          activationKey={activationKey}
+        />
       </div>
     </SectionShell>
   )
@@ -1720,12 +2116,13 @@ function SingleAnalysisWorkspace({
   snapshotLoading,
   snapshotError,
   reviewResult,
+  reviewRawResult,
   reviewLoading,
   reviewError,
   strategyResult,
+  strategyRawResult,
   strategyLoading,
   strategyError,
-  advisorMode,
   advisorActivationKey,
   onInputChange,
   onAnalyse,
@@ -1744,12 +2141,13 @@ function SingleAnalysisWorkspace({
   snapshotLoading: boolean
   snapshotError: string | null
   reviewResult: ReviewResult | null
+  reviewRawResult: Record<string, unknown> | null
   reviewLoading: boolean
   reviewError: string | null
   strategyResult: StrategyResult | null
+  strategyRawResult: Record<string, unknown> | null
   strategyLoading: boolean
   strategyError: string | null
-  advisorMode: "light" | "full"
   advisorActivationKey: number
   onInputChange: (value: AnalyseRequest) => void
   onAnalyse: () => void
@@ -1757,10 +2155,20 @@ function SingleAnalysisWorkspace({
   onRunReview: () => void
   onRunStrategy: () => void
   onResultTabChange: (tab: ResultTab) => void
-  onOpenAdvisor: (mode: "light" | "full") => void
+  onOpenAdvisor: () => void
 }) {
   const { t } = useLocale()
   const resultTopRef = useRef<HTMLDivElement | null>(null)
+  const fullReviewRef = useRef<HTMLDivElement | null>(null)
+  const buyingStrategyRef = useRef<HTMLDivElement | null>(null)
+  const advisorRef = useRef<HTMLDivElement | null>(null)
+  const [importText, setImportText] = useState("")
+  const [importError, setImportError] = useState<string | null>(null)
+  const [importPreview, setImportPreview] = useState<{
+    extracted: ImportedFieldPreview[]
+    missingFields: string[]
+    unverifiedFields: string[]
+  } | null>(null)
 
   const aiInsightPayload = useMemo<AIInsightPayload | null>(() => {
     if (!result) return null
@@ -1827,14 +2235,19 @@ function SingleAnalysisWorkspace({
 
     return {
       property: buildPropertyMetricsInput(input, result),
-      analysis_result: reviewResult ? { ...reviewResult } : null,
-      strategy_result: strategyResult ? { ...strategyResult } : null,
+      analysis_result: reviewRawResult ? { ...reviewRawResult } : null,
+      strategy_result: strategyRawResult ? { ...strategyRawResult } : null,
     }
-  }, [input, result, reviewResult, strategyResult])
+  }, [input, result, reviewRawResult, strategyRawResult])
 
   const hasSnapshotContext = Boolean(snapshotResult)
   const hasReviewContext = Boolean(reviewResult)
   const hasStrategyContext = Boolean(strategyResult)
+  const advisorMode = resolveAdvisorMode({
+    hasReview: hasReviewContext,
+    hasStrategy: hasStrategyContext,
+    analysisMode: "single",
+  })
 
   useEffect(() => {
     if (!result) return
@@ -1846,8 +2259,129 @@ function SingleAnalysisWorkspace({
     return () => window.clearTimeout(timeoutId)
   }, [result])
 
+  const handleOpenFullReview = useCallback(() => {
+    if (!reviewResult && !reviewLoading) {
+      onRunReview()
+    }
+
+    fullReviewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+  }, [onRunReview, reviewLoading, reviewResult])
+
+  const handleOpenBuyingStrategy = useCallback(() => {
+    if (reviewResult && !strategyResult && !strategyLoading) {
+      onRunStrategy()
+      buyingStrategyRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+    } else if (!reviewResult && !reviewLoading) {
+      onRunReview()
+      fullReviewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+    } else {
+      buyingStrategyRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+    }
+  }, [onRunReview, onRunStrategy, reviewLoading, reviewResult, strategyLoading, strategyResult])
+
+  const handleOpenAdvisorSection = useCallback(() => {
+    onOpenAdvisor()
+    advisorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+  }, [onOpenAdvisor])
+
+  const handleApplyImport = useCallback(() => {
+    const parsed = parseImportedPropertyText(importText, input)
+    if (!parsed) {
+      setImportError("We could not extract property fields from this import source yet.")
+      setImportPreview(null)
+      return
+    }
+
+    setImportError(null)
+    setImportPreview({
+      extracted: parsed.extracted,
+      missingFields: parsed.missingFields,
+      unverifiedFields: parsed.unverifiedFields,
+    })
+    onInputChange(parsed.nextInput)
+  }, [importText, input, onInputChange])
+
+  const handleClearImport = useCallback(() => {
+    setImportText("")
+    setImportError(null)
+    setImportPreview(null)
+  }, [])
+
   return (
     <div className="space-y-4">
+      <SectionShell
+        title="Import"
+        description="Start the AI workflow by importing a listing URL or pasted property details into the same analysis input model."
+      >
+        <div className="space-y-3 rounded-2xl border border-border-default bg-bg-base p-4">
+          <p className="text-xs text-text-muted">Paste a URL, key:value rows, or JSON object from your source document.</p>
+          <Textarea
+            value={importText}
+            onChange={(event) => setImportText(event.target.value)}
+            placeholder={"https://example.com/listing/123\naddress: Musterstraße 1, Berlin\npurchase_price: 325000\nsqm: 62"}
+            className="min-h-[120px]"
+          />
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" onClick={handleApplyImport}>Extract into property input</Button>
+            <Button type="button" variant="outline" onClick={handleClearImport}>
+              Clear
+            </Button>
+          </div>
+          {importError ? <p className="text-sm text-danger">{importError}</p> : null}
+        </div>
+
+        {importPreview ? (
+          <div data-testid={TEST_IDS.IMPORT_PREVIEW} className="grid gap-4 lg:grid-cols-2">
+            <section className="rounded-2xl border border-border-default bg-bg-base p-4">
+              <p className="text-sm font-semibold text-text-primary">Extracted property preview</p>
+              <div className="mt-3 space-y-2 text-sm">
+                {importPreview.extracted.map((field) => (
+                  <div key={field.key} className="flex items-start justify-between gap-3 rounded-lg border border-border-default bg-bg-surface px-3 py-2">
+                    <span className="text-text-secondary">{field.label}</span>
+                    <span className="text-right font-medium text-text-primary">{field.value}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section data-testid={TEST_IDS.IMPORT_MISSING_FIELDS} className="rounded-2xl border border-border-default bg-bg-base p-4">
+              <p className="text-sm font-semibold text-text-primary">Missing or unverified</p>
+              <div className="mt-3 space-y-3 text-sm">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">Missing required fields</p>
+                  {importPreview.missingFields.length > 0 ? (
+                    <ul className="mt-1 list-disc space-y-1 pl-5 text-text-secondary">
+                      {importPreview.missingFields.map((field) => <li key={field}>{field}</li>)}
+                    </ul>
+                  ) : <p className="mt-1 text-text-secondary">No required fields missing.</p>}
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">Unverified fields</p>
+                  {importPreview.unverifiedFields.length > 0 ? (
+                    <ul className="mt-1 list-disc space-y-1 pl-5 text-text-secondary">
+                      {importPreview.unverifiedFields.map((field) => <li key={field}>{field}</li>)}
+                    </ul>
+                  ) : <p className="mt-1 text-text-secondary">No unverified fields.</p>}
+                </div>
+              </div>
+            </section>
+            <div className="flex flex-wrap gap-2 lg:col-span-2">
+              <WorkflowActionButton
+                label="Run Intelligent Property Snapshot"
+                onClick={onRunSnapshot}
+                tone="brand"
+                testId={TEST_IDS.IMPORT_SNAPSHOT_ACTION}
+              />
+              <WorkflowActionButton
+                label="Run Investment Review"
+                onClick={onRunReview}
+                testId={TEST_IDS.IMPORT_REVIEW_ACTION}
+              />
+            </div>
+          </div>
+        ) : null}
+      </SectionShell>
+
       <SectionShell
         title="Single Property Analysis"
         description="Focus on one property from underwriting input through verdict, projections, and market context."
@@ -1875,102 +2409,140 @@ function SingleAnalysisWorkspace({
               </div>
             ) : (
               <div className="space-y-4">
-                {/* ① Intelligent Property Snapshot */}
-                {snapshotLoading ? (
-                  <SnapshotStatusPanel loading onRetry={onRunSnapshot} />
-                ) : snapshotError ? (
-                  <SnapshotStatusPanel error={snapshotError} onRetry={onRunSnapshot} />
-                ) : snapshotResult ? (
-                  <SnapshotResultPanel result={snapshotResult} onRefresh={onRunSnapshot} />
-                ) : (
-                  <SkillCardPlaceholder
-                    title="Intelligent Property Snapshot"
-                    description="Quick AI-powered first impression of the deal."
-                    featureDescription="Grade, verdict, location rating, top strengths and top risks — generated from your current property metrics in seconds."
-                    ctaLabel="Run Snapshot"
-                    badge="AI · Compact"
-                    actionTestId={TEST_IDS.AI_SNAPSHOT_ACTION}
-                    onRun={onRunSnapshot}
-                  />
-                )}
+                <SectionShell title={t("analyse.new.aiInsight.title")} description={t("analyse.new.aiInsight.description.single")}>
+                  <div className="space-y-4">
+                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                      {aiInsightPayload?.cards.map((card) => (
+                        <div key={card.id} className="rounded-xl border border-border-default bg-bg-base p-3">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{card.label}</p>
+                          <p className="mt-1 font-mono text-lg font-semibold text-text-primary">{card.value}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-sm text-text-secondary">{aiInsightPayload?.summaryLine ?? ""}</p>
 
-                <SectionShell title={t("analyse.new.analysis.title")} description={t("analyse.new.analysis.description")}>
-                  <Tabs value={resultTab} onValueChange={(value) => onResultTabChange(value as ResultTab)}>
-                    <div className="mb-4 flex flex-col gap-3 border-b border-border-default pb-2 sm:flex-row sm:items-center sm:justify-between">
-                      <TabsList className="h-auto gap-0 rounded-none bg-transparent p-0">
-                        <TabsTrigger value="overview" className="rounded-none border-b-2 border-transparent px-3 py-2 text-sm data-[state=active]:border-brand data-[state=active]:text-brand">{t("analyse.tab.overview")}</TabsTrigger>
-                        <TabsTrigger value="projections" className="rounded-none border-b-2 border-transparent px-3 py-2 text-sm data-[state=active]:border-brand data-[state=active]:text-brand">{t("analyse.tab.projections")}</TabsTrigger>
-                        <TabsTrigger value="market" className="rounded-none border-b-2 border-transparent px-3 py-2 text-sm data-[state=active]:border-brand data-[state=active]:text-brand">{t("analyse.tab.market")}</TabsTrigger>
-                      </TabsList>
-                      <SaveToPortfolioButton input={input} result={result} className="self-start" />
+                    {snapshotLoading ? (
+                      <SnapshotStatusPanel loading onRetry={onRunSnapshot} />
+                    ) : snapshotError ? (
+                      <SnapshotStatusPanel error={snapshotError} onRetry={onRunSnapshot} />
+                    ) : snapshotResult ? (
+                      <SnapshotResultPanel result={snapshotResult} onRefresh={onRunSnapshot} />
+                    ) : (
+                      <SkillCardPlaceholder
+                        title={t("analyse.new.aiInsight.title")}
+                        description={t("analyse.new.aiInsight.description.single")}
+                        featureDescription="Grade, verdict, location rating, top strengths and top risks generated from your current analysis."
+                        ctaLabel={t("analyse.new.aiInsight.ctaGenerate")}
+                        badge="AI"
+                        actionTestId={TEST_IDS.AI_SNAPSHOT_ACTION}
+                        onRun={onRunSnapshot}
+                      />
+                    )}
+
+                    <div className="rounded-2xl border border-border-default bg-bg-base p-4">
+                      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-text-primary">{t("analyse.new.workflow.title")}</p>
+                          <p className="mt-1 text-sm text-text-secondary">{t("analyse.new.workflow.description")}</p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <WorkflowActionButton label={t("analyse.new.analysis.ctaGenerate")} onClick={handleOpenFullReview} />
+                          <WorkflowActionButton label={t("analyse.new.negotiation.ctaGenerate")} onClick={handleOpenBuyingStrategy} />
+                          <WorkflowActionButton label={t("analyse.new.askAi.openFull")} onClick={handleOpenAdvisorSection} tone="brand" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </SectionShell>
+
+                <SectionShell title={t("analyse.new.analysis.title")} description={t("analyse.new.analysis.description.single")}>
+                  <div ref={fullReviewRef} className="space-y-4">
+                    <div className="rounded-2xl border border-brand/15 bg-gradient-to-br from-brand/10 via-bg-base to-bg-surface p-4">
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-full border border-brand/15 bg-brand/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-brand">
+                          Executive summary
+                        </span>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">What stands out</p>
+                      </div>
+                      <div className="mt-3 space-y-2 text-sm leading-relaxed text-text-secondary">
+                        {aiAnalysisNarrative.map((line, idx) => (
+                          <p key={`single-summary-${idx}`}>{line}</p>
+                        ))}
+                      </div>
                     </div>
 
-                    <TabsContent value="overview" className="mt-0"><ResultOverview input={input} result={result} /></TabsContent>
-                    <TabsContent value="projections" className="mt-0 space-y-4">
-                      <ExitHorizonsTable
-                        irr_10={result.irr_10}
-                        irr_15={result.irr_15}
-                        irr_20={result.irr_20}
-                        equity_multiple_10={result.equity_multiple_10}
-                        equity_multiple_15={result.equity_multiple_15}
-                        equity_multiple_20={result.equity_multiple_20}
-                        holding_years={input.holding_years ?? 10}
-                      />
-                      <YearByYearTable yearData={result.year_data} />
-                    </TabsContent>
-                    <TabsContent value="market" className="mt-0">
-                      <MarketDataPanel input={input} result={result} />
-                    </TabsContent>
-                  </Tabs>
-                </SectionShell>
-
-                <SectionShell title={t("analyse.new.aiInsight.title")} description={t("analyse.new.aiInsight.description")}>
-                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                    {aiInsightPayload?.cards.map((card) => (
-                      <div key={card.id} className="rounded-xl border border-border-default bg-bg-base p-3">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{card.label}</p>
-                        <p className="mt-1 font-mono text-lg font-semibold text-text-primary">{card.value}</p>
+                    <Tabs value={resultTab} onValueChange={(value) => onResultTabChange(value as ResultTab)}>
+                      <div className="mb-4 flex flex-col gap-3 border-b border-border-default pb-2 sm:flex-row sm:items-center sm:justify-between">
+                        <TabsList className="h-auto gap-0 rounded-none bg-transparent p-0">
+                          <TabsTrigger value="overview" className="rounded-none border-b-2 border-transparent px-3 py-2 text-sm data-[state=active]:border-brand data-[state=active]:text-brand">{t("analyse.tab.overview")}</TabsTrigger>
+                          <TabsTrigger value="projections" className="rounded-none border-b-2 border-transparent px-3 py-2 text-sm data-[state=active]:border-brand data-[state=active]:text-brand">{t("analyse.tab.projections")}</TabsTrigger>
+                          <TabsTrigger value="market" className="rounded-none border-b-2 border-transparent px-3 py-2 text-sm data-[state=active]:border-brand data-[state=active]:text-brand">{t("analyse.tab.market")}</TabsTrigger>
+                        </TabsList>
+                        <SaveToPortfolioButton input={input} result={result} className="self-start" />
                       </div>
-                    ))}
+
+                      <TabsContent value="overview" className="mt-0"><ResultOverview input={input} result={result} /></TabsContent>
+                      <TabsContent value="projections" className="mt-0 space-y-4">
+                        <ExitHorizonsTable
+                          irr_10={result.irr_10}
+                          irr_15={result.irr_15}
+                          irr_20={result.irr_20}
+                          equity_multiple_10={result.equity_multiple_10}
+                          equity_multiple_15={result.equity_multiple_15}
+                          equity_multiple_20={result.equity_multiple_20}
+                          holding_years={input.holding_years ?? 10}
+                        />
+                        <YearByYearTable yearData={result.year_data} />
+                      </TabsContent>
+                      <TabsContent value="market" className="mt-0">
+                        <MarketDataPanel input={input} result={result} />
+                      </TabsContent>
+                    </Tabs>
+
+                    {reviewLoading ? (
+                      <ReviewStatusPanel loading onRetry={onRunReview} />
+                    ) : reviewError ? (
+                      <ReviewStatusPanel error={reviewError} onRetry={onRunReview} />
+                    ) : reviewResult ? (
+                      <ReviewResultPanel result={reviewResult} onRefresh={onRunReview} />
+                    ) : (
+                      <SkillCardPlaceholder
+                        title={t("analyse.new.analysis.title")}
+                        description={t("analyse.new.analysis.description.single")}
+                        featureDescription="Property summary, market view, deal economics, strengths, risks, missing inputs, sensitivity points and final verdict."
+                        ctaLabel={t("analyse.new.analysis.ctaGenerate")}
+                        badge="AI"
+                        actionTestId={TEST_IDS.AI_REVIEW_ACTION}
+                        onRun={onRunReview}
+                      />
+                    )}
                   </div>
-                  <p className="mt-3 text-sm text-text-secondary">{aiInsightPayload?.summaryLine ?? ""}</p>
                 </SectionShell>
 
-                <SectionShell title={t("analyse.new.aiAnalysis.title")} description={t("analyse.new.aiAnalysis.description")}>
-                  <div className="space-y-2 text-sm leading-relaxed text-text-secondary">
-                    {aiAnalysisNarrative.map((line, idx) => (
-                      <p key={`single-${idx}`}>{line}</p>
-                    ))}
-                  </div>
-                </SectionShell>
+                <SectionShell title={t("analyse.new.negotiation.title")} description={t("analyse.new.negotiation.description.single")}>
+                  <div ref={buyingStrategyRef} className="space-y-4">
+                    <div className="grid gap-2 md:grid-cols-2">
+                      {negotiationPayload?.items.map((item) => (
+                        <article key={item.id} className="rounded-lg border border-border-default bg-bg-base px-3 py-3">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{negotiationCardTitle(item.id, t)}</p>
+                          <p className="mt-1 text-sm text-text-secondary">{item.text}</p>
+                        </article>
+                      ))}
+                    </div>
 
-                {/* ② Investment Review */}
-                {reviewLoading ? (
-                  <ReviewStatusPanel loading onRetry={onRunReview} />
-                ) : reviewError ? (
-                  <ReviewStatusPanel error={reviewError} onRetry={onRunReview} />
-                ) : reviewResult ? (
-                  <ReviewResultPanel result={reviewResult} onRefresh={onRunReview} />
-                ) : (
-                  <SkillCardPlaceholder
-                    title="Investment Review"
-                    description="Full structured AI analysis of this property as an investment."
-                    featureDescription="Property summary, location analysis, deal economics, strengths, risks, missing inputs, sensitivity points and a final AI verdict."
-                    ctaLabel="Run Investment Review"
-                    badge="AI · Full analysis"
-                    actionTestId={TEST_IDS.AI_REVIEW_ACTION}
-                    onRun={onRunReview}
-                  />
-                )}
-
-                <SectionShell title={t("analyse.new.negotiation.title")} description={t("analyse.new.negotiation.description")}>
-                  <div className="grid gap-2 md:grid-cols-2">
-                    {negotiationPayload?.items.map((item) => (
-                      <article key={item.id} className="rounded-lg border border-border-default bg-bg-base px-3 py-3">
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{negotiationCardTitle(item.id, t)}</p>
-                        <p className="mt-1 text-sm text-text-secondary">{item.text}</p>
-                      </article>
-                    ))}
+                    {strategyLoading ? (
+                      <StrategyStatusPanel loading onRetry={onRunStrategy} />
+                    ) : strategyError && !isStrategyBlockedByMissingReview(strategyError) ? (
+                      <StrategyStatusPanel error={strategyError} onRetry={onRunStrategy} />
+                    ) : strategyResult ? (
+                      <StrategyResultPanel result={strategyResult} onRefresh={onRunStrategy} />
+                    ) : (
+                      <StrategyPrerequisitePanel
+                        canRun={Boolean(reviewResult)}
+                        onRun={onRunStrategy}
+                        inlineMessage={!reviewResult ? strategyError : null}
+                      />
+                    )}
                   </div>
                 </SectionShell>
 
@@ -2006,26 +2578,7 @@ function SingleAnalysisWorkspace({
                       hasSnapshot={hasSnapshotContext}
                       hasReview={hasReviewContext}
                       hasStrategy={hasStrategyContext}
-                      onRunReview={onRunReview}
-                      onRunStrategy={onRunStrategy}
                     />
-
-                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border-default bg-bg-base px-4 py-3">
-                      <div>
-                        <p className="text-sm font-medium text-text-primary">{t("analyse.new.askAi.sharedTitle")}</p>
-                        <p className="mt-1 text-xs text-text-secondary">
-                          {t("analyse.new.askAi.sharedDescription")}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => onOpenAdvisor("full")}
-                        data-testid={TEST_IDS.AI_ADVISOR_FULL_ACTION}
-                        className="inline-flex items-center gap-2 rounded-lg border border-brand/30 bg-brand/5 px-3 py-2 text-sm font-medium text-brand transition-colors hover:bg-brand/10"
-                      >
-                        {t("analyse.new.askAi.openFull")}
-                      </button>
-                    </div>
 
                     {askAiContext ? (
                       <AnalysisChat
@@ -2033,7 +2586,7 @@ function SingleAnalysisWorkspace({
                         contextId={askAiContext.contextId}
                         analysisContext={buildAnalysisContextPayload(askAiContext)}
                         propertySkillContext={propertySkillContext ?? undefined}
-                        title="analysis"
+                        title="advisor"
                         promptHints={askAiContext.promptHints}
                         advisorMode={advisorMode}
                         activationKey={advisorActivationKey}
@@ -2055,6 +2608,8 @@ function CompareAnalysisWorkspace({
   results,
   loading,
   error,
+  advisorActivationKey,
+  onOpenAdvisor,
   onInputChange,
   onAnalyseProperty,
   onAnalyseBoth,
@@ -2064,6 +2619,8 @@ function CompareAnalysisWorkspace({
   results: CompareResultsState
   loading: CompareLoadingState
   error: string | null
+  advisorActivationKey: number
+  onOpenAdvisor: () => void
   onInputChange: (property: ComparePropertyKey, value: AnalyseRequest) => void
   onAnalyseProperty: (property: ComparePropertyKey) => void
   onAnalyseBoth: () => void
@@ -2071,19 +2628,25 @@ function CompareAnalysisWorkspace({
 }) {
   const { t } = useLocale()
   const compareReady = Boolean(results.propertyA && results.propertyB)
+  const advisorRef = useRef<HTMLDivElement | null>(null)
+
+  const handleOpenAdvisorSection = useCallback(() => {
+    onOpenAdvisor()
+    advisorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+  }, [onOpenAdvisor])
 
   return (
     <div className="space-y-4">
       <SectionShell
-        title="Property Comparison"
-        description="Set up two properties independently, run the same analysis engine for each, and compare once both results are available."
+        title={t("analyse.compare.workspaceTitle")}
+        description={t("analyse.compare.workspaceDescription")}
       >
         <div className="space-y-5">
           <div className="flex flex-col gap-3 rounded-2xl border border-border-default bg-bg-base p-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="text-sm font-semibold text-text-primary">Compare two complete property analyses</p>
+              <p className="text-sm font-semibold text-text-primary">{t("analyse.compare.bannerTitle")}</p>
               <p className="mt-1 text-sm text-text-secondary">
-                Each property uses the full underwriting form, so neither side depends on being a secondary add-on.
+                {t("analyse.compare.bannerDescription")}
               </p>
             </div>
             <button
@@ -2093,7 +2656,7 @@ function CompareAnalysisWorkspace({
               className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-hover disabled:opacity-60"
             >
               {loading.propertyA || loading.propertyB ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              {loading.propertyA || loading.propertyB ? "Analysing…" : "Analyse both properties"}
+              {loading.propertyA || loading.propertyB ? t("analyse.action.analysing") : t("analyse.compare.action.analyseBoth")}
             </button>
           </div>
 
@@ -2101,8 +2664,8 @@ function CompareAnalysisWorkspace({
 
           <div className="grid gap-4 xl:grid-cols-2">
             <ComparePropertyCard
-              label="Property A"
-              description="Primary comparison candidate with the full underwriting input set."
+              label={t("analyse.propertyA")}
+              description={t("analyse.compare.propertyADescription")}
               input={inputs.propertyA}
               result={results.propertyA}
               loading={loading.propertyA}
@@ -2112,8 +2675,8 @@ function CompareAnalysisWorkspace({
               onReset={() => onResetProperty("propertyA")}
             />
             <ComparePropertyCard
-              label="Property B"
-              description="Second comparison candidate with the same input depth and analysis flow."
+              label={t("analyse.propertyB")}
+              description={t("analyse.compare.propertyBDescription")}
               input={inputs.propertyB}
               result={results.propertyB}
               loading={loading.propertyB}
@@ -2127,17 +2690,24 @@ function CompareAnalysisWorkspace({
       </SectionShell>
 
       <SectionShell
-        title="Comparison Results"
-        description="Comparison appears after both independent analysis results are ready."
+        title={t("analyse.compare.resultsTitle")}
+        description={t("analyse.compare.resultsDescription")}
       >
         <div className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
-            <CompareStatusCard label="Property A status" result={results.propertyA} />
-            <CompareStatusCard label="Property B status" result={results.propertyB} />
+            <CompareStatusCard label={t("analyse.compare.propertyAStatus")} result={results.propertyA} />
+            <CompareStatusCard label={t("analyse.compare.propertyBStatus")} result={results.propertyB} />
           </div>
 
           {compareReady ? (
             <div className="space-y-4">
+              <div className="flex justify-end">
+                <WorkflowActionButton
+                  label={t("analyse.new.askAi.openFull")}
+                  onClick={handleOpenAdvisorSection}
+                  tone="brand"
+                />
+              </div>
               <CompactCompareSummary resultA={results.propertyA as AnalyseResponse} resultB={results.propertyB as AnalyseResponse} />
               <CompareAiInsightSection
                 resultA={results.propertyA as AnalyseResponse}
@@ -2156,7 +2726,9 @@ function CompareAnalysisWorkspace({
                 resultB={results.propertyB as AnalyseResponse}
                 t={t}
               />
-              <CompareAskAiSection inputs={inputs} results={results} t={t} />
+              <div ref={advisorRef}>
+                <CompareAskAiSection inputs={inputs} results={results} activationKey={advisorActivationKey} t={t} />
+              </div>
               <CompareTable
                 resultA={results.propertyA as AnalyseResponse}
                 resultB={results.propertyB as AnalyseResponse}
@@ -2191,10 +2763,12 @@ export default function AnalysePage() {
     setSnapshotResult: setStoreSnapshotResult,
     reviewResult: storeReviewResult,
     setReviewResult: setStoreReviewResult,
+    reviewRawResult: storeReviewRawResult,
+    setReviewRawResult: setStoreReviewRawResult,
     strategyResult: storeStrategyResult,
     setStrategyResult: setStoreStrategyResult,
-    advisorMode: storeAdvisorMode,
-    setAdvisorMode: setStoreAdvisorMode,
+    strategyRawResult: storeStrategyRawResult,
+    setStrategyRawResult: setStoreStrategyRawResult,
   } = useAnalysisStore()
   const [state, dispatch] = useReducer(
     analysePageReducer,
@@ -2205,8 +2779,9 @@ export default function AnalysePage() {
       storeResultB,
       storeSnapshotResult,
       storeReviewResult,
+      storeReviewRawResult,
       storeStrategyResult,
-      storeAdvisorMode,
+      storeStrategyRawResult,
     },
     createInitialAnalysePageState,
   )
@@ -2253,15 +2828,27 @@ export default function AnalysePage() {
     }
   }, [analyseOne, state.singleDraftInput, t])
 
+  const ensureSingleAnalysisResult = useCallback(async () => {
+    if (state.singleAnalysisResult) return state.singleAnalysisResult
+    dispatch({ type: "singleAnalyseStart" })
+    const result = await analyseOne(state.singleDraftInput)
+    dispatch({ type: "singleAnalyseSuccess", result })
+    return result
+  }, [analyseOne, state.singleAnalysisResult, state.singleDraftInput])
+
   const handleRunSnapshot = useCallback(async () => {
-    if (!state.singleAnalysisResult) {
-      dispatch({ type: "snapshotError", error: "Run the property analysis first to generate a snapshot." })
+    dispatch({ type: "snapshotStart" })
+
+    let analysisResult: AnalyseResponse
+    try {
+      analysisResult = await ensureSingleAnalysisResult()
+    } catch {
+      dispatch({ type: "singleAnalyseError", error: t("analyse.error") })
+      dispatch({ type: "snapshotError", error: "Unable to run base property analysis for snapshot." })
       return
     }
 
-    dispatch({ type: "snapshotStart" })
-
-    const property = buildPropertyMetricsInput(state.singleDraftInput, state.singleAnalysisResult)
+    const property = buildPropertyMetricsInput(state.singleDraftInput, analysisResult)
     const response = await runPropertySnapshot(property)
 
     if (response.error || !response.data) {
@@ -2270,17 +2857,21 @@ export default function AnalysePage() {
     }
 
     dispatch({ type: "snapshotSuccess", result: response.data })
-  }, [state.singleAnalysisResult, state.singleDraftInput])
+  }, [ensureSingleAnalysisResult, state.singleDraftInput, t])
 
   const handleRunReview = useCallback(async () => {
-    if (!state.singleAnalysisResult) {
-      dispatch({ type: "reviewError", error: "Run the property analysis first to generate an investment review." })
+    dispatch({ type: "reviewStart" })
+
+    let analysisResult: AnalyseResponse
+    try {
+      analysisResult = await ensureSingleAnalysisResult()
+    } catch {
+      dispatch({ type: "singleAnalyseError", error: t("analyse.error") })
+      dispatch({ type: "reviewError", error: "Unable to run base property analysis for full review." })
       return
     }
 
-    dispatch({ type: "reviewStart" })
-
-    const property = buildPropertyMetricsInput(state.singleDraftInput, state.singleAnalysisResult)
+    const property = buildPropertyMetricsInput(state.singleDraftInput, analysisResult)
     const response = await runInvestmentReview(property)
 
     if (response.error || !response.data) {
@@ -2288,8 +2879,8 @@ export default function AnalysePage() {
       return
     }
 
-    dispatch({ type: "reviewSuccess", result: response.data })
-  }, [state.singleAnalysisResult, state.singleDraftInput])
+    dispatch({ type: "reviewSuccess", result: response.data.normalized, rawResult: response.data.raw })
+  }, [ensureSingleAnalysisResult, state.singleDraftInput, t])
 
   const handleRunStrategy = useCallback(async () => {
     if (!state.singleAnalysisResult) {
@@ -2297,23 +2888,23 @@ export default function AnalysePage() {
       return
     }
 
-    if (!state.reviewResult) {
-      dispatch({ type: "strategyError", error: "Run Investment Review first. Buying Strategy Insight needs the latest full review result." })
+    if (!state.reviewRawResult) {
+      dispatch({ type: "strategyError", error: "Run Full Review first. Buying Strategy needs the latest full review result." })
       return
     }
 
     dispatch({ type: "strategyStart" })
 
     const property = buildPropertyMetricsInput(state.singleDraftInput, state.singleAnalysisResult)
-    const response = await runBuyingStrategy(property, state.reviewResult)
+    const response = await runBuyingStrategy(property, state.reviewRawResult)
 
     if (response.error || !response.data) {
       dispatch({ type: "strategyError", error: response.error ?? "Unable to generate buying strategy insight." })
       return
     }
 
-    dispatch({ type: "strategySuccess", result: response.data })
-  }, [state.reviewResult, state.singleAnalysisResult, state.singleDraftInput])
+    dispatch({ type: "strategySuccess", result: response.data.normalized, rawResult: response.data.raw })
+  }, [state.reviewRawResult, state.singleAnalysisResult, state.singleDraftInput])
 
   const updateCompareInput = useCallback((property: ComparePropertyKey, value: AnalyseRequest) => {
     dispatch({ type: "setCompareDraftInput", property, input: value })
@@ -2355,8 +2946,7 @@ export default function AnalysePage() {
     dispatch({ type: "resetCompareProperty", property })
   }, [])
 
-  const handleOpenAdvisor = useCallback((mode: "light" | "full") => {
-    dispatch({ type: "setAdvisorMode", mode })
+  const handleOpenAdvisor = useCallback(() => {
     setAdvisorActivationKey((current) => current + 1)
   }, [])
 
@@ -2387,12 +2977,16 @@ export default function AnalysePage() {
   }, [state.reviewResult, setStoreReviewResult])
 
   useEffect(() => {
+    setStoreReviewRawResult(state.reviewRawResult)
+  }, [state.reviewRawResult, setStoreReviewRawResult])
+
+  useEffect(() => {
     setStoreStrategyResult(state.strategyResult)
   }, [state.strategyResult, setStoreStrategyResult])
 
   useEffect(() => {
-    setStoreAdvisorMode(state.advisorMode)
-  }, [state.advisorMode, setStoreAdvisorMode])
+    setStoreStrategyRawResult(state.strategyRawResult)
+  }, [state.strategyRawResult, setStoreStrategyRawResult])
 
   return (
     <div className="h-full overflow-y-auto bg-bg-base p-4 md:p-6">
@@ -2400,7 +2994,7 @@ export default function AnalysePage() {
         <header className="space-y-2">
           <h1 className="font-serif text-2xl font-semibold text-text-primary">{t("analyse.title")}</h1>
           <p className="text-sm text-text-secondary">
-            Choose a focused single-property underwriting flow or a dedicated two-property comparison workflow.
+            {t("analyse.modeSwitcher.subtitle")}
           </p>
         </header>
 
@@ -2420,12 +3014,13 @@ export default function AnalysePage() {
             snapshotLoading={state.snapshotLoading}
             snapshotError={state.snapshotError}
             reviewResult={state.reviewResult}
+            reviewRawResult={state.reviewRawResult}
             reviewLoading={state.reviewLoading}
             reviewError={state.reviewError}
             strategyResult={state.strategyResult}
+            strategyRawResult={state.strategyRawResult}
             strategyLoading={state.strategyLoading}
             strategyError={state.strategyError}
-            advisorMode={state.advisorMode}
             advisorActivationKey={advisorActivationKey}
             onInputChange={(input) => dispatch({ type: "setSingleDraftInput", input })}
             onAnalyse={handleSingleAnalyse}
@@ -2441,6 +3036,8 @@ export default function AnalysePage() {
             results={state.compareAnalysisResults}
             loading={state.compareLoading}
             error={state.compareError}
+            advisorActivationKey={advisorActivationKey}
+            onOpenAdvisor={handleOpenAdvisor}
             onInputChange={updateCompareInput}
             onAnalyseProperty={handleCompareAnalyse}
             onAnalyseBoth={handleAnalyseBoth}

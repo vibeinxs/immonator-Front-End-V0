@@ -6,7 +6,6 @@ import {
   Building2,
   Compass,
   LineChart,
-  MessageSquareText,
   SearchCheck,
   Sparkles,
 } from "lucide-react"
@@ -87,6 +86,13 @@ export type HomeCopy = {
     savedFallback: string
     empty: string
   }
+  draftPrompt: {
+    title: string
+    body: string
+    resume: string
+    startNew: string
+    dismiss: string
+  }
 }
 
 export const HOME_COPY: Record<Locale, HomeCopy> = {
@@ -155,7 +161,7 @@ export const HOME_COPY: Record<Locale, HomeCopy> = {
           id: "portfolio",
           label: "Portfolio",
           title: "Go to Portfolio when you want continuity across saved work.",
-          body: "Track watched assets, revisit manual analyses, and continue portfolio review without restarting from scratch.",
+          body: "Save analyses, track deals, and manage owned properties in one place.",
           href: "/portfolio",
           cta: "Open Portfolio",
           figures: [
@@ -216,8 +222,8 @@ export const HOME_COPY: Record<Locale, HomeCopy> = {
       items: [
         {
           id: "advisor",
-          title: "Intelligent Property Advisor",
-          body: "Get guided interpretation of the property and its underwriting signals so you can decide what deserves another step.",
+          title: "Advisor",
+          body: "Use one advisor experience for property analysis follow-up, interpretation, and next-step guidance.",
           icon: Sparkles,
         },
         {
@@ -237,12 +243,6 @@ export const HOME_COPY: Record<Locale, HomeCopy> = {
           title: "Buying Strategy Insight",
           body: "Use comparison and strategy workflows to understand where a property fits in your broader acquisition plan.",
           icon: Compass,
-        },
-        {
-          id: "ask",
-          title: "Ask the Property Advisor",
-          body: "Use the advisor chat in analysis workflows when you want follow-up questions answered in context.",
-          icon: MessageSquareText,
         },
       ],
     },
@@ -280,6 +280,13 @@ export const HOME_COPY: Record<Locale, HomeCopy> = {
       untitled: "Untitled analysis",
       savedFallback: "Saved recently",
       empty: "No recent manual analyses yet. Run an analysis and save it to see it here.",
+    },
+    draftPrompt: {
+      title: "Unfinished strategy draft",
+      body: "You have an unfinished strategy questionnaire. Continue only when you want to.",
+      resume: "Resume strategy",
+      startNew: "Start new",
+      dismiss: "Dismiss",
     },
   },
   de: {
@@ -408,8 +415,8 @@ export const HOME_COPY: Record<Locale, HomeCopy> = {
       items: [
         {
           id: "advisor",
-          title: "Intelligent Property Advisor",
-          body: "Erhalten Sie eine geführte Einordnung der Immobilie und ihrer Underwriting-Signale, damit Sie die nächsten Schritte sicher priorisieren können.",
+          title: "Advisor",
+          body: "Nutzen Sie eine gemeinsame Advisor-Erfahrung für Rückfragen, Einordnung und nächste Schritte rund um die Analyse.",
           icon: Sparkles,
         },
         {
@@ -429,12 +436,6 @@ export const HOME_COPY: Record<Locale, HomeCopy> = {
           title: "Buying Strategy Insight",
           body: "Nutzen Sie Vergleichs- und Strategie-Workflows, um die Rolle einer Immobilie in Ihrem gesamten Ankaufsvorhaben zu verstehen.",
           icon: Compass,
-        },
-        {
-          id: "ask",
-          title: "Ask the Property Advisor",
-          body: "Verwenden Sie den Advisor-Chat in Analyse-Workflows, wenn Sie Folgefragen direkt im Kontext klären möchten.",
-          icon: MessageSquareText,
         },
       ],
     },
@@ -472,6 +473,13 @@ export const HOME_COPY: Record<Locale, HomeCopy> = {
       untitled: "Unbenannte Analyse",
       savedFallback: "Kürzlich gespeichert",
       empty: "Noch keine letzten manuellen Analysen. Führen Sie eine Analyse aus und speichern Sie sie, damit sie hier erscheint.",
+    },
+    draftPrompt: {
+      title: "Unfertiger Strategie-Entwurf",
+      body: "Sie haben einen unvollständigen Strategie-Fragebogen. Fahren Sie nur fort, wenn Sie möchten.",
+      resume: "Strategie fortsetzen",
+      startNew: "Neu starten",
+      dismiss: "Schließen",
     },
   },
 }
