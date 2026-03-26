@@ -132,7 +132,7 @@ export default function ImportListingsPage() {
             <Textarea
               value={urls}
               onChange={(e) => setUrls(e.target.value)}
-              placeholder="https://example.com/listing/123\nhttps://example.com/listing/456"
+              placeholder="https://www.immobilienscout24.de/expose/123456789"
               className="min-h-32"
             />
 
@@ -149,7 +149,6 @@ export default function ImportListingsPage() {
                   type="file"
                   className="hidden"
                   accept=".pdf,.xls,.xlsx,.csv,image/*"
-                  multiple
                   onChange={(e) => setUploadedFiles(Array.from(e.target.files ?? []))}
                 />
               </label>
@@ -194,11 +193,11 @@ export default function ImportListingsPage() {
             <CardTitle className="text-sm text-text-primary">Review extracted details</CardTitle>
           </CardHeader>
           <CardContent>
-            {status === "success" && p ? (
+            {status === "success" && extracted && p ? (
               <div className="space-y-3 text-sm">
                 <p className="flex items-center gap-2 font-medium text-emerald-700">
                   <CheckCircle2 className="size-4" />
-                  Details fetched successfully from {extracted!.source_name}.
+                  Details fetched successfully from {extracted.source_name}.
                 </p>
                 <div className="grid gap-2 rounded-md border border-border-default bg-bg-base p-3 sm:grid-cols-2">
                   <p>
@@ -229,20 +228,20 @@ export default function ImportListingsPage() {
                   )}
                 </div>
 
-                {extracted!.extraction_warnings.length > 0 && (
+                {extracted.extraction_warnings.length > 0 && (
                   <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-800">
                     <AlertTriangle className="mt-0.5 size-4 shrink-0" />
                     <ul className="list-disc pl-4 text-xs">
-                      {extracted!.extraction_warnings.map((w, i) => (
-                        <li key={i}>{w}</li>
+                      {extracted.extraction_warnings.map((w, i) => (
+                        <li key={`${i}-${w}`}>{w}</li>
                       ))}
                     </ul>
                   </div>
                 )}
 
-                {extracted!.missing_fields.length > 0 && (
+                {extracted.missing_fields.length > 0 && (
                   <p className="text-xs text-text-muted">
-                    Missing fields: {extracted!.missing_fields.join(", ")}
+                    Missing fields: {extracted.missing_fields.join(", ")}
                   </p>
                 )}
               </div>

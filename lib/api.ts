@@ -10,7 +10,7 @@ function normalizeSlashes(url: string): string {
   return url.replace(/(https?:\/\/)|(\/\/+)/g, (m, scheme) => scheme ?? "/")
 }
 
-function buildApiUrl(endpoint: string): string {
+export function buildApiUrl(endpoint: string): string {
   const base = API_URL.trim().replace(/\/+$/, "")
   const normalizedEndpoint = endpoint.trim().replace(/^\/+/, "")
   const path = `/${normalizedEndpoint}`
