@@ -104,6 +104,48 @@ const FIELD_LABELS: Array<{
 
 type SourceMode = "url" | "file"
 type Status = "idle" | "loading" | "success" | "error"
+const IMPORT_FLOW_TAG = "[ImportListingsPage]"
+
+function isLikelyUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value.trim())
+    return parsed.protocol === "http:" || parsed.protocol === "https:"
+  } catch {
+    return false
+  }
+}
+
+function sanitizeAddress(address: string | null | undefined): string {
+  const normalized = typeof address === "string" ? address.trim() : ""
+  if (!normalized) return ""
+  if (isLikelyUrl(normalized)) return ""
+  return normalized
+}
+
+function hasMeaningfulStructuredFields(property: ImportExtractResponse["property"]): boolean {
+  const keys: Array<keyof ImportExtractResponse["property"]> = [
+    "title",
+    "address",
+    "city",
+    "zip",
+    "purchase_price",
+    "living_area_sqm",
+    "rooms",
+    "year_built",
+    "cold_rent",
+    "warm_rent",
+    "rent_per_sqm",
+    "maintenance_reserve",
+    "parking",
+    "notes",
+  ]
+
+  return keys.some((key) => {
+    const value = property[key]
+    if (typeof value === "string") return value.trim().length > 0
+    return value != null
+  })
+}
 
 export default function ImportListingsPage() {
   const router = useRouter()
@@ -127,11 +169,21 @@ export default function ImportListingsPage() {
   // ── URL fetch ──────────────────────────────────────────────────────────────
 
   async function handleFetchUrl() {
+    console.log(`${IMPORT_FLOW_TAG} route=/import action=fetch-url:start`, {
+      sourceMode,
+      textareaState: urlInput,
+    })
     setUrlError(null)
     setExtractionError(null)
     setResult(null)
 
     const trimmed = urlInput.trim()
+    const validationPassed = Boolean(trimmed) && isValidUrl(trimmed)
+    console.log(`${IMPORT_FLOW_TAG} route=/import action=fetch-url:validate`, {
+      textareaState: urlInput,
+      trimmedValue: trimmed,
+      validationPassed,
+    })
     if (!trimmed) {
       setUrlError("Please paste a listing URL.")
       return
@@ -142,7 +194,10 @@ export default function ImportListingsPage() {
     }
 
     setStatus("loading")
+    const requestPayload = { listing_url: trimmed }
+    console.log(`${IMPORT_FLOW_TAG} route=/import action=fetch-url:request`, requestPayload)
     const { data, error } = await extractListingFromUrl(trimmed)
+    console.log(`${IMPORT_FLOW_TAG} route=/import action=fetch-url:response`, { data, error })
 
     if (error || !data) {
       setStatus("error")
@@ -150,14 +205,22 @@ export default function ImportListingsPage() {
       return
     }
 
-    const hasFields = Object.values(data.property).some((v) => v != null && v !== "")
-    if (!hasFields) {
+    const sanitizedAddress = sanitizeAddress(data.property.address)
+    const normalizedResult: ImportExtractResponse = {
+      ...data,
+      property: {
+        ...data.property,
+        address: sanitizedAddress || undefined,
+      },
+    }
+
+    if (!hasMeaningfulStructuredFields(normalizedResult.property)) {
       setStatus("error")
       setExtractionError("No meaningful fields found in this listing.")
       return
     }
 
-    setResult(data)
+    setResult(normalizedResult)
     setStatus("success")
   }
 
@@ -198,8 +261,13 @@ export default function ImportListingsPage() {
     setExtractionError(null)
     setResult(null)
     setStatus("loading")
+    console.log(`${IMPORT_FLOW_TAG} route=/import action=extract-file:request`, {
+      sourceMode,
+      file: file ? { name: file.name, type: file.type, size: file.size } : null,
+    })
 
     const { data, error } = await extractListingFromFile(file)
+    console.log(`${IMPORT_FLOW_TAG} route=/import action=extract-file:response`, { data, error })
 
     if (error || !data) {
       setStatus("error")
@@ -207,14 +275,22 @@ export default function ImportListingsPage() {
       return
     }
 
-    const hasFields = Object.values(data.property).some((v) => v != null && v !== "")
-    if (!hasFields) {
+    const sanitizedAddress = sanitizeAddress(data.property.address)
+    const normalizedResult: ImportExtractResponse = {
+      ...data,
+      property: {
+        ...data.property,
+        address: sanitizedAddress || undefined,
+      },
+    }
+
+    if (!hasMeaningfulStructuredFields(normalizedResult.property)) {
       setStatus("error")
       setExtractionError("No meaningful property fields found in this file.")
       return
     }
 
-    setResult(data)
+    setResult(normalizedResult)
     setStatus("success")
   }
 
