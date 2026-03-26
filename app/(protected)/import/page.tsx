@@ -1,35 +1,51 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { AlertCircle, CheckCircle2, Upload } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { AlertCircle, AlertTriangle, CheckCircle2, Upload } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Spinner } from "@/components/ui/spinner"
 import { Textarea } from "@/components/ui/textarea"
+import { useAnalysisStore } from "@/store/analysisStore"
+import { PRESET_A } from "@/features/analysis/presets"
+import { extractFromUrl, extractFromFile } from "@/lib/immonatorApi"
+import type { ImportExtractResponse, ImportExtractProperty, AnalyseRequest } from "@/types/api"
 
 type FetchStatus = "idle" | "loading" | "success" | "error"
 
-type ExtractedData = {
-  address: string
-  price: string
-  rent: string
-  sqm: string
+/** Map extracted property fields → AnalyseRequest, filling gaps from PRESET_A defaults. */
+function buildAnalyseRequest(p: ImportExtractProperty): AnalyseRequest {
+  const parts = [p.address, p.zip && p.city ? `${p.zip} ${p.city}` : (p.city ?? p.zip)].filter(Boolean)
+  const address = parts.join(", ") || ""
+
+  return {
+    ...PRESET_A,
+    address: address || PRESET_A.address,
+    purchase_price: p.purchase_price ?? PRESET_A.purchase_price,
+    sqm: p.living_area_sqm ?? PRESET_A.sqm,
+    year_built: p.year_built ?? PRESET_A.year_built,
+    rent_monthly: p.cold_rent ?? p.warm_rent ?? PRESET_A.rent_monthly,
+    hausgeld_monthly: p.maintenance_reserve ?? PRESET_A.hausgeld_monthly,
+  }
 }
 
-const mockExtractedData: ExtractedData = {
-  address: "Detected property address",
-  price: "€520,000",
-  rent: "€2,100 / month",
-  sqm: "86 m²",
+/** Format a number as €-currency for display. */
+function eur(value: number | null): string {
+  if (value == null) return "—"
+  return `€${value.toLocaleString("de-DE", { maximumFractionDigits: 0 })}`
 }
 
 export default function ImportListingsPage() {
+  const router = useRouter()
+  const { setInputA } = useAnalysisStore()
+
   const [urls, setUrls] = useState("")
   const [status, setStatus] = useState<FetchStatus>("idle")
   const [errorMessage, setErrorMessage] = useState("")
-  const [extracted, setExtracted] = useState<ExtractedData | null>(null)
+  const [extracted, setExtracted] = useState<ImportExtractResponse | null>(null)
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
   const [manualConfirmation, setManualConfirmation] = useState(false)
 
@@ -59,20 +75,40 @@ export default function ImportListingsPage() {
 
     setStatus("loading")
     setErrorMessage("")
+    setExtracted(null)
 
-    await new Promise((resolve) => setTimeout(resolve, 900))
-
-    const shouldFail = urls.toLowerCase().includes("error")
-    if (shouldFail) {
-      setStatus("error")
-      setExtracted(null)
-      setErrorMessage("We could not extract details from the provided input. Please review and retry.")
+    // Prefer file upload if a file was selected, otherwise use URL extraction
+    if (uploadedFiles.length > 0) {
+      const { data, error } = await extractFromFile(uploadedFiles[0])
+      if (error || !data) {
+        setStatus("error")
+        setErrorMessage(error || "Extraction failed. Please try again.")
+        return
+      }
+      setExtracted(data)
+      setStatus("success")
       return
     }
 
-    setExtracted(mockExtractedData)
+    const url = urls.trim().split(/\s+/)[0] // first URL
+    const { data, error } = await extractFromUrl(url)
+    if (error || !data) {
+      setStatus("error")
+      setErrorMessage(error || "We could not extract details from the provided input. Please review and retry.")
+      return
+    }
+    setExtracted(data)
     setStatus("success")
   }
+
+  const handleAnalyzeNow = () => {
+    if (!extracted) return
+    const input = buildAnalyseRequest(extracted.property)
+    setInputA(input)
+    router.push("/analyse")
+  }
+
+  const p = extracted?.property ?? null
 
   return (
     <div className="mx-auto w-full max-w-[960px] py-2">
@@ -158,26 +194,57 @@ export default function ImportListingsPage() {
             <CardTitle className="text-sm text-text-primary">Review extracted details</CardTitle>
           </CardHeader>
           <CardContent>
-            {status === "success" && extracted ? (
-              <div className="space-y-2 text-sm">
+            {status === "success" && p ? (
+              <div className="space-y-3 text-sm">
                 <p className="flex items-center gap-2 font-medium text-emerald-700">
                   <CheckCircle2 className="size-4" />
-                  Details fetched successfully.
+                  Details fetched successfully from {extracted!.source_name}.
                 </p>
                 <div className="grid gap-2 rounded-md border border-border-default bg-bg-base p-3 sm:grid-cols-2">
                   <p>
-                    <span className="text-text-secondary">Address:</span> {extracted.address}
+                    <span className="text-text-secondary">Address:</span>{" "}
+                    {[p.address, p.zip, p.city].filter(Boolean).join(", ") || "—"}
                   </p>
                   <p>
-                    <span className="text-text-secondary">Price:</span> {extracted.price}
+                    <span className="text-text-secondary">Price:</span> {eur(p.purchase_price)}
                   </p>
                   <p>
-                    <span className="text-text-secondary">Rent:</span> {extracted.rent}
+                    <span className="text-text-secondary">Cold rent:</span> {eur(p.cold_rent)}
+                    {p.cold_rent == null && p.warm_rent != null && ` (warm: ${eur(p.warm_rent)})`}
                   </p>
                   <p>
-                    <span className="text-text-secondary">Size:</span> {extracted.sqm}
+                    <span className="text-text-secondary">Size:</span>{" "}
+                    {p.living_area_sqm != null ? `${p.living_area_sqm} m²` : "—"}
                   </p>
+                  <p>
+                    <span className="text-text-secondary">Rooms:</span> {p.rooms ?? "—"}
+                  </p>
+                  <p>
+                    <span className="text-text-secondary">Year built:</span> {p.year_built ?? "—"}
+                  </p>
+                  {p.title && (
+                    <p className="sm:col-span-2">
+                      <span className="text-text-secondary">Title:</span> {p.title}
+                    </p>
+                  )}
                 </div>
+
+                {extracted!.extraction_warnings.length > 0 && (
+                  <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-800">
+                    <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+                    <ul className="list-disc pl-4 text-xs">
+                      {extracted!.extraction_warnings.map((w, i) => (
+                        <li key={i}>{w}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {extracted!.missing_fields.length > 0 && (
+                  <p className="text-xs text-text-muted">
+                    Missing fields: {extracted!.missing_fields.join(", ")}
+                  </p>
+                )}
               </div>
             ) : (
               <p className="text-sm text-text-secondary">
@@ -205,7 +272,9 @@ export default function ImportListingsPage() {
           </CardHeader>
           <CardContent>
             <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-              <Button disabled={!canUseDestination}>Analyze now</Button>
+              <Button disabled={!canUseDestination} onClick={handleAnalyzeNow}>
+                Analyze now
+              </Button>
               <Button variant="outline" disabled={!canUseDestination}>
                 Save to Portfolio
               </Button>

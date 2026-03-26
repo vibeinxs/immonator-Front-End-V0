@@ -1,11 +1,13 @@
 "use client"
 
 import { apiCall, apiStream } from "./api"
+import { getToken, getUserId } from "./auth"
 import type {
   ApiResult,
   BetaLoginRequest,
   BetaLoginResponse,
   CompactAnalysis,
+  ImportExtractResponse,
   NegotiationBrief,
   NegotiationBriefResponse,
   RawNegotiationBrief,
@@ -601,6 +603,56 @@ export async function translateTexts(
   }
 }
 
+// ─── Import / listing extraction ────────────────────────────────────────────
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || ""
+
+function buildImportUrl(endpoint: string): string {
+  const base = API_URL.trim().replace(/\/+$/, "")
+  const path = `/${endpoint.trim().replace(/^\/+/, "")}`
+  if (!base) return path
+  try {
+    const url = new URL(base)
+    url.pathname = `${url.pathname.replace(/\/+$/, "")}${path}`.replace(/\/{2,}/g, "/")
+    return url.toString()
+  } catch {
+    return `${base}${path}`.replace(/(https?:\/\/)|(\/\/+)/g, (m, scheme) => scheme ?? "/")
+  }
+}
+
+export async function extractFromUrl(url: string): Promise<ApiResult<ImportExtractResponse>> {
+  return apiCall<ImportExtractResponse>("/api/import/extract-url", {
+    method: "POST",
+    body: JSON.stringify({ url }),
+  })
+}
+
+export async function extractFromFile(file: File): Promise<ApiResult<ImportExtractResponse>> {
+  const token = getToken()
+  const userId = getUserId()
+  const headers: Record<string, string> = {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(userId ? { "X-User-ID": userId } : {}),
+  }
+  const formData = new FormData()
+  formData.append("file", file)
+  try {
+    const response = await fetch(buildImportUrl("/api/import/extract-file"), {
+      method: "POST",
+      headers,
+      body: formData,
+    })
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => ({}))
+      return { data: null, error: errorBody.detail || `Error ${response.status}` }
+    }
+    const data = await response.json()
+    return { data, error: null }
+  } catch {
+    return { data: null, error: "Network error. Check your connection." }
+  }
+}
+
 // ─── Backward-compat object export ────────────────────────────────────────────
 
 export const immoApi = {
@@ -636,4 +688,6 @@ export const immoApi = {
   triggerPortfolioAnalysis,
   getPortfolioAnalysis,
   getMarketAnalysis,
+  extractFromUrl,
+  extractFromFile,
 }
