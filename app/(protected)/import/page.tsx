@@ -25,7 +25,7 @@ const ACCEPTED_MIME = new Set([
   "image/gif",
 ])
 
-const ACCEPTED_EXT = [".pdf", ".xlsx", ".xls", ".csv", ".jpg", ".jpeg", ".png", ".webp"]
+const ACCEPTED_EXT = [".pdf", ".xlsx", ".xls", ".csv", ".jpg", ".jpeg", ".png", ".webp", ".gif"]
 
 function detectSourceType(
   file: File
@@ -105,6 +105,12 @@ const FIELD_LABELS: Array<{
 type SourceMode = "url" | "file"
 type Status = "idle" | "loading" | "success" | "error"
 const IMPORT_FLOW_TAG = "[ImportListingsPage]"
+type ImportExtractionResponseWire = ImportExtractResponse & {
+  success?: boolean
+  error?: string | null
+  message?: string | null
+  detail?: string | null
+}
 
 function isLikelyUrl(value: string): boolean {
   try {
@@ -147,6 +153,68 @@ function hasMeaningfulStructuredFields(property: ImportExtractResponse["property
   })
 }
 
+function resolveBackendMessage(response: ImportExtractionResponseWire | null | undefined): string | null {
+  if (!response) return null
+  return response.error || response.detail || response.message || null
+}
+
+function buildExtractionErrorLabel(
+  fallback: string,
+  error: string | null,
+  status?: number,
+  errorKind?: "network" | "unauthorized" | "forbidden" | "not_found" | "invalid_input" | "server" | "unknown"
+): string {
+  if (errorKind === "network") return "Network failure — please check your connection and retry."
+  if (status === 401 || status === 403) return error || "Unauthorized — please sign in and try again."
+  if (status === 404) return error || "Extraction endpoint not found (404)."
+  if (status === 422) return error || "Invalid input (422)."
+  if (errorKind === "server") return error || "Server error — please try again."
+  return error || fallback
+}
+
+function normalizeExtractionResult(
+  data: ImportExtractResponse | null,
+  error: string | null,
+  fallbackError: string,
+  status?: number,
+  errorKind?: "network" | "unauthorized" | "forbidden" | "not_found" | "invalid_input" | "server" | "unknown"
+): { result: ImportExtractResponse | null; extractionError: string | null } {
+  const wireData = data as ImportExtractionResponseWire | null
+  const backendError = resolveBackendMessage(wireData) ?? error
+
+  if (error || !wireData) {
+    return {
+      result: null,
+      extractionError: buildExtractionErrorLabel(fallbackError, backendError, status, errorKind),
+    }
+  }
+
+  if (wireData.success === false) {
+    return {
+      result: null,
+      extractionError: backendError ?? "Extraction failed.",
+    }
+  }
+
+  const sanitizedAddress = sanitizeAddress(wireData.property.address)
+  const normalizedResult: ImportExtractResponse = {
+    ...wireData,
+    property: {
+      ...wireData.property,
+      address: sanitizedAddress || undefined,
+    },
+  }
+
+  if (!hasMeaningfulStructuredFields(normalizedResult.property)) {
+    return {
+      result: null,
+      extractionError: "No meaningful structured property fields were extracted.",
+    }
+  }
+
+  return { result: normalizedResult, extractionError: null }
+}
+
 export default function ImportListingsPage() {
   const router = useRouter()
   const { setInputA } = useAnalysisStore()
@@ -180,7 +248,7 @@ export default function ImportListingsPage() {
     const trimmed = urlInput.trim()
     const validationPassed = Boolean(trimmed) && isValidUrl(trimmed)
     console.log(`${IMPORT_FLOW_TAG} route=/import action=fetch-url:validate`, {
-      textareaState: urlInput,
+      rawInputValue: urlInput,
       trimmedValue: trimmed,
       validationPassed,
     })
@@ -194,33 +262,31 @@ export default function ImportListingsPage() {
     }
 
     setStatus("loading")
-    const requestPayload = { listing_url: trimmed }
+    const requestPayload = { url: trimmed }
     console.log(`${IMPORT_FLOW_TAG} route=/import action=fetch-url:request`, requestPayload)
-    const { data, error } = await extractListingFromUrl(trimmed)
-    console.log(`${IMPORT_FLOW_TAG} route=/import action=fetch-url:response`, { data, error })
+    const { data, error, status: responseStatus, errorKind } = await extractListingFromUrl(trimmed)
+    console.log(`${IMPORT_FLOW_TAG} route=/import action=fetch-url:response`, {
+      data,
+      error,
+      responseStatus,
+      errorKind,
+    })
 
-    if (error || !data) {
+    const normalized = normalizeExtractionResult(
+      data,
+      error,
+      "Extraction failed — the listing could not be read.",
+      responseStatus,
+      errorKind
+    )
+
+    if (!normalized.result) {
       setStatus("error")
-      setExtractionError(error ?? "Extraction failed — the listing could not be read.")
+      setExtractionError(normalized.extractionError)
       return
     }
 
-    const sanitizedAddress = sanitizeAddress(data.property.address)
-    const normalizedResult: ImportExtractResponse = {
-      ...data,
-      property: {
-        ...data.property,
-        address: sanitizedAddress || undefined,
-      },
-    }
-
-    if (!hasMeaningfulStructuredFields(normalizedResult.property)) {
-      setStatus("error")
-      setExtractionError("No meaningful fields found in this listing.")
-      return
-    }
-
-    setResult(normalizedResult)
+    setResult(normalized.result)
     setStatus("success")
   }
 
@@ -266,31 +332,29 @@ export default function ImportListingsPage() {
       file: file ? { name: file.name, type: file.type, size: file.size } : null,
     })
 
-    const { data, error } = await extractListingFromFile(file)
-    console.log(`${IMPORT_FLOW_TAG} route=/import action=extract-file:response`, { data, error })
+    const { data, error, status: responseStatus, errorKind } = await extractListingFromFile(file)
+    console.log(`${IMPORT_FLOW_TAG} route=/import action=extract-file:response`, {
+      data,
+      error,
+      responseStatus,
+      errorKind,
+    })
 
-    if (error || !data) {
+    const normalized = normalizeExtractionResult(
+      data,
+      error,
+      "Extraction failed — could not parse the file.",
+      responseStatus,
+      errorKind
+    )
+
+    if (!normalized.result) {
       setStatus("error")
-      setExtractionError(error ?? "Extraction failed — could not parse the file.")
+      setExtractionError(normalized.extractionError)
       return
     }
 
-    const sanitizedAddress = sanitizeAddress(data.property.address)
-    const normalizedResult: ImportExtractResponse = {
-      ...data,
-      property: {
-        ...data.property,
-        address: sanitizedAddress || undefined,
-      },
-    }
-
-    if (!hasMeaningfulStructuredFields(normalizedResult.property)) {
-      setStatus("error")
-      setExtractionError("No meaningful property fields found in this file.")
-      return
-    }
-
-    setResult(normalizedResult)
+    setResult(normalized.result)
     setStatus("success")
   }
 
@@ -368,8 +432,9 @@ export default function ImportListingsPage() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
+  const hasValidExtraction = status === "success" && !!result && hasMeaningfulStructuredFields(result.property)
   const canExtractFile = !!file && status !== "loading"
-  const canDestinate = status === "success"
+  const canDestinate = hasValidExtraction
 
   return (
     <div className="mx-auto w-full max-w-[960px] py-2">
@@ -476,7 +541,7 @@ export default function ImportListingsPage() {
                       Drop a file here or <span className="text-brand underline">browse</span>
                     </span>
                     <span className="text-xs text-text-muted">
-                      PDF · XLSX · CSV · JPG · PNG · WEBP
+                      PDF · XLSX · XLS · CSV · Images
                     </span>
                   </>
                 )}
@@ -484,7 +549,7 @@ export default function ImportListingsPage() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept={ACCEPTED_EXT.join(",")}
+                accept={`${ACCEPTED_EXT.join(",")},image/*`}
                 onChange={handleFileInputChange}
                 className="hidden"
               />

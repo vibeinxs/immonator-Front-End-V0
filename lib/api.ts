@@ -33,21 +33,39 @@ function buildApiUrl(endpoint: string): string {
 
 /** Shared response → ApiResult handler used by apiCall and apiCallFile. */
 async function handleApiResponse<T>(response: Response): Promise<ApiResult<T>> {
-  if (response.status === 401) {
-    logout()
-    return { data: null, error: "Session expired" }
-  }
-  if (response.status === 403) return { data: null, error: "Access denied" }
-  if (response.status === 404) return { data: null, error: "Not found" }
-
   if (!response.ok) {
     const errorBody = await response.json().catch(() => ({}))
-    if (response.status >= 500) return { data: null, error: "Server error — please try again" }
-    return { data: null, error: errorBody.detail || `Error ${response.status}` }
+    const backendError =
+      typeof errorBody?.detail === "string"
+        ? errorBody.detail
+        : typeof errorBody?.message === "string"
+          ? errorBody.message
+          : typeof errorBody?.error === "string"
+            ? errorBody.error
+            : response.statusText || `Error ${response.status}`
+
+    if (response.status === 401) {
+      logout()
+      return { data: null, error: backendError || "Session expired", status: 401, errorKind: "unauthorized" }
+    }
+    if (response.status === 403) {
+      return { data: null, error: backendError || "Access denied", status: 403, errorKind: "forbidden" }
+    }
+    if (response.status === 404) {
+      return { data: null, error: backendError || "Not found", status: 404, errorKind: "not_found" }
+    }
+    if (response.status === 422) {
+      return { data: null, error: backendError, status: 422, errorKind: "invalid_input" }
+    }
+    if (response.status >= 500) {
+      return { data: null, error: backendError, status: response.status, errorKind: "server" }
+    }
+
+    return { data: null, error: backendError, status: response.status, errorKind: "unknown" }
   }
 
   const data = await response.json()
-  return { data, error: null }
+  return { data, error: null, status: response.status }
 }
 
 function buildAuthHeaders(extra?: Record<string, string>): Record<string, string> {
@@ -76,7 +94,7 @@ export async function apiCall<T>(
     })
     return handleApiResponse<T>(response)
   } catch {
-    return { data: null, error: "Network error. Check your connection." }
+    return { data: null, error: "Network error. Check your connection.", errorKind: "network" }
   }
 }
 
@@ -118,7 +136,7 @@ export async function apiCallFile<T>(
     })
     return handleApiResponse<T>(response)
   } catch {
-    return { data: null, error: "Network error. Check your connection." }
+    return { data: null, error: "Network error. Check your connection.", errorKind: "network" }
   }
 }
 
