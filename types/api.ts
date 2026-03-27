@@ -591,6 +591,8 @@ export interface ImportExtractResponse {
 export interface ApiResult<T> {
   data: T | null
   error: string | null
+  status?: number
+  errorKind?: "network" | "unauthorized" | "forbidden" | "not_found" | "invalid_input" | "server" | "unknown"
 }
 
 export interface CanonicalSkillResult<T> {
