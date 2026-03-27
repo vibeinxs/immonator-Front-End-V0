@@ -33,17 +33,6 @@ function buildApiUrl(endpoint: string): string {
 
 /** Shared response → ApiResult handler used by apiCall and apiCallFile. */
 async function handleApiResponse<T>(response: Response): Promise<ApiResult<T>> {
-  if (response.status === 401) {
-    logout()
-    return { data: null, error: "Session expired", status: 401, errorKind: "unauthorized" }
-  }
-  if (response.status === 403) {
-    return { data: null, error: "Access denied", status: 403, errorKind: "forbidden" }
-  }
-  if (response.status === 404) {
-    return { data: null, error: "Not found", status: 404, errorKind: "not_found" }
-  }
-
   if (!response.ok) {
     const errorBody = await response.json().catch(() => ({}))
     const backendError =
@@ -55,10 +44,19 @@ async function handleApiResponse<T>(response: Response): Promise<ApiResult<T>> {
             ? errorBody.error
             : response.statusText || `Error ${response.status}`
 
+    if (response.status === 401) {
+      logout()
+      return { data: null, error: backendError || "Session expired", status: 401, errorKind: "unauthorized" }
+    }
+    if (response.status === 403) {
+      return { data: null, error: backendError || "Access denied", status: 403, errorKind: "forbidden" }
+    }
+    if (response.status === 404) {
+      return { data: null, error: backendError || "Not found", status: 404, errorKind: "not_found" }
+    }
     if (response.status === 422) {
       return { data: null, error: backendError, status: 422, errorKind: "invalid_input" }
     }
-
     if (response.status >= 500) {
       return { data: null, error: backendError, status: response.status, errorKind: "server" }
     }

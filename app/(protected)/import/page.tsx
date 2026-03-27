@@ -168,8 +168,51 @@ function buildExtractionErrorLabel(
   if (status === 401 || status === 403) return error || "Unauthorized — please sign in and try again."
   if (status === 404) return error || "Extraction endpoint not found (404)."
   if (status === 422) return error || "Invalid input (422)."
-  if (status === 500) return error || "Parser failure (500)."
+  if (errorKind === "server") return error || "Server error — please try again."
   return error || fallback
+}
+
+function normalizeExtractionResult(
+  data: ImportExtractResponse | null,
+  error: string | null,
+  fallbackError: string,
+  status?: number,
+  errorKind?: "network" | "unauthorized" | "forbidden" | "not_found" | "invalid_input" | "server" | "unknown"
+): { result: ImportExtractResponse | null; extractionError: string | null } {
+  const wireData = data as ImportExtractionResponseWire | null
+  const backendError = resolveBackendMessage(wireData) ?? error
+
+  if (error || !wireData) {
+    return {
+      result: null,
+      extractionError: buildExtractionErrorLabel(fallbackError, backendError, status, errorKind),
+    }
+  }
+
+  if (wireData.success === false) {
+    return {
+      result: null,
+      extractionError: backendError ?? "Extraction failed.",
+    }
+  }
+
+  const sanitizedAddress = sanitizeAddress(wireData.property.address)
+  const normalizedResult: ImportExtractResponse = {
+    ...wireData,
+    property: {
+      ...wireData.property,
+      address: sanitizedAddress || undefined,
+    },
+  }
+
+  if (!hasMeaningfulStructuredFields(normalizedResult.property)) {
+    return {
+      result: null,
+      extractionError: "No meaningful structured property fields were extracted.",
+    }
+  }
+
+  return { result: normalizedResult, extractionError: null }
 }
 
 export default function ImportListingsPage() {
@@ -229,44 +272,21 @@ export default function ImportListingsPage() {
       errorKind,
     })
 
-    const wireData = data as ImportExtractionResponseWire | null
-    const backendError = resolveBackendMessage(wireData) ?? error
+    const normalized = normalizeExtractionResult(
+      data,
+      error,
+      "Extraction failed — the listing could not be read.",
+      responseStatus,
+      errorKind
+    )
 
-    if (error || !wireData) {
+    if (!normalized.result) {
       setStatus("error")
-      setExtractionError(
-        buildExtractionErrorLabel(
-          "Extraction failed — the listing could not be read.",
-          backendError,
-          responseStatus,
-          errorKind
-        )
-      )
+      setExtractionError(normalized.extractionError)
       return
     }
 
-    if (wireData.success === false) {
-      setStatus("error")
-      setExtractionError(backendError ?? "Extraction failed.")
-      return
-    }
-
-    const sanitizedAddress = sanitizeAddress(wireData.property.address)
-    const normalizedResult: ImportExtractResponse = {
-      ...wireData,
-      property: {
-        ...wireData.property,
-        address: sanitizedAddress || undefined,
-      },
-    }
-
-    if (!hasMeaningfulStructuredFields(normalizedResult.property)) {
-      setStatus("error")
-      setExtractionError("No meaningful fields found in this listing.")
-      return
-    }
-
-    setResult(normalizedResult)
+    setResult(normalized.result)
     setStatus("success")
   }
 
@@ -320,44 +340,21 @@ export default function ImportListingsPage() {
       errorKind,
     })
 
-    const wireData = data as ImportExtractionResponseWire | null
-    const backendError = resolveBackendMessage(wireData) ?? error
+    const normalized = normalizeExtractionResult(
+      data,
+      error,
+      "Extraction failed — could not parse the file.",
+      responseStatus,
+      errorKind
+    )
 
-    if (error || !wireData) {
+    if (!normalized.result) {
       setStatus("error")
-      setExtractionError(
-        buildExtractionErrorLabel(
-          "Extraction failed — could not parse the file.",
-          backendError,
-          responseStatus,
-          errorKind
-        )
-      )
+      setExtractionError(normalized.extractionError)
       return
     }
 
-    if (wireData.success === false) {
-      setStatus("error")
-      setExtractionError(backendError ?? "Extraction failed.")
-      return
-    }
-
-    const sanitizedAddress = sanitizeAddress(wireData.property.address)
-    const normalizedResult: ImportExtractResponse = {
-      ...wireData,
-      property: {
-        ...wireData.property,
-        address: sanitizedAddress || undefined,
-      },
-    }
-
-    if (!hasMeaningfulStructuredFields(normalizedResult.property)) {
-      setStatus("error")
-      setExtractionError("No meaningful property fields found in this file.")
-      return
-    }
-
-    setResult(normalizedResult)
+    setResult(normalized.result)
     setStatus("success")
   }
 
