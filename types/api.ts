@@ -255,10 +255,10 @@ export interface AnalyseResponse {
   equity_multiple_20: number
   // Year-by-year
   year_data: AnalyseYearData[]
-  // AI fields — always present in backend /analyse responses; absent from local compute
+  // AI fields — optional, populated only when AI features are explicitly triggered
   ai_analysis?: string | null
-  ai_insight?: AIInsight
-  ai_deep_analysis?: AIDeepAnalysis
+  ai_insight?: AIInsight | null
+  ai_deep_analysis?: AIDeepAnalysis | null
   bankability_metrics?: BankabilityMetrics
   // Optional enrichment / meta
   address_resolved?: string

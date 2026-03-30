@@ -2639,44 +2639,6 @@ export default function AnalysePage() {
     try {
       const result = await analyseOne(state.singleDraftInput)
       dispatch({ type: "singleAnalyseSuccess", result })
-
-      // Derive Quick Take (snapshot) from the /analyse response — no extra API call
-      if (result.ai_insight) {
-        const ins = result.ai_insight
-        dispatch({
-          type: "snapshotSuccess",
-          result: {
-            grade: ins.confidence === "high" ? "A" : ins.confidence === "medium" ? "B" : "C",
-            verdict: ins.verdict || result.verdict,
-            location_rating: result.location_score != null ? `${result.location_score}/10` : "N/A",
-            strengths: ins.positives?.slice(0, 2) ?? [],
-            risks: ins.risks?.slice(0, 2) ?? [],
-            summary: ins.summary || result.ai_analysis || null,
-          },
-        })
-      }
-
-      // Derive Full Review from the /analyse response — no extra API call
-      if (result.ai_deep_analysis) {
-        const deep = result.ai_deep_analysis
-        const ins = result.ai_insight
-        const reviewNormalized = {
-          property_summary: deep.summary || result.ai_analysis || null,
-          location_analysis: deep.market || null,
-          deal_economics: deep.cashflow || null,
-          strengths: ins?.positives ?? [],
-          risks: ins?.risks ?? [],
-          missing_inputs: [],
-          sensitivity_points: deep.key_risks ?? [],
-          final_verdict: ins?.verdict || result.verdict || null,
-          raw: undefined,
-        }
-        dispatch({
-          type: "reviewSuccess",
-          result: reviewNormalized,
-          rawResult: { ...deep, ai_insight: ins } as Record<string, unknown>,
-        })
-      }
     } catch {
       dispatch({ type: "singleAnalyseError", error: t("analyse.error") })
     }
