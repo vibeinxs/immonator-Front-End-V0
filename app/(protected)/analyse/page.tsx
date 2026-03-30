@@ -2238,7 +2238,7 @@ function SingleAnalysisWorkspace({
                     <div className="rounded-2xl border border-brand/15 bg-gradient-to-br from-brand/10 via-bg-base to-bg-surface p-4">
                       <div className="flex items-center gap-2">
                         <span className="rounded-full border border-brand/15 bg-brand/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-brand">
-                          Executive summary
+                          Summary
                         </span>
                         <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">What stands out</p>
                       </div>
@@ -2248,6 +2248,44 @@ function SingleAnalysisWorkspace({
                         ))}
                       </div>
                     </div>
+
+                    {result.ai_deep_analysis && (
+                      <div className="space-y-3">
+                        {([
+                          ["Pricing & Valuation", result.ai_deep_analysis.pricing],
+                          ["Cash Flow & Financing", result.ai_deep_analysis.cashflow],
+                          ["Market & Location", result.ai_deep_analysis.market],
+                          ["Tax & Structure", result.ai_deep_analysis.tax_and_structure],
+                        ] as const).map(([heading, text]) =>
+                          text ? (
+                            <div key={heading} className="rounded-xl border border-border bg-bg-surface p-4">
+                              <p className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">{heading}</p>
+                              <p className="mt-2 text-sm leading-relaxed text-text-secondary">{text}</p>
+                            </div>
+                          ) : null
+                        )}
+                        {result.ai_deep_analysis.key_risks?.length > 0 && (
+                          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700">Key risks</p>
+                            <div className="mt-2 space-y-1">
+                              {result.ai_deep_analysis.key_risks.map((risk) => (
+                                <p key={risk} className="text-sm leading-relaxed text-amber-800">{risk}</p>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {result.ai_deep_analysis.next_steps?.length > 0 && (
+                          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700">Recommended next steps</p>
+                            <div className="mt-2 space-y-1">
+                              {result.ai_deep_analysis.next_steps.map((step) => (
+                                <p key={step} className="text-sm leading-relaxed text-emerald-800">{step}</p>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     <Tabs value={resultTab} onValueChange={(value) => onResultTabChange(value as ResultTab)}>
                       <div className="mb-4 flex flex-col gap-3 border-b border-border-default pb-2 sm:flex-row sm:items-center sm:justify-between">
