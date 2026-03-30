@@ -374,16 +374,31 @@ export default function ImportListingsPage() {
 
   function handleAnalyzeNow() {
     if (!result) return
-    const p = result.property
+    const m = result.mapped_form_values
+    const num = (key: string): number | undefined => {
+      const v = m[key]
+      return typeof v === "number" && isFinite(v) ? v : undefined
+    }
+    const str = (key: string): string | undefined => {
+      const v = m[key]
+      return typeof v === "string" && v ? v : undefined
+    }
     setInputA({
       ...PRESET_A,
-      address: [p.address, p.city, p.zip].filter(Boolean).join(", ") || PRESET_A.address,
-      sqm: p.living_area_sqm ?? PRESET_A.sqm,
-      year_built: p.year_built ?? PRESET_A.year_built,
-      purchase_price: p.purchase_price ?? PRESET_A.purchase_price,
-      equity: p.purchase_price ? Math.round(p.purchase_price * 0.2) : PRESET_A.equity,
-      rent_monthly: p.warm_rent ?? p.cold_rent ?? PRESET_A.rent_monthly,
-      hausgeld_monthly: p.maintenance_reserve ?? PRESET_A.hausgeld_monthly,
+      address: str("address") ?? PRESET_A.address,
+      purchase_price: num("purchase_price") ?? PRESET_A.purchase_price,
+      sqm: num("sqm") ?? PRESET_A.sqm,
+      year_built: num("year_built") ?? PRESET_A.year_built,
+      condition: (str("condition") === "newbuild" ? "newbuild" : "existing"),
+      equity: num("equity") ?? PRESET_A.equity,
+      rent_monthly: num("rent_monthly") ?? PRESET_A.rent_monthly,
+      hausgeld_monthly: num("hausgeld_monthly") ?? PRESET_A.hausgeld_monthly,
+      interest_rate: num("interest_rate") ?? PRESET_A.interest_rate,
+      transfer_tax_pct: num("transfer_tax_pct") ?? PRESET_A.transfer_tax_pct,
+      notary_pct: num("notary_pct") ?? PRESET_A.notary_pct,
+      agent_pct: num("agent_pct") ?? PRESET_A.agent_pct,
+      land_share_pct: num("land_share_pct") ?? PRESET_A.land_share_pct,
+      grundsteuer_annual: num("grundsteuer_annual") ?? PRESET_A.grundsteuer_annual,
     })
     router.push("/analyse")
   }
@@ -434,7 +449,8 @@ export default function ImportListingsPage() {
 
   const hasValidExtraction = status === "success" && !!result && hasMeaningfulStructuredFields(result.property)
   const canExtractFile = !!file && status !== "loading"
-  const canDestinate = hasValidExtraction
+  const canDestinate = status === "success"
+  const canAnalyze = canDestinate && (result?.can_run_partial_analysis ?? false)
 
   return (
     <div className="mx-auto w-full max-w-[960px] py-2">
@@ -628,13 +644,52 @@ export default function ImportListingsPage() {
                 </div>
               )}
 
-              {/* Missing fields */}
-              {result.missing_fields.length > 0 && (
+              {/* Assumptions used */}
+              {result.assumptions_used.length > 0 && (
+                <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
+                  <p className="text-xs font-semibold text-blue-700 mb-1">Defaults applied for missing fields</p>
+                  <ul className="space-y-0.5">
+                    {result.assumptions_used.map((a) => (
+                      <li key={a} className="text-xs text-blue-700">• {a}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Missing important fields */}
+              {result.missing_important_fields.length > 0 && (
                 <p className="text-xs text-text-muted">
-                  Missing fields:{" "}
-                  <span className="text-text-secondary">
-                    {result.missing_fields.join(", ")}
+                  Still missing:{" "}
+                  <span className="font-medium text-amber-700">
+                    {result.missing_important_fields.join(", ")}
                   </span>
+                </p>
+              )}
+
+              {/* Partial analysis indicator */}
+              {result.can_run_partial_analysis ? (
+                <p className="flex items-center gap-1.5 text-xs text-emerald-700 font-medium">
+                  <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
+                  Ready for analysis{result.assumptions_used.length > 0 ? " (with defaults)" : ""}
+                </p>
+              ) : (
+                <p className="flex items-center gap-1.5 text-xs text-red-600 font-medium">
+                  <span className="inline-block h-2 w-2 rounded-full bg-red-400" />
+                  Not enough data for analysis — fill purchase price and rent or sqm
+                </p>
+              )}
+
+              {/* Extraction notes */}
+              {result.extraction_notes.length > 0 && (
+                <p className="text-xs text-text-muted">
+                  {result.extraction_notes.join(" ")}
+                </p>
+              )}
+
+              {/* Disclaimer */}
+              {result.disclaimer && (
+                <p className="rounded-lg bg-bg-base px-3 py-2 text-xs text-text-muted italic">
+                  {result.disclaimer}
                 </p>
               )}
             </div>
@@ -661,10 +716,10 @@ export default function ImportListingsPage() {
           <div className="mt-3 flex flex-wrap gap-2">
             <button
               onClick={handleAnalyzeNow}
-              disabled={!canDestinate}
+              disabled={!canAnalyze}
               className="rounded-lg bg-brand px-3 py-2 text-xs font-semibold text-white hover:bg-brand-hover disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              Analyze now
+              {result?.assumptions_used?.length ? "Analyze now (partial data)" : "Analyze now"}
             </button>
             <button
               onClick={handleSaveToPortfolio}
