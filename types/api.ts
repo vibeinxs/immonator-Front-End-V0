@@ -576,6 +576,15 @@ export interface ImportExtractProperty {
   maintenance_reserve?: number | null
   parking?: string | null
   notes?: string | null
+  equity?: number | null
+  agent_pct?: number | null
+  transfer_tax_pct?: number | null
+  notary_pct?: number | null
+  land_share_pct?: number | null
+  interest_rate?: number | null
+  grundsteuer_annual?: number | null
+  condition?: string | null
+  energy_class?: string | null
 }
 
 export interface ImportExtractResponse {
@@ -584,6 +593,12 @@ export interface ImportExtractResponse {
   property: ImportExtractProperty
   extraction_warnings: string[]
   missing_fields: string[]
+  mapped_form_values: Record<string, unknown>
+  assumptions_used: string[]
+  can_run_partial_analysis: boolean
+  missing_important_fields: string[]
+  extraction_notes: string[]
+  disclaimer: string | null
 }
 
 // ─── Generic wrapper ──────────────────────────────────────────────────────────
