@@ -323,7 +323,7 @@ export function runAnalysis(
 ): Promise<ApiResult<SnapshotResult | ReviewResult>> {
   if (mode === "compact") {
     return postSkillResult(
-      "/analysis/run",
+      "/api/analysis/run",
       { property, mode },
       normalizeSnapshotResult,
       "Snapshot response was missing the expected fields."
@@ -331,7 +331,7 @@ export function runAnalysis(
   }
 
   return postSkillResult(
-    "/analysis/run",
+    "/api/analysis/run",
     { property, mode },
     normalizeReviewResult,
     "Investment review response was missing the expected fields."
@@ -348,7 +348,7 @@ export function runInvestmentReview(
   property: PropertyMetricsInput
 ): Promise<ApiResult<CanonicalSkillResult<ReviewResult>>> {
   return postCanonicalSkillResult(
-    "/analysis/run",
+    "/api/analysis/run",
     { property, mode: "full" },
     normalizeReviewResult,
     "Investment review response was missing the expected fields."
@@ -360,7 +360,7 @@ export function runStrategy(
   analysisResult: Record<string, unknown>
 ): Promise<ApiResult<CanonicalSkillResult<StrategyResult>>> {
   return postCanonicalSkillResult(
-    "/strategy/run",
+    "/api/strategy/run",
     { property, analysis_result: analysisResult },
     normalizeStrategyResult,
     "Buying strategy response was missing the expected fields."
