@@ -10,7 +10,7 @@ import {
   saveToPortfolio,
 } from "@/lib/immonatorApi"
 import { PRESET_A } from "@/features/analysis/presets"
-import type { AnalyseRequest, ImportExtractResponse } from "@/types/api"
+import type { ImportExtractResponse } from "@/types/api"
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -374,14 +374,32 @@ export default function ImportListingsPage() {
 
   function handleAnalyzeNow() {
     if (!result) return
-    // Use backend-computed mapped_form_values (already normalized with defaults)
-    const mapped = result.mapped_form_values as Record<string, unknown>
+    const m = result.mapped_form_values
+    const num = (key: string): number | undefined => {
+      const v = m[key]
+      return typeof v === "number" && isFinite(v) ? v : undefined
+    }
+    const str = (key: string): string | undefined => {
+      const v = m[key]
+      return typeof v === "string" && v ? v : undefined
+    }
     setInputA({
       ...PRESET_A,
-      ...Object.fromEntries(
-        Object.entries(mapped).filter(([, v]) => v != null && v !== "")
-      ),
-    } as AnalyseRequest)
+      address: str("address") ?? PRESET_A.address,
+      purchase_price: num("purchase_price") ?? PRESET_A.purchase_price,
+      sqm: num("sqm") ?? PRESET_A.sqm,
+      year_built: num("year_built") ?? PRESET_A.year_built,
+      condition: (str("condition") === "newbuild" ? "newbuild" : "existing"),
+      equity: num("equity") ?? PRESET_A.equity,
+      rent_monthly: num("rent_monthly") ?? PRESET_A.rent_monthly,
+      hausgeld_monthly: num("hausgeld_monthly") ?? PRESET_A.hausgeld_monthly,
+      interest_rate: num("interest_rate") ?? PRESET_A.interest_rate,
+      transfer_tax_pct: num("transfer_tax_pct") ?? PRESET_A.transfer_tax_pct,
+      notary_pct: num("notary_pct") ?? PRESET_A.notary_pct,
+      agent_pct: num("agent_pct") ?? PRESET_A.agent_pct,
+      land_share_pct: num("land_share_pct") ?? PRESET_A.land_share_pct,
+      grundsteuer_annual: num("grundsteuer_annual") ?? PRESET_A.grundsteuer_annual,
+    })
     router.push("/analyse")
   }
 
@@ -631,8 +649,8 @@ export default function ImportListingsPage() {
                 <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
                   <p className="text-xs font-semibold text-blue-700 mb-1">Defaults applied for missing fields</p>
                   <ul className="space-y-0.5">
-                    {result.assumptions_used.map((a, i) => (
-                      <li key={`${i}-${a}`} className="text-xs text-blue-700">• {a}</li>
+                    {result.assumptions_used.map((a) => (
+                      <li key={a} className="text-xs text-blue-700">• {a}</li>
                     ))}
                   </ul>
                 </div>
@@ -658,6 +676,13 @@ export default function ImportListingsPage() {
                 <p className="flex items-center gap-1.5 text-xs text-red-600 font-medium">
                   <span className="inline-block h-2 w-2 rounded-full bg-red-400" />
                   Not enough data for analysis — fill purchase price and rent or sqm
+                </p>
+              )}
+
+              {/* Extraction notes */}
+              {result.extraction_notes.length > 0 && (
+                <p className="text-xs text-text-muted">
+                  {result.extraction_notes.join(" ")}
                 </p>
               )}
 
