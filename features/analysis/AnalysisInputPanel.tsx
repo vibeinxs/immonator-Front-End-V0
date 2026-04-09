@@ -18,6 +18,8 @@ import { Switch } from "@/components/ui/switch"
 import { useLocale } from "@/lib/i18n/locale-context"
 import { cn } from "@/lib/utils"
 import type { PropertyAnalysisInput } from "@/features/analysis/schema"
+import type { ExtractionResult } from "@/types/api"
+import { DocExtractDrawer } from "@/features/analysis/DocExtractDrawer"
 
 const SECTION_TITLE = "text-[10px] font-bold uppercase tracking-[0.2em] text-text-muted"
 const SECTION_SHELL = "space-y-4 rounded-2xl border border-border-default bg-bg-base/40 p-4"
@@ -136,28 +138,42 @@ export function AnalysisInputPanel({
   analyseButtonLabel,
 }: AnalysisInputPanelProps) {
   const { t } = useLocale()
-  const latestValueRef = React.useRef(value)
-
-  React.useEffect(() => {
-    latestValueRef.current = value
-  }, [value])
-
-  const setField = React.useCallback(
-    <K extends keyof PropertyAnalysisInput>(field: K, fieldValue: PropertyAnalysisInput[K]) => {
-      onChange({ ...latestValueRef.current, [field]: fieldValue })
-    },
-    [onChange],
-  )
-
-  const specialAfaEnabled = value.special_afa_enabled ?? false
-  const afaMethod: AfaMethod = isAfaMethod(value.afa_method) ? value.afa_method : "linear"
-  const selectedVacancy = String(value.vacancy_rate ?? 1)
+  const [drawerOpen, setDrawerOpen] = React.useState(false)
 
   const fieldId = React.useCallback((suffix: string) => `${idPrefix}-${suffix}`, [idPrefix])
 
+  function setField<K extends keyof PropertyAnalysisInput>(key: K, val: PropertyAnalysisInput[K]) {
+    onChange({ ...value, [key]: val })
+  }
+
+  function applyExtraction(result: ExtractionResult) {
+    onChange({ ...value, ...result.extracted, ...result.assumed } as PropertyAnalysisInput)
+  }
+
+  const selectedVacancy = String(value.vacancy_rate ?? 1)
+  const specialAfaEnabled = value.special_afa_enabled ?? false
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      <DocExtractDrawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        onApply={applyExtraction}
+      />
+
       <div className="flex-1 space-y-4 overflow-y-auto p-4">
+
+        {/* ── Extract button ────────────────────────────────────────────── */}
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setDrawerOpen(true)}
+          className="w-full border-brand/40 bg-brand-subtle text-xs font-semibold text-brand hover:bg-brand/10"
+        >
+          {t("extract.button")}
+        </Button>
+
+        {/* ── Property ──────────────────────────────────────────────────── */}
         <Section title={t("analyse.section.property")}>
           <div className="space-y-2">
             <Label htmlFor={fieldId("address")} className={LABEL}>{t("analyse.field.address")}</Label>
@@ -211,66 +227,71 @@ export function AnalysisInputPanel({
           </div>
 
           <Row label={t("analyse.field.energyClass")}>
-            <Select value={value.energy_class ?? "A+"} onValueChange={(nextValue) => setField("energy_class", nextValue)}>
-              <SelectTrigger className="w-28 font-mono">
+            <Select
+              value={value.energy_class ?? "A+"}
+              onValueChange={(nextValue) => setField("energy_class", nextValue as PropertyAnalysisInput["energy_class"])}
+            >
+              <SelectTrigger size="sm" className="w-24 font-mono">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {ENERGY_CLASSES.map((energyClass) => (
-                  <SelectItem key={energyClass} value={energyClass} className="font-mono">
-                    {energyClass}
-                  </SelectItem>
+                {ENERGY_CLASSES.map((c) => (
+                  <SelectItem key={c} value={c} className="font-mono">{c}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </Row>
         </Section>
 
+        {/* ── Financing ─────────────────────────────────────────────────── */}
         <Section title={t("analyse.section.financing")}>
           <Row label={t("analyse.field.purchasePrice")}>
-            <NumberWithUnit id={fieldId("purchase-price")} value={value.purchase_price} onChange={(nextValue) => setField("purchase_price", nextValue)} unit="€" min={0} />
+            <NumberWithUnit id={fieldId("purchase-price")} value={value.purchase_price} onChange={(nextValue) => setField("purchase_price", nextValue)} unit="€" step={1000} min={0} />
           </Row>
           <Row label={t("analyse.field.equity")}>
-            <NumberWithUnit id={fieldId("equity")} value={value.equity} onChange={(nextValue) => setField("equity", nextValue)} unit="€" min={0} />
+            <NumberWithUnit id={fieldId("equity")} value={value.equity} onChange={(nextValue) => setField("equity", nextValue)} unit="€" step={1000} min={0} />
           </Row>
+        </Section>
+
+        {/* ── Loan Details ──────────────────────────────────────────────── */}
+        <Section title={t("analyse.section.loanDetails")}>
           <Row label={t("analyse.field.interest")}>
-            <NumberWithUnit id={fieldId("interest")} value={value.interest_rate ?? 3.8} onChange={(nextValue) => setField("interest_rate", nextValue)} unit="%" step={0.1} min={0} />
+            <NumberWithUnit id={fieldId("interest-rate")} value={value.interest_rate ?? 3.8} onChange={(nextValue) => setField("interest_rate", nextValue)} unit="%" step={0.1} min={0} />
           </Row>
           <Row label={t("analyse.field.repayment")}>
-            <NumberWithUnit id={fieldId("repayment")} value={value.repayment_rate ?? 2} onChange={(nextValue) => setField("repayment_rate", nextValue)} unit="%" step={0.1} min={0} />
+            <NumberWithUnit id={fieldId("repayment-rate")} value={value.repayment_rate ?? 2.0} onChange={(nextValue) => setField("repayment_rate", nextValue)} unit="%" step={0.1} min={0} />
           </Row>
           <Row label={t("analyse.field.transferTax")}>
-            <NumberWithUnit id={fieldId("transfer-tax")} value={value.transfer_tax_pct ?? 6} onChange={(nextValue) => setField("transfer_tax_pct", nextValue)} unit="%" step={0.1} min={0} />
+            <NumberWithUnit id={fieldId("transfer-tax")} value={value.transfer_tax_pct ?? 6.0} onChange={(nextValue) => setField("transfer_tax_pct", nextValue)} unit="%" step={0.5} min={0} />
           </Row>
           <Row label={t("analyse.field.notary")}>
-            <NumberWithUnit id={fieldId("notary")} value={value.notary_pct ?? 2} onChange={(nextValue) => setField("notary_pct", nextValue)} unit="%" step={0.1} min={0} />
+            <NumberWithUnit id={fieldId("notary")} value={value.notary_pct ?? 2.0} onChange={(nextValue) => setField("notary_pct", nextValue)} unit="%" step={0.1} min={0} />
           </Row>
           <Row label={t("analyse.field.agent")}>
-            <NumberWithUnit id={fieldId("agent")} value={value.agent_pct ?? 0} onChange={(nextValue) => setField("agent_pct", nextValue)} unit="%" step={0.1} min={0} />
+            <NumberWithUnit id={fieldId("agent")} value={value.agent_pct ?? 0.0} onChange={(nextValue) => setField("agent_pct", nextValue)} unit="%" step={0.1} min={0} />
           </Row>
           <Row label={t("analyse.field.landShare")}>
-            <NumberWithUnit id={fieldId("land-share")} value={value.land_share_pct ?? 20} onChange={(nextValue) => setField("land_share_pct", nextValue)} unit="%" step={1} min={0} max={100} />
+            <NumberWithUnit id={fieldId("land-share")} value={value.land_share_pct ?? 20.0} onChange={(nextValue) => setField("land_share_pct", nextValue)} unit="%" step={1} min={0} max={100} />
           </Row>
         </Section>
 
+        {/* ── Income & Costs ────────────────────────────────────────────── */}
         <Section title={t("analyse.section.incomeCosts")}>
           <Row label={t("analyse.field.rent")}>
-            <NumberWithUnit id={fieldId("rent")} value={value.rent_monthly} onChange={(nextValue) => setField("rent_monthly", nextValue)} unit="€/mo" min={0} />
+            <NumberWithUnit id={fieldId("rent")} value={value.rent_monthly} onChange={(nextValue) => setField("rent_monthly", nextValue)} unit="€/mo" step={50} min={0} />
           </Row>
           <Row label={t("analyse.field.hausgeld")}>
-            <NumberWithUnit id={fieldId("hausgeld")} value={value.hausgeld_monthly ?? 200} onChange={(nextValue) => setField("hausgeld_monthly", nextValue)} unit="€/mo" min={0} />
+            <NumberWithUnit id={fieldId("hausgeld")} value={value.hausgeld_monthly ?? 200} onChange={(nextValue) => setField("hausgeld_monthly", nextValue)} unit="€/mo" step={10} min={0} />
           </Row>
           <Row label={t("analyse.field.maintenance")}>
-            <NumberWithUnit id={fieldId("maintenance")} value={value.maintenance_nd ?? 1200} onChange={(nextValue) => setField("maintenance_nd", nextValue)} unit="€/yr" min={0} />
+            <NumberWithUnit id={fieldId("maintenance")} value={value.maintenance_nd ?? 1200} onChange={(nextValue) => setField("maintenance_nd", nextValue)} unit="€/yr" step={100} min={0} />
           </Row>
           <Row label={t("analyse.field.management")}>
-            <NumberWithUnit id={fieldId("management")} value={value.management_nd ?? 600} onChange={(nextValue) => setField("management_nd", nextValue)} unit="€/yr" min={0} />
-          </Row>
-          <Row label={t("analyse.field.propertyTax")}>
-            <NumberWithUnit id={fieldId("property-tax")} value={value.grundsteuer_annual ?? 0} onChange={(nextValue) => setField("grundsteuer_annual", nextValue)} unit="€/yr" min={0} />
+            <NumberWithUnit id={fieldId("management")} value={value.management_nd ?? 600} onChange={(nextValue) => setField("management_nd", nextValue)} unit="€/yr" step={100} min={0} />
           </Row>
         </Section>
 
+        {/* ── Assumptions ───────────────────────────────────────────────── */}
         <Section title={t("analyse.section.assumptions")}>
           <Row label={t("analyse.field.rentGrowth")}>
             <NumberWithUnit id={fieldId("rent-growth")} value={value.rent_growth ?? 2} onChange={(nextValue) => setField("rent_growth", nextValue)} unit="%" step={0.1} />
@@ -282,45 +303,32 @@ export function AnalysisInputPanel({
             <NumberWithUnit id={fieldId("tax-rate")} value={value.tax_rate ?? 42} onChange={(nextValue) => setField("tax_rate", nextValue)} unit="%" step={1} min={0} max={100} />
           </Row>
           <Row label={t("analyse.field.horizon")}>
-            <NumberWithUnit id={fieldId("holding-years")} value={value.holding_years ?? 10} onChange={(nextValue) => setField("holding_years", Math.round(nextValue))} unit={t("analyse.unit.yearShort")} step={1} min={1} />
+            <NumberWithUnit id={fieldId("horizon")} value={value.holding_years ?? 10} onChange={(nextValue) => setField("holding_years", Math.round(nextValue))} unit={t("analyse.unit.yearShort")} step={1} min={1} />
           </Row>
         </Section>
 
+        {/* ── AfA ───────────────────────────────────────────────────────── */}
         <Section title="AfA">
-          <Row label={t("analyse.field.afaMethod")}>
-            <Select value={afaMethod} onValueChange={(nextValue) => setField("afa_method", nextValue)}>
-              <SelectTrigger className="w-32">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {AFA_METHODS.map((method) => (
-                  <SelectItem key={method} value={method}>
-                    {t(`analyse.afaMethod.${method}`)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Row>
-
-          <div className="space-y-3 rounded-xl border border-border-default bg-bg-elevated p-3">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className={LABEL}>{t("analyse.field.afaRate")}</p>
-                <p className={DESCRIPTION}>{t("analyse.field.afaRateHint")}</p>
-              </div>
-              <span className="font-mono text-sm font-semibold text-text-primary">{(value.afa_rate_input ?? 2).toFixed(1)}%</span>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor={fieldId("afa-rate")} className={LABEL}>{t("analyse.field.afaRate")}</Label>
+              <span className="font-mono text-sm text-text-primary">
+                {(value.afa_rate_input ?? 2.0).toFixed(1)}%
+              </span>
             </div>
             <Slider
+              id={fieldId("afa-rate")}
               min={0}
               max={7}
               step={0.5}
-              value={[value.afa_rate_input ?? 2]}
-              onValueChange={([nextValue]) => setField("afa_rate_input", nextValue ?? 0)}
+              value={[value.afa_rate_input ?? 2.0]}
+              onValueChange={([nextValue]) => setField("afa_rate_input", nextValue)}
               className="[&_[data-slot=slider-range]]:bg-brand [&_[data-slot=slider-thumb]]:border-brand"
             />
           </div>
         </Section>
 
+        {/* ── Vacancy ───────────────────────────────────────────────────── */}
         <Section title={t("analyse.section.vacancy")}>
           <div className="space-y-2">
             <Label className={LABEL}>{t("analyse.field.vacancyRate")}</Label>
@@ -343,6 +351,7 @@ export function AnalysisInputPanel({
           </div>
         </Section>
 
+        {/* ── Sonder-AfA ────────────────────────────────────────────────── */}
         <Section title={t("analyse.section.sonderAfa")}>
           <Row
             label={t("analyse.field.enableSonder")}
