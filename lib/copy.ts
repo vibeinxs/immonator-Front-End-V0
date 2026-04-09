@@ -117,6 +117,13 @@ export const copy = {
     errorGeneric: "Sorry, something went wrong. Please try again.",
     errorNetwork: "Connection error. Please try again.",
     aiLabel: "Immonator AI",
+    advisor: {
+      subtitle: "Uses the current property analysis context for follow-up questions and guidance.",
+      emptyStateTitle: "How can I help?",
+      emptyStateDescription:
+        "I have the current property analysis context and will add Full Review and Buying Strategy details when they are available.",
+      inputPlaceholder: "Ask the advisor about this analysis…",
+    },
     suggestions: [
       "Is this a good investment?",
       "What's a fair offer price?",

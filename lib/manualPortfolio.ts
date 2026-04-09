@@ -2,7 +2,7 @@ import type { AnalyseRequest, AnalyseResponse } from "@/types/api"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type ManualPortfolioStatus = "watching" | "analysing" | "purchased"
+export type ManualPortfolioStatus = "watching" | "analysing" | "negotiating" | "purchased" | "rejected"
 
 export interface ManualPortfolioEntry {
   id: string
@@ -10,7 +10,7 @@ export interface ManualPortfolioEntry {
   savedAt: string
   status: ManualPortfolioStatus
   input: AnalyseRequest
-  result: AnalyseResponse
+  result: AnalyseResponse | null
   version: 1
 }
 
@@ -20,7 +20,7 @@ const STORAGE_KEY = "immo_manual_portfolio"
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
-const VALID_STATUSES = new Set<ManualPortfolioStatus>(["watching", "analysing", "purchased"])
+const VALID_STATUSES = new Set<ManualPortfolioStatus>(["watching", "analysing", "negotiating", "purchased", "rejected"])
 
 /** Return true if `v` is a non-null plain object (not an array). */
 function isObject(v: unknown): v is Record<string, unknown> {
@@ -42,7 +42,7 @@ function isValidEntry(v: unknown): v is ManualPortfolioEntry {
     !isNaN(new Date(e.savedAt as string).getTime()) &&
     VALID_STATUSES.has(e.status as ManualPortfolioStatus) &&
     isObject(e.input) &&
-    isObject(e.result) &&
+    (e.result == null || isObject(e.result)) &&
     e.version === 1
   )
 }

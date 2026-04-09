@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react"
 import type { AnalyseRequest, AnalyseResponse } from "@/types/api"
+import type { ReviewResult, SnapshotResult, StrategyResult } from "@/types/skills"
 import { PRESET_A, PRESET_B } from "@/features/analysis/presets"
 
 interface AnalysisState {
@@ -15,10 +16,20 @@ interface AnalysisState {
   inputB: AnalyseRequest
   resultA: AnalyseResponse | null
   resultB: AnalyseResponse | null
+  snapshotResult: SnapshotResult | null
+  reviewResult: ReviewResult | null
+  reviewRawResult: Record<string, unknown> | null
+  strategyResult: StrategyResult | null
+  strategyRawResult: Record<string, unknown> | null
   setInputA: (input: AnalyseRequest) => void
   setInputB: (input: AnalyseRequest) => void
   setResultA: (result: AnalyseResponse | null) => void
   setResultB: (result: AnalyseResponse | null) => void
+  setSnapshotResult: (result: SnapshotResult | null) => void
+  setReviewResult: (result: ReviewResult | null) => void
+  setReviewRawResult: (result: Record<string, unknown> | null) => void
+  setStrategyResult: (result: StrategyResult | null) => void
+  setStrategyRawResult: (result: Record<string, unknown> | null) => void
   resetA: () => void
   resetB: () => void
 }
@@ -30,10 +41,20 @@ export function AnalysisStoreProvider({ children }: { children: ReactNode }) {
   const [inputB, setInputB] = useState<AnalyseRequest>(PRESET_B)
   const [resultA, setResultA] = useState<AnalyseResponse | null>(null)
   const [resultB, setResultB] = useState<AnalyseResponse | null>(null)
+  const [snapshotResult, setSnapshotResult] = useState<SnapshotResult | null>(null)
+  const [reviewResult, setReviewResult] = useState<ReviewResult | null>(null)
+  const [reviewRawResult, setReviewRawResult] = useState<Record<string, unknown> | null>(null)
+  const [strategyResult, setStrategyResult] = useState<StrategyResult | null>(null)
+  const [strategyRawResult, setStrategyRawResult] = useState<Record<string, unknown> | null>(null)
 
   const resetA = useCallback(() => {
     setInputA(PRESET_A)
     setResultA(null)
+    setSnapshotResult(null)
+    setReviewResult(null)
+    setReviewRawResult(null)
+    setStrategyResult(null)
+    setStrategyRawResult(null)
   }, [])
 
   const resetB = useCallback(() => {
@@ -48,10 +69,20 @@ export function AnalysisStoreProvider({ children }: { children: ReactNode }) {
         inputB,
         resultA,
         resultB,
+        snapshotResult,
+        reviewResult,
+        reviewRawResult,
+        strategyResult,
+        strategyRawResult,
         setInputA,
         setInputB,
         setResultA,
         setResultB,
+        setSnapshotResult,
+        setReviewResult,
+        setReviewRawResult,
+        setStrategyResult,
+        setStrategyRawResult,
         resetA,
         resetB,
       }}

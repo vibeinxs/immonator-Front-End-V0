@@ -1,11 +1,12 @@
 "use client"
 
-import { apiCall, apiStream } from "./api"
+import { apiCall, apiCallFile, apiStream } from "./api"
 import type {
   ApiResult,
   BetaLoginRequest,
   BetaLoginResponse,
   CompactAnalysis,
+  ImportExtractResponse,
   NegotiationBrief,
   NegotiationBriefResponse,
   RawNegotiationBrief,
@@ -21,6 +22,8 @@ import type {
   AnalyseResponse,
   ScenarioParams,
   ScenarioResult,
+  ChatHistoryResponse,
+  ChatRequest,
 } from "@/types/api"
 
 // ─── Local types not yet in @/types/api ───────────────────────────────────────
@@ -46,11 +49,6 @@ interface MeResponse {
   email: string
 }
 
-interface ChatRequest {
-  message: string
-  context_type: string
-  context_id?: string
-}
 
 interface FeedbackRequest {
   type?: string
@@ -168,6 +166,25 @@ export function createManualProperty(
   })
 }
 
+// ─── Import / Listing extraction ──────────────────────────────────────────────
+
+export function extractListingFromUrl(
+  url: string
+): Promise<ApiResult<ImportExtractResponse>> {
+  return apiCall<ImportExtractResponse>("/api/import/extract-url", {
+    method: "POST",
+    body: JSON.stringify({ url }),
+  })
+}
+
+export function extractListingFromFile(
+  file: File
+): Promise<ApiResult<ImportExtractResponse>> {
+  const formData = new FormData()
+  formData.append("file", file)
+  return apiCallFile<ImportExtractResponse>("/api/import/extract-file", formData)
+}
+
 // ─── Portfolio ────────────────────────────────────────────────────────────────
 
 export function saveToPortfolio(
@@ -223,9 +240,19 @@ export function getDeepAnalysis(id: string): Promise<ApiResult<Record<string, un
 export async function analyseProperty(
   body: AnalyseRequest
 ): Promise<ApiResult<AnalyseResponse>> {
+  // M4: Map V0 Sonder-AfA UI fields to the backend contract.
+  // The backend uses afa_method="sonder" + afa_rate_input; it does not know
+  // special_afa_enabled / special_afa_rate_input / special_afa_years.
+  const backendBody: AnalyseRequest = body.special_afa_enabled
+    ? {
+        ...body,
+        afa_method: "sonder",
+        afa_rate_input: body.special_afa_rate_input ?? body.afa_rate_input,
+      }
+    : body
   const res = await apiCall<AnalyseResponse>("/analyse", {
     method: "POST",
-    body: JSON.stringify(body),
+    body: JSON.stringify(backendBody),
   })
 
   if (!res.data) return { data: null, error: res.error }
@@ -502,10 +529,10 @@ export function sendChatMessage(body: ChatRequest): Promise<Response | null> {
 export function getChatHistory(
   contextType: string,
   contextId?: string
-): Promise<ApiResult<{ messages: unknown[]; total: number }>> {
+): Promise<ApiResult<ChatHistoryResponse>> {
   const params = new URLSearchParams({ context_type: contextType })
   if (contextId) params.set("context_id", contextId)
-  return apiCall<{ messages: unknown[]; total: number }>(`/api/chat/history?${params}`, {
+  return apiCall<ChatHistoryResponse>(`/api/chat/history?${params}`, {
     method: "GET",
   })
 }
@@ -599,6 +626,8 @@ export async function translateTexts(
 export const immoApi = {
   betaLogin,
   getMe,
+  extractListingFromUrl,
+  extractListingFromFile,
   fetchProperties,
   fetchPropertyById,
   fetchPropertyStats,

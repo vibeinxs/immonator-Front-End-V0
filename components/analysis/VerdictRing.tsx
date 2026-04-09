@@ -50,10 +50,20 @@ export function VerdictRing({
   const color = scoreColor(clamped)
   const textClass = scoreTextClass(clamped)
   const label = VERDICT_LABEL[verdict] ?? verdict.toUpperCase().replace(/_/g, " ")
+  const haloId = `halo-${verdict}-${Math.round(clamped * 10)}`
 
   return (
     <div className="flex flex-col items-center gap-2">
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+        {/* Radial glow halo behind arc */}
+        <defs>
+          <radialGradient id={haloId} cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor={color} stopOpacity="0.13" />
+            <stop offset="100%" stopColor={color} stopOpacity="0" />
+          </radialGradient>
+        </defs>
+        <circle cx={cx} cy={cy} r={R * 1.5} fill={`url(#${haloId})`} />
+
         {/* Track */}
         <circle
           cx={cx} cy={cy} r={R}
@@ -85,8 +95,8 @@ export function VerdictRing({
           x={cx} y={cy - size * 0.04}
           textAnchor="middle"
           dominantBaseline="middle"
-          fontSize={size * 0.24}
-          fontWeight="700"
+          fontSize={size * 0.26}
+          fontWeight="800"
           fontFamily="var(--font-mono)"
           fill="var(--text-primary)"
         >
@@ -106,7 +116,10 @@ export function VerdictRing({
       </svg>
 
       {/* Verdict label */}
-      <span className={`text-[11px] font-bold uppercase tracking-[0.1em] ${textClass}`}>
+      <span
+        className={`text-xs font-bold uppercase ${textClass}`}
+        style={{ letterSpacing: "0.15em" }}
+      >
         {label}
       </span>
       {subText && (

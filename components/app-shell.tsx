@@ -5,8 +5,8 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
   BarChart3,
+  Building2,
   Briefcase,
-  Sparkles,
   Link2,
   MessageSquare,
   LogOut,
@@ -25,9 +25,9 @@ import { getUserName, getInitials, logout } from "@/lib/auth"
 import { useLocale } from "@/lib/i18n/locale-context"
 
 const NAV_ITEMS = [
+  { key: "nav.home", href: "/home", icon: Building2 },
   { key: "nav.analyse", href: "/analyse", icon: BarChart3 },
   { key: "nav.portfolio", href: "/portfolio", icon: Briefcase },
-  { key: "nav.aiInsights", href: "/ai-insights", icon: Sparkles },
   { key: "nav.import", href: "/import", icon: Link2 },
 ] as const
 
@@ -45,10 +45,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-bg-base">
       {/* Desktop Top Nav */}
-      <header className="fixed top-0 right-0 left-0 z-50 flex h-[58px] items-center border-b border-border-default bg-bg-surface">
+      <header className="glass sticky top-0 z-40 flex h-[58px] items-center">
         <div className="mx-auto flex w-full max-w-[1280px] items-center justify-between px-4 md:px-8">
           {/* Left: Logo */}
-          <Link href="/analyse" className="flex items-center gap-2">
+          <Link href="/home" className="flex items-center gap-2">
             <span className="font-serif text-[22px] text-text-primary">
               Immonator
             </span>
@@ -129,7 +129,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </header>
 
       {/* Main content */}
-      <main className="pt-[58px] pb-[74px] md:pb-0">
+      <main className="pb-[74px] md:pb-0">
         {pathname.startsWith("/analyse") ? (
           <div className="animate-fade-in">{children}</div>
         ) : (

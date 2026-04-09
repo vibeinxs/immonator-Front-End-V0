@@ -9,7 +9,7 @@ import { KpiGrid } from "@/features/analysis/KpiGrid"
 import { FlagsSection } from "@/features/analysis/FlagsSection"
 import type { AnalyseRequest, AnalyseResponse } from "@/types/api"
 
-// ─── Field configuration ───────────────────────────────────────────────────
+// ─── Field configuration ─────────────────────────────────────────────────────
 
 interface FieldDef {
   key: keyof AnalyseRequest
@@ -62,7 +62,7 @@ const FIELDS: FieldDef[] = [
 const CORE_FIELDS = FIELDS.filter((f) => !f.advanced)
 const ADVANCED_FIELDS = FIELDS.filter((f) => f.advanced)
 
-// ─── Year data mapping ──────────────────────────────────────────────────────
+// ─── Year data mapping ────────────────────────────────────────────────
 
 function toChartData(yearData: AnalyseResponse["year_data"]): YearData[] {
   return yearData.map((y) => ({
@@ -73,7 +73,13 @@ function toChartData(yearData: AnalyseResponse["year_data"]): YearData[] {
   }))
 }
 
-// ─── Validation ─────────────────────────────────────────────────────────────
+function verdictGlowClass(score: number): string {
+  if (score >= 7.5) return "verdict-glow-success"
+  if (score >= 5.5) return "verdict-glow-warning"
+  return "verdict-glow-danger"
+}
+
+// ─── Validation ─────────────────────────────────────────────────────────────────────────────
 
 function validate(input: AnalyseRequest): string | null {
   if (!input.address.trim()) return "Address is required."
@@ -86,7 +92,7 @@ function validate(input: AnalyseRequest): string | null {
   return null
 }
 
-// ─── Component ──────────────────────────────────────────────────────────────
+// ─── Component ──────────────────────────────────────────────────────────────────────────────
 
 interface PropertyPanelProps {
   label: string
@@ -251,7 +257,7 @@ export function PropertyPanel({
         <button
           onClick={handleAnalyse}
           disabled={loading}
-          className="mt-4 w-full rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
+          className="mt-4 w-full rounded-lg bg-gradient-to-b from-brand to-brand-hover px-4 py-2.5 text-sm font-semibold text-primary-foreground [box-shadow:0_4px_20px_rgba(59,123,245,0.22)] hover:[box-shadow:0_6px_24px_rgba(59,123,245,0.30)] active:scale-[0.98] transition-all duration-150 disabled:opacity-50 flex items-center justify-center gap-2"
         >
           {loading ? (
             <>
@@ -268,7 +274,7 @@ export function PropertyPanel({
       {result && (
         <div className="flex flex-col gap-4">
           {/* Verdict ring */}
-          <div className="flex justify-center rounded-xl border border-border-default bg-bg-surface py-6">
+          <div className={`flex justify-center rounded-2xl border border-border-default bg-bg-surface py-8 transition-shadow ${verdictGlowClass(result.score)}`}>
             <VerdictRing score={result.score} verdict={result.verdict} size={128} />
           </div>
 
@@ -276,7 +282,7 @@ export function PropertyPanel({
           <KpiGrid result={result} />
 
           {/* Cashflow chart */}
-          <div className="rounded-xl border border-border-default bg-bg-surface p-4">
+          <div className="rounded-xl border border-border-default bg-bg-surface p-5 shadow-sm">
             <p className="mb-2 text-xs font-medium uppercase tracking-wide text-text-muted">
               Annual Cashflow (€/mo)
             </p>
@@ -284,7 +290,7 @@ export function PropertyPanel({
           </div>
 
           {/* Flags */}
-          <div className="rounded-xl border border-border-default bg-bg-surface p-4">
+          <div className="rounded-xl border border-border-default bg-bg-surface p-5 shadow-sm">
             <p className="mb-3 text-xs font-medium uppercase tracking-wide text-text-muted">
               Investment Signals
             </p>
@@ -292,7 +298,7 @@ export function PropertyPanel({
           </div>
 
           {/* IRR projections */}
-          <div className="rounded-xl border border-border-default bg-bg-surface p-4">
+          <div className="rounded-xl border border-border-default bg-bg-surface p-5 shadow-sm">
             <p className="mb-3 text-xs font-medium uppercase tracking-wide text-text-muted">
               Returns at Exit
             </p>
@@ -304,7 +310,7 @@ export function PropertyPanel({
                   { label: "20 yr", irr: result.irr_20, mult: result.equity_multiple_20 },
                 ] as const
               ).map(({ label: yr, irr, mult }) => (
-                <div key={yr} className="rounded-lg bg-bg-elevated px-2 py-3">
+                <div key={yr} className="rounded-lg bg-bg-elevated px-2 py-3 transition-shadow hover:shadow-sm">
                   <p className="text-[10px] font-medium uppercase tracking-wide text-text-muted">
                     {yr}
                   </p>

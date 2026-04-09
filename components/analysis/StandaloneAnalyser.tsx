@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils"
 const BACKEND_URL = "https://web-production-61c120.up.railway.app"
 
 const DEFAULTS = {
-  address: "Schönhauser Allee 36, 10435 Berlin",
+  address: "Rotebühlstraße 120, 70197 Stuttgart",
   sqm: 78,
   year_built: 1992,
   condition: "existing" as const,

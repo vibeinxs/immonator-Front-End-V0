@@ -1,8 +1,7 @@
-
 {
   "name": "Immonator Full Stack",
   "image": "mcr.microsoft.com/devcontainers/javascript-node:20",
-  "postCreateCommand": "git submodule update --init --recursive && npm install && cd backend && npm install",
+  "postCreateCommand": "git submodule update --init --recursive && npm install && cd backend && npm install && bash .devcontainer/setup-skills.sh",
   "customizations": {
     "vscode": {
       "extensions": [
