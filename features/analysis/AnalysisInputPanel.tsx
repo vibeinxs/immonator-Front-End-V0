@@ -140,46 +140,40 @@ export function AnalysisInputPanel({
   const { t } = useLocale()
   const [drawerOpen, setDrawerOpen] = React.useState(false)
 
-  /** Type-safe field setter — merges a single key into the controlled value. */
-  function set<K extends keyof PropertyAnalysisInput>(
-    k: K,
-    v: PropertyAnalysisInput[K],
-  ) {
-    onChange({ ...value, [k]: v })
+  const fieldId = React.useCallback((suffix: string) => `${idPrefix}-${suffix}`, [idPrefix])
+
+  function setField<K extends keyof PropertyAnalysisInput>(key: K, val: PropertyAnalysisInput[K]) {
+    onChange({ ...value, [key]: val })
   }
 
   function applyExtraction(result: ExtractionResult) {
     onChange({ ...value, ...result.extracted, ...result.assumed } as PropertyAnalysisInput)
   }
 
-  const sonderEnabled = value.special_afa_enabled ?? false
+  const selectedVacancy = String(value.vacancy_rate ?? 1)
+  const specialAfaEnabled = value.special_afa_enabled ?? false
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex min-h-0 flex-1 flex-col">
       <DocExtractDrawer
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         onApply={applyExtraction}
       />
-      <div className="flex-1 overflow-y-auto px-4 py-4">
 
-        {/* ── Extract button ───────────────────────────────────────────── */}
-        <button
+      <div className="flex-1 space-y-4 overflow-y-auto p-4">
+
+        {/* ── Extract button ────────────────────────────────────────────── */}
+        <Button
           type="button"
+          variant="outline"
           onClick={() => setDrawerOpen(true)}
-          className="mb-3 w-full rounded-lg border border-brand/40 bg-brand-subtle px-3 py-2 text-xs font-semibold text-brand transition-colors hover:bg-brand/10"
+          className="w-full border-brand/40 bg-brand-subtle text-xs font-semibold text-brand hover:bg-brand/10"
         >
           {t("extract.button")}
-        </button>
+        </Button>
 
-        {/* ── Property ─────────────────────────────────────────────────── */}
-        <p className={SECTION}>{t("analyse.section.property")}</p>
-
-  const fieldId = React.useCallback((suffix: string) => `${idPrefix}-${suffix}`, [idPrefix])
-
-  return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex-1 space-y-4 overflow-y-auto p-4">
+        {/* ── Property ──────────────────────────────────────────────────── */}
         <Section title={t("analyse.section.property")}>
           <div className="space-y-2">
             <Label htmlFor={fieldId("address")} className={LABEL}>{t("analyse.field.address")}</Label>
@@ -232,125 +226,109 @@ export function AnalysisInputPanel({
             </RadioGroup>
           </div>
 
-        {/* ── Loan Details ─────────────────────────────────────────────── */}
-        <p className={SECTION}>{t("analyse.section.loanDetails")}</p>
+          <Row label={t("analyse.field.energyClass")}>
+            <Select
+              value={value.energy_class ?? "A+"}
+              onValueChange={(nextValue) => setField("energy_class", nextValue as PropertyAnalysisInput["energy_class"])}
+            >
+              <SelectTrigger size="sm" className="w-24 font-mono">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {ENERGY_CLASSES.map((c) => (
+                  <SelectItem key={c} value={c} className="font-mono">{c}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Row>
+        </Section>
 
-        <FieldRow label={t("analyse.field.interest")}>
-          <div className="flex items-center gap-1">
-            <Num value={value.interest_rate ?? 3.8} onChange={(v) => set("interest_rate", v)} step="0.1" />
-            <span className={UNIT}>%</span>
-          </div>
-        </FieldRow>
+        {/* ── Financing ─────────────────────────────────────────────────── */}
+        <Section title={t("analyse.section.financing")}>
+          <Row label={t("analyse.field.purchasePrice")}>
+            <NumberWithUnit id={fieldId("purchase-price")} value={value.purchase_price} onChange={(nextValue) => setField("purchase_price", nextValue)} unit="€" step={1000} min={0} />
+          </Row>
+          <Row label={t("analyse.field.equity")}>
+            <NumberWithUnit id={fieldId("equity")} value={value.equity} onChange={(nextValue) => setField("equity", nextValue)} unit="€" step={1000} min={0} />
+          </Row>
+        </Section>
 
-        <FieldRow label={t("analyse.field.repayment")}>
-          <div className="flex items-center gap-1">
-            <Num value={value.repayment_rate ?? 2.0} onChange={(v) => set("repayment_rate", v)} step="0.1" />
-            <span className={UNIT}>%</span>
-          </div>
-        </FieldRow>
+        {/* ── Loan Details ──────────────────────────────────────────────── */}
+        <Section title={t("analyse.section.loanDetails")}>
+          <Row label={t("analyse.field.interest")}>
+            <NumberWithUnit id={fieldId("interest-rate")} value={value.interest_rate ?? 3.8} onChange={(nextValue) => setField("interest_rate", nextValue)} unit="%" step={0.1} min={0} />
+          </Row>
+          <Row label={t("analyse.field.repayment")}>
+            <NumberWithUnit id={fieldId("repayment-rate")} value={value.repayment_rate ?? 2.0} onChange={(nextValue) => setField("repayment_rate", nextValue)} unit="%" step={0.1} min={0} />
+          </Row>
+          <Row label={t("analyse.field.transferTax")}>
+            <NumberWithUnit id={fieldId("transfer-tax")} value={value.transfer_tax_pct ?? 6.0} onChange={(nextValue) => setField("transfer_tax_pct", nextValue)} unit="%" step={0.5} min={0} />
+          </Row>
+          <Row label={t("analyse.field.notary")}>
+            <NumberWithUnit id={fieldId("notary")} value={value.notary_pct ?? 2.0} onChange={(nextValue) => setField("notary_pct", nextValue)} unit="%" step={0.1} min={0} />
+          </Row>
+          <Row label={t("analyse.field.agent")}>
+            <NumberWithUnit id={fieldId("agent")} value={value.agent_pct ?? 0.0} onChange={(nextValue) => setField("agent_pct", nextValue)} unit="%" step={0.1} min={0} />
+          </Row>
+          <Row label={t("analyse.field.landShare")}>
+            <NumberWithUnit id={fieldId("land-share")} value={value.land_share_pct ?? 20.0} onChange={(nextValue) => setField("land_share_pct", nextValue)} unit="%" step={1} min={0} max={100} />
+          </Row>
+        </Section>
 
-        <FieldRow label={t("analyse.field.transferTax")}>
-          <div className="flex items-center gap-1">
-            <Num value={value.transfer_tax_pct ?? 6.0} onChange={(v) => set("transfer_tax_pct", v)} step="0.5" />
-            <span className={UNIT}>%</span>
-          </div>
-        </FieldRow>
+        {/* ── Income & Costs ────────────────────────────────────────────── */}
+        <Section title={t("analyse.section.incomeCosts")}>
+          <Row label={t("analyse.field.rent")}>
+            <NumberWithUnit id={fieldId("rent")} value={value.rent_monthly} onChange={(nextValue) => setField("rent_monthly", nextValue)} unit="€/mo" step={50} min={0} />
+          </Row>
+          <Row label={t("analyse.field.hausgeld")}>
+            <NumberWithUnit id={fieldId("hausgeld")} value={value.hausgeld_monthly ?? 200} onChange={(nextValue) => setField("hausgeld_monthly", nextValue)} unit="€/mo" step={10} min={0} />
+          </Row>
+          <Row label={t("analyse.field.maintenance")}>
+            <NumberWithUnit id={fieldId("maintenance")} value={value.maintenance_nd ?? 1200} onChange={(nextValue) => setField("maintenance_nd", nextValue)} unit="€/yr" step={100} min={0} />
+          </Row>
+          <Row label={t("analyse.field.management")}>
+            <NumberWithUnit id={fieldId("management")} value={value.management_nd ?? 600} onChange={(nextValue) => setField("management_nd", nextValue)} unit="€/yr" step={100} min={0} />
+          </Row>
+        </Section>
 
-        <FieldRow label={t("analyse.field.notary")}>
-          <div className="flex items-center gap-1">
-            <Num value={value.notary_pct ?? 2.0} onChange={(v) => set("notary_pct", v)} step="0.1" />
-            <span className={UNIT}>%</span>
-          </div>
-        </FieldRow>
+        {/* ── Assumptions ───────────────────────────────────────────────── */}
+        <Section title={t("analyse.section.assumptions")}>
+          <Row label={t("analyse.field.rentGrowth")}>
+            <NumberWithUnit id={fieldId("rent-growth")} value={value.rent_growth ?? 2} onChange={(nextValue) => setField("rent_growth", nextValue)} unit="%" step={0.1} />
+          </Row>
+          <Row label={t("analyse.field.appreciation")}>
+            <NumberWithUnit id={fieldId("appreciation")} value={value.appreciation ?? 2} onChange={(nextValue) => setField("appreciation", nextValue)} unit="%" step={0.1} />
+          </Row>
+          <Row label={t("analyse.field.taxRate")}>
+            <NumberWithUnit id={fieldId("tax-rate")} value={value.tax_rate ?? 42} onChange={(nextValue) => setField("tax_rate", nextValue)} unit="%" step={1} min={0} max={100} />
+          </Row>
+          <Row label={t("analyse.field.horizon")}>
+            <NumberWithUnit id={fieldId("horizon")} value={value.holding_years ?? 10} onChange={(nextValue) => setField("holding_years", Math.round(nextValue))} unit={t("analyse.unit.yearShort")} step={1} min={1} />
+          </Row>
+        </Section>
 
-        <FieldRow label={t("analyse.field.agent")}>
-          <div className="flex items-center gap-1">
-            <Num value={value.agent_pct ?? 0.0} onChange={(v) => set("agent_pct", v)} step="0.1" />
-            <span className={UNIT}>%</span>
-          </div>
-        </FieldRow>
-
-        <FieldRow label={t("analyse.field.landShare")}>
-          <div className="flex items-center gap-1">
-            <Num value={value.land_share_pct ?? 20.0} onChange={(v) => set("land_share_pct", v)} step="1" min={0} />
-            <span className={UNIT}>%</span>
-          </div>
-        </FieldRow>
-
-        {/* ── Income & Costs ───────────────────────────────────────────── */}
-        <p className={SECTION}>{t("analyse.section.incomeCosts")}</p>
-
-        <FieldRow label={t("analyse.field.rent")}>
-          <div className="flex items-center gap-1">
-            <Num value={value.rent_monthly} onChange={(v) => set("rent_monthly", v)} />
-            <span className="text-xs text-text-muted">€/mo</span>
-          </div>
-        </FieldRow>
-
-        <FieldRow label={t("analyse.field.hausgeld")}>
-          <div className="flex items-center gap-1">
-            <Num value={value.hausgeld_monthly ?? 200} onChange={(v) => set("hausgeld_monthly", v)} />
-            <span className="text-xs text-text-muted">€/mo</span>
-          </div>
-        </FieldRow>
-
-        <FieldRow label={t("analyse.field.maintenance")}>
-          <div className="flex items-center gap-1">
-            <Num value={value.maintenance_nd ?? 1200} onChange={(v) => set("maintenance_nd", v)} />
-            <span className="text-xs text-text-muted">€/yr</span>
-          </div>
-        </FieldRow>
-
-        <FieldRow label={t("analyse.field.management")}>
-          <div className="flex items-center gap-1">
-            <Num value={value.management_nd ?? 600} onChange={(v) => set("management_nd", v)} />
-            <span className="text-xs text-text-muted">€/yr</span>
-          </div>
-        </FieldRow>
-
-        {/* ── Assumptions ─────────────────────────────────────────────── */}
-        <p className={SECTION}>{t("analyse.section.assumptions")}</p>
-
-        <FieldRow label={t("analyse.field.rentGrowth")}>
-          <div className="flex items-center gap-1">
-            <Num value={value.rent_growth ?? 2} onChange={(v) => set("rent_growth", v)} step="0.1" />
-            <span className={UNIT}>%</span>
-          </div>
-        </FieldRow>
-
-        <FieldRow label={t("analyse.field.appreciation")}>
-          <div className="flex items-center gap-1">
-            <Num value={value.appreciation ?? 2} onChange={(v) => set("appreciation", v)} step="0.1" />
-            <span className={UNIT}>%</span>
-          </div>
-        </FieldRow>
-
-        <FieldRow label={t("analyse.field.taxRate")}>
-          <div className="flex items-center gap-1">
-            <Num value={value.tax_rate ?? 42} onChange={(v) => set("tax_rate", v)} step="1" />
-            <span className={UNIT}>%</span>
-          </div>
-        </FieldRow>
-
-        <FieldRow label={t("analyse.field.horizon")}>
-          <div className="flex items-center gap-1">
-            <Num value={value.holding_years ?? 10} onChange={(v) => set("holding_years", Math.round(v))} step="1" min={1} />
-            <span className={UNIT}>{t("analyse.unit.yearShort")}</span>
-          </div>
-        </FieldRow>
-
-        {/* ── AfA ─────────────────────────────────────────────────────── */}
-        <p className={SECTION}>AfA</p>
-
-        <div className="py-1.5">
-          <div className="flex items-center justify-between mb-2">
-            <span className={LABEL}>{t("analyse.field.afaRate")}</span>
-            <span className="w-10 text-right font-mono text-sm text-text-primary">
-              {(value.afa_rate_input ?? 2.0).toFixed(1)}%
-            </span>
+        {/* ── AfA ───────────────────────────────────────────────────────── */}
+        <Section title="AfA">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor={fieldId("afa-rate")} className={LABEL}>{t("analyse.field.afaRate")}</Label>
+              <span className="font-mono text-sm text-text-primary">
+                {(value.afa_rate_input ?? 2.0).toFixed(1)}%
+              </span>
+            </div>
+            <Slider
+              id={fieldId("afa-rate")}
+              min={0}
+              max={7}
+              step={0.5}
+              value={[value.afa_rate_input ?? 2.0]}
+              onValueChange={([nextValue]) => setField("afa_rate_input", nextValue)}
+              className="[&_[data-slot=slider-range]]:bg-brand [&_[data-slot=slider-thumb]]:border-brand"
+            />
           </div>
         </Section>
 
+        {/* ── Vacancy ───────────────────────────────────────────────────── */}
         <Section title={t("analyse.section.vacancy")}>
           <div className="space-y-2">
             <Label className={LABEL}>{t("analyse.field.vacancyRate")}</Label>
@@ -373,6 +351,7 @@ export function AnalysisInputPanel({
           </div>
         </Section>
 
+        {/* ── Sonder-AfA ────────────────────────────────────────────────── */}
         <Section title={t("analyse.section.sonderAfa")}>
           <Row
             label={t("analyse.field.enableSonder")}
