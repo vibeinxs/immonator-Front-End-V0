@@ -14,6 +14,8 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import type { PropertyAnalysisInput } from "@/features/analysis/schema"
+import type { ExtractionResult } from "@/types/api"
+import { DocExtractDrawer } from "@/features/analysis/DocExtractDrawer"
 
 // ─── Layout constants ────────────────────────────────────────────────────────
 
@@ -105,6 +107,7 @@ export function AnalysisInputPanel({
   showAnalyseButton = true,
 }: AnalysisInputPanelProps) {
   const { t } = useLocale()
+  const [drawerOpen, setDrawerOpen] = React.useState(false)
 
   /** Type-safe field setter — merges a single key into the controlled value. */
   function set<K extends keyof PropertyAnalysisInput>(
@@ -114,11 +117,29 @@ export function AnalysisInputPanel({
     onChange({ ...value, [k]: v })
   }
 
+  function applyExtraction(result: ExtractionResult) {
+    onChange({ ...value, ...result.extracted, ...result.assumed } as PropertyAnalysisInput)
+  }
+
   const sonderEnabled = value.special_afa_enabled ?? false
 
   return (
     <div className="flex flex-col h-full">
+      <DocExtractDrawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        onApply={applyExtraction}
+      />
       <div className="flex-1 overflow-y-auto px-4 py-4">
+
+        {/* ── Extract button ───────────────────────────────────────────── */}
+        <button
+          type="button"
+          onClick={() => setDrawerOpen(true)}
+          className="mb-3 w-full rounded-lg border border-brand/40 bg-brand-subtle px-3 py-2 text-xs font-semibold text-brand transition-colors hover:bg-brand/10"
+        >
+          {t("extract.button")}
+        </button>
 
         {/* ── Property ─────────────────────────────────────────────────── */}
         <p className={SECTION}>{t("analyse.section.property")}</p>
@@ -208,6 +229,9 @@ export function AnalysisInputPanel({
             <span className={UNIT}>€</span>
           </div>
         </FieldRow>
+
+        {/* ── Loan Details ─────────────────────────────────────────────── */}
+        <p className={SECTION}>{t("analyse.section.loanDetails")}</p>
 
         <FieldRow label={t("analyse.field.interest")}>
           <div className="flex items-center gap-1">

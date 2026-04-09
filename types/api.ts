@@ -391,3 +391,21 @@ export interface ApiResult<T> {
   data: T | null
   error: string | null
 }
+
+// ─── Document / URL extraction ────────────────────────────────────────────────
+
+/**
+ * Response from POST /api/extract/from-url and POST /api/extract/from-file.
+ * Fields are split into three buckets so the UI can show transparency:
+ *   extracted — found in the source document
+ *   assumed   — not found; a sensible German RE default was applied
+ *   missing   — not found and no default exists (field names, not values)
+ */
+export interface ExtractionResult {
+  extracted: Partial<AnalyseRequest>
+  assumed: Partial<AnalyseRequest>
+  missing: string[]
+  source_type: "url" | "pdf" | "docx" | "xlsx"
+  confidence: "high" | "medium" | "low"
+  notes?: string
+}
