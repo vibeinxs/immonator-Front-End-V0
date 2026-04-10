@@ -71,9 +71,13 @@ export function AnalysisStoreProvider({ children }: { children: ReactNode }) {
   const [strategyRawResult, setStrategyRawResult] = useState<Record<string, unknown> | null>(null)
 
   useEffect(() => {
-    const { resultA: savedA, resultB: savedB } = loadFromSession()
-    if (savedA) setResultA(savedA)
-    if (savedB) setResultB(savedB)
+    try {
+      const { resultA: savedA, resultB: savedB } = loadFromSession()
+      if (savedA) setResultA(savedA)
+      if (savedB) setResultB(savedB)
+    } catch {
+      // sessionStorage contained unexpected data — ignore and start fresh
+    }
   }, [])
 
   useEffect(() => {
