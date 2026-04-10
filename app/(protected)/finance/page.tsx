@@ -52,7 +52,9 @@ export default function FinancePage() {
 
       {bankabilityB ? (
         <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">{t("finance.propertyB")}</p>
+          {bankabilityA ? (
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">{t("finance.propertyB")}</p>
+          ) : null}
           <BankabilitySection metrics={bankabilityB} />
         </div>
       ) : null}

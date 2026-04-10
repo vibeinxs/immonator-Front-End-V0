@@ -26,6 +26,7 @@ import { TEST_IDS } from "@/lib/test-ids"
 import { useAnalysisStore } from "@/store/analysisStore"
 import { AnalysisChat } from "@/components/chat/AnalysisChat"
 import { useLocale } from "@/lib/i18n/locale-context"
+import { isRecord } from "@/lib/utils"
 import { runBuyingStrategy, runInvestmentReview, runPropertySnapshot } from "@/lib/skillsApi"
 import type {
   AnalyseRequest,
@@ -83,10 +84,6 @@ function compareMetricClass(delta: number, better: CompareMetricTone) {
 
   const isPositive = better === "higher" ? delta > 0 : delta < 0
   return isPositive ? "text-success" : "text-danger"
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
 function mergeWithPreset(preset: AnalyseRequest, candidate: unknown): AnalyseRequest {

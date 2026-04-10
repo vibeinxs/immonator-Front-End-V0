@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react"
 import { ChevronDown } from "lucide-react"
 import { useLocale } from "@/lib/i18n/locale-context"
+import { isRecord } from "@/lib/utils"
 import type {
   BankabilityMetricCard,
   BankabilityMetrics,
@@ -12,11 +13,7 @@ import type {
 
 const PRIMARY_BANKABILITY_CARDS_LIMIT = 4
 
-// ── Type guards & normalizers ────────────────────────────────────────────────
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
+// ── Normalizers ───────────────────────────────────────────────────────────────
 
 function asText(value: unknown): string | null {
   if (typeof value !== "string") return null
