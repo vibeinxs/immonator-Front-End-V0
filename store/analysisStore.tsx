@@ -62,13 +62,19 @@ const AnalysisContext = createContext<AnalysisState | null>(null)
 export function AnalysisStoreProvider({ children }: { children: ReactNode }) {
   const [inputA, setInputA] = useState<AnalyseRequest>(PRESET_A)
   const [inputB, setInputB] = useState<AnalyseRequest>(PRESET_B)
-  const [resultA, setResultA] = useState<AnalyseResponse | null>(() => loadFromSession().resultA)
-  const [resultB, setResultB] = useState<AnalyseResponse | null>(() => loadFromSession().resultB)
+  const [resultA, setResultA] = useState<AnalyseResponse | null>(null)
+  const [resultB, setResultB] = useState<AnalyseResponse | null>(null)
   const [snapshotResult, setSnapshotResult] = useState<SnapshotResult | null>(null)
   const [reviewResult, setReviewResult] = useState<ReviewResult | null>(null)
   const [reviewRawResult, setReviewRawResult] = useState<Record<string, unknown> | null>(null)
   const [strategyResult, setStrategyResult] = useState<StrategyResult | null>(null)
   const [strategyRawResult, setStrategyRawResult] = useState<Record<string, unknown> | null>(null)
+
+  useEffect(() => {
+    const { resultA: savedA, resultB: savedB } = loadFromSession()
+    if (savedA) setResultA(savedA)
+    if (savedB) setResultB(savedB)
+  }, [])
 
   useEffect(() => {
     saveToSession(resultA, resultB)
