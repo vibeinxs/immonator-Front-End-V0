@@ -10,6 +10,7 @@ import {
   Link2,
   MessageSquare,
   LogOut,
+  TrendingUp,
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -28,6 +29,7 @@ const NAV_ITEMS = [
   { key: "nav.home", href: "/home", icon: Building2 },
   { key: "nav.analyse", href: "/analyse", icon: BarChart3 },
   { key: "nav.portfolio", href: "/portfolio", icon: Briefcase },
+  { key: "nav.finance", href: "/finance", icon: TrendingUp },
   { key: "nav.import", href: "/import", icon: Link2 },
 ] as const
 
